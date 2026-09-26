@@ -27390,6 +27390,23 @@ static int writeOBJFullMtlDescription(char* mtlName, int type, int dataVal, char
         sprintf_s(mapKaString, 512, "%smap_Ka %s\n", fullMtl, typeTextureFileName);
     }
 
+    // P3D 适配（同时兼容 Prisma3D 2.0 与 3.x，依据两版反编译出的材质写入路径）：
+    //  · 两版共用的基础模板块是 illum 4 / Kd 1.00 1.00 1.00 / Ka 0.00 0.00 0.00 /
+    //    Tf 1.00 1.00 1.00 / map_Kd / Ni 1.00 / Ks 0.00 0.00 0.00 / Ns 18.00；
+    //    这里补上 Tf 与 Ni 两行（本核心原样不写）。
+    //  · 有贴图时 Kd 用 1 1 1：颜色由贴图承载（两版自带模板即如此），避免二次着色偏暗/偏亮。
+    //  · 去掉 map_d：3.x 新增、2.0 没有，P3D 对它的处理不一致（切成 alpha 通道会花）。
+    if (adaptP3D) {
+        if (gModel.exportTexture) {
+            fRed = 1.0;
+            fGreen = 1.0;
+            fBlue = 1.0;
+            kd = 1.0;
+        }
+        sprintf_s(tfString, 256, "Tf 1.00 1.00 1.00\nNi 1.00\n");
+        mapdString[0] = '\0';
+    }
+
     if (gModel.exportTexture)
     {
         sprintf_s(outputString, 2048,
@@ -27413,7 +27430,7 @@ static int writeOBJFullMtlDescription(char* mtlName, int type, int dataVal, char
             ,
             // colors are premultiplied by alpha, Wavefront OBJ doesn't want that
             mtlName,
-            fullMtl, specularHighlightPower, // specular highlight power
+            fullMtl, (adaptP3D ? 18.0f : specularHighlightPower), // Ns：P3D 两版模板都是 18.00
             fullMtl, (float)(fRed * ka), (float)(fGreen * ka), (float)(fBlue * ka), // Ka
             (float)(fRed * kd), (float)(fGreen * kd), (float)(fBlue * kd),
             (float)(fRed * ks), (float)(fGreen * ks), (float)(fBlue * ks),

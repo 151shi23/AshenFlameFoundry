@@ -2082,7 +2082,7 @@ public class MainActivity extends AppCompatActivity {
         // 适配 Prisma3D（P3D）：只改导出材质参数、不动几何。参照 Prisma3D 2.0.8 自带的 OBJ 材质模板
         // （illum 4 / Ka 0 0 0 / Kd 1 1 1 / 无 map_Ka / 无自发光 Ke），专治"模型导入 P3D 后过曝"。
         root.addView(optSwitch("p3d",
-                "适配 Prisma3D（P3D）：Ka 0 / 无环境贴图 / 无自发光 / illum 4（防过曝）", true));
+                "适配 Prisma3D（P3D 2.0 与 3.x）：Ka 0 / 无环境贴图 / 无自发光 / illum 4（防过曝）", true));
         root.addView(optSwitch("texrgb", "纹理输出 RGB", true));
         root.addView(optSwitch("texa", "纹理输出 Alpha", true));
         root.addView(optSwitch("texrgba", "纹理输出 RGBA", true));
