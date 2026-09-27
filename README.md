@@ -50,6 +50,17 @@
 
 ## 中文说明
 
+### 转换效果：Minecraft 存档 → Prisma3D
+
+左：存档里的建筑原样（主世界，黄黑条纹框架 + 内部小件）；右：**导出的 OBJ 直接在 Prisma3D（P3D）里打开** —— 几何、材质、贴图一一对应，没有错位、没有丢面。
+
+<p align="center">
+  <img src="docs/images/p3d-before.jpg" width="49%" alt="转换前：Minecraft 存档中的建筑">
+  <img src="docs/images/p3d-after.jpg" width="49%" alt="转换后：在 Prisma3D 中打开 MinewaysMobile 导出的 OBJ">
+</p>
+
+<p align="center"><sub>转换前（Minecraft 存档）　→　转换后（Prisma3D 中打开导出模型）</sub></p>
+
 ### 功能
 
 | 模块 | 说明 |
@@ -276,6 +287,17 @@ tools/                            # 构建 / 审计 / 离线化脚本
 ---
 
 ## English
+
+### Before / after: Minecraft save → Prisma3D
+
+Left: the build as it stands in the save (Overworld — the hazard-striped frame plus everything inside it). Right: **the exported OBJ opened directly in Prisma3D (P3D)** — geometry, materials and textures line up one to one: nothing shifted, no missing faces.
+
+<p align="center">
+  <img src="docs/images/p3d-before.jpg" width="49%" alt="Before: the build inside the Minecraft save">
+  <img src="docs/images/p3d-after.jpg" width="49%" alt="After: the exported OBJ opened in Prisma3D">
+</p>
+
+<p align="center"><sub>Before (Minecraft save)　→　After (exported model opened in Prisma3D)</sub></p>
 
 ### Features
 
