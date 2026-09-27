@@ -936,7 +936,9 @@ std::string summarizeObjContent(const std::string& objPathUtf8, int maxNames) {
 
     std::vector<std::pair<std::string, long long> > matNames, objNames;
     long long verts = 0, faces = 0, matLines = 0, objLines = 0, bytes = 0;
-    const long long SCAN_CAP = 200LL * 1024 * 1024;   // 超大 OBJ 只扫前 200MB
+    // 超大 OBJ 只扫前 24MB：这份统计只是给报告看的"抽样"，扫全文件在大导出（几百 MB）时
+    // 会白白多花数秒到数十秒（逐行 fgets + 字符串比较），24MB 已足够反映材质/对象清单。
+    const long long SCAN_CAP = 24LL * 1024 * 1024;
     bool truncated = false;
 
     char line[1024];

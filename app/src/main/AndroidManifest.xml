@@ -40,15 +40,22 @@
             android:exported="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
+        <!-- 启动强更闸门：每次启动必须联网检查 GitHub Releases，命中关键词则不允许进入主界面 -->
         <activity
-            android:name=".MainActivity"
+            android:name=".UpdateGateActivity"
             android:exported="true"
+            android:theme="@style/Theme.MinewaysMobile"
             android:configChanges="orientation|screenSize|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|uiMode" />
 
         <!-- Blockbench 模型编辑器（在线 / 离线 WebView 页） -->
         <activity

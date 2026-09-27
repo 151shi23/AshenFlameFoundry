@@ -698,7 +698,9 @@ public class BbToObjActivity extends AppCompatActivity {
         if (failed == 0) {
             toast(getString(R.string.bb2obj_saved_all, ok, PUBLIC_DIR + "/" + folder));
         } else {
-            toast(getString(R.string.bb2obj_saved_part, ok, failed));
+            // P3D 兼容检查：超面数给出降面建议（公版策略，见 P3dCompat）
+            toast(getString(R.string.bb2obj_saved_part, ok, failed)
+                    + " · P3D：" + P3dCompat.advice(P3dCompat.analyzeObj(objText)));
         }
     }
 

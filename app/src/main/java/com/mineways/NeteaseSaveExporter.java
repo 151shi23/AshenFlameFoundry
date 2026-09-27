@@ -206,9 +206,10 @@ public final class NeteaseSaveExporter {
     private static int countAdded = 0;
 
     private static void copyFile(File src, File dst) throws IOException {
-        try (InputStream in = new BufferedInputStream(new FileInputStream(src));
-             OutputStream out = new BufferedOutputStream(new FileOutputStream(dst))) {
-            byte[] buf = new byte[1 << 16];
+        // 256KB 缓冲：网易存档里 db/ 多为几十 KB~几 MB 的文件，文件数上千时收益明显
+        try (InputStream in = new BufferedInputStream(new FileInputStream(src), 1 << 18);
+             OutputStream out = new BufferedOutputStream(new FileOutputStream(dst), 1 << 18)) {
+            byte[] buf = new byte[1 << 18];
             int n;
             while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
         }
@@ -271,10 +272,11 @@ public final class NeteaseSaveExporter {
             cv.put(MediaStore.Downloads.RELATIVE_PATH, "Download/" + relPath);
             Uri uri = ctx.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
             if (uri == null) continue;
-            try (InputStream in = new BufferedInputStream(new FileInputStream(f));
-                 OutputStream os = ctx.getContentResolver().openOutputStream(uri)) {
+            try (InputStream in = new BufferedInputStream(new FileInputStream(f), 1 << 18);
+                 OutputStream os = new BufferedOutputStream(
+                         ctx.getContentResolver().openOutputStream(uri), 1 << 18)) {
                 if (os == null) continue;
-                byte[] buf = new byte[1 << 16];
+                byte[] buf = new byte[1 << 18];
                 int n;
                 while ((n = in.read(buf)) != -1) os.write(buf, 0, n);
                 total += f.length();
