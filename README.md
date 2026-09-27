@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/banner.jpg" width="440" alt="MinewaysMobile —— Convert your Minecraft worlds to 3D models on mobile">
+</p>
+
 # Mineways Mobile · 我的世界存档 → 3D 模型（Android）
 
 > 把 Minecraft **Java / 基岩 / 网易**存档里的建筑导出成 **OBJ**（带贴图与材质），
