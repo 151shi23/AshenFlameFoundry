@@ -134,6 +134,43 @@ if ($hits.Count) {
     Write-Host '  通过：未引用 System$Logger / Module / HexFormat / StackWalker' -ForegroundColor Green
 }
 
+# ---------------------------------------------------------------- 5b/6. 源码级 API 兼容自检
+# 又踩过一次：StringBuilder.isEmpty() 是 Java 15 的 CharSequence.isEmpty 默认方法，
+# Android 要到 API 34+ 才有，API 33 及以下直接抛
+#   NoSuchMethodError: No virtual method isEmpty()Z in class Ljava/lang/StringBuilder;
+# 同理 String.repeat() / isBlank() / strip() / lines() 是 Java 11 新增（Android 需 API 33+）。
+# 这些调用在 dex 里看不出来（类名与方法名在字符串池里是分开存的），所以改在源码层拦截。
+Write-Host '== 5b/6 源码级 API 兼容自检 ==' -ForegroundColor Cyan
+$apiHits = @()
+$srcFiles = @()
+foreach ($r in @((Join-Path $Sandbox 'app\src\main\java'), (Join-Path $Sandbox 'chunker-core\src\main\java'))) {
+    if (Test-Path $r) { $srcFiles += Get-ChildItem $r -Recurse -Filter '*.java' -File }
+}
+foreach ($f in $srcFiles) {
+    $txt = Get-Content $f.FullName -Raw -Encoding UTF8
+    if (-not $txt) { continue }
+    # 先去掉注释，避免注释里提到 API 名字被误报
+    $txt = [regex]::Replace($txt, '(?s)/\*.*?\*/', ' ')
+    $txt = [regex]::Replace($txt, '(?m)//.*$', ' ')
+    $rel = $f.FullName.Replace($Sandbox, '')
+    $names = @()
+    foreach ($m in [regex]::Matches($txt, '(?:StringBuilder|StringBuffer)\s+(\w+)\s*[=;]')) { $names += $m.Groups[1].Value }
+    foreach ($n in ($names | Select-Object -Unique)) {
+        if ($txt -match ('(?<![\w.])' + [regex]::Escape($n) + '\.isEmpty\(\)')) {
+            $apiHits += ('{0}  ->  {1}.isEmpty()   [StringBuilder.isEmpty 需 API 34+]' -f $rel, $n)
+        }
+    }
+    foreach ($p in @('\.isBlank\(\)', '\.strip\(\)', '\.stripLeading\(\)', '\.stripTrailing\(\)', '\.lines\(\)', '\.repeat\(')) {
+        if ($txt -match $p) { $apiHits += ('{0}  ->  {1}   [Java 11 字符串 API，需 API 33+]' -f $rel, $p) }
+    }
+}
+if ($apiHits.Count) {
+    Write-Host '  [警告] 源码里仍有旧 Android 上不存在的 API 调用：' -ForegroundColor Yellow
+    $apiHits | Select-Object -Unique | ForEach-Object { '    ' + $_ }
+} else {
+    Write-Host '  通过：无 StringBuilder.isEmpty / String.repeat / isBlank / strip / lines' -ForegroundColor Green
+}
+
 # ---------------------------------------------------------------- 6/6. 分发
 Write-Host '== 5/6 分发到工作区 ==' -ForegroundColor Cyan
 Copy-Item $release (Join-Path $ws 'MinewaysMobile-release.apk') -Force

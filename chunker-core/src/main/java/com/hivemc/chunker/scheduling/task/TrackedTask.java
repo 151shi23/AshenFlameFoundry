@@ -188,7 +188,12 @@ public abstract class TrackedTask<O> implements ProgressiveTask<O> {
     @Override
     public String getDetailedProgress() {
         synchronized (this) {
-            String padding = "-".repeat(getDepth());
+            // Android 兼容：String.repeat() 为 Java 11 新增（Android 需 API 33+），旧机型会 NoSuchMethodError
+            StringBuilder paddingBuilder = new StringBuilder();
+            for (int i = 0; i < getDepth(); i++) {
+                paddingBuilder.append('-');
+            }
+            String padding = paddingBuilder.toString();
             String details = (padding + " " + getName() + " - " + String.format("%.2f%%", getProgress() * 100D) + " - Weight: " + getWeight() + "\n");
 
             // Print children

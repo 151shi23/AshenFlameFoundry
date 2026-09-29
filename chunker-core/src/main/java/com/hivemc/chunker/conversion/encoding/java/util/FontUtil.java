@@ -109,7 +109,7 @@ public class FontUtil {
                     lines.add(currentLine.toString());
                     currentLine = new StringBuilder();
                     lineWidth = 0;
-                } else if (!currentLine.isEmpty()) {
+                } else if (currentLine.length() > 0) {
                     // Append the whitespace to the current line if it's not empty
                     currentLine.append(" ");
                     lineWidth += spaceWidth;
@@ -135,14 +135,14 @@ public class FontUtil {
         }
 
         // Add the current word
-        if (!currentWord.isEmpty()) {
+        if (currentWord.length() > 0) {
             // Create a new line if it'll go over the width
             int whitespaceWidth = getWidth(" ");
             if (lineWidth + wordWidth + whitespaceWidth > maxWidth) {
                 // New line
                 lines.add(currentLine.toString());
                 currentLine = new StringBuilder();
-            } else if (!currentLine.isEmpty()) {
+            } else if (currentLine.length() > 0) {
                 // Append the whitespace to the current line if it's not empty
                 currentLine.append(" ");
             }
@@ -152,7 +152,7 @@ public class FontUtil {
         }
 
         // Add the current line
-        if (!currentLine.isEmpty()) {
+        if (currentLine.length() > 0) {
             lines.add(currentLine.toString());
         }
 

@@ -266,7 +266,7 @@
     <string name="about_title">关于 Mineways Mobile</string>
     <string name="about_body">Mineways Mobile，把桌面端的经典方块世界，从辽阔的屏幕搬进了你的掌心。\n\n它保留了原版 C++ 核心的全部功力——读档、面剔除、OBJ/MTL 导出，一个都不少；运算法则丝毫未改，只是换了一副更适合手机的轻快模样。\n\n在这里要特别感谢原作者。他不吝远见，为作品预留了跨端适配的可能，让这份源自桌面的匠心，得以跨越平台，在我们手中延续新的旅程。\n\n同时，谨以最诚挚的谢意，致敬与 Minecraft 深度协作、打造出开源世界转换工具 Chunker 的微软 Hive Games 团队。正是因为他们的无私开源与杰出工程，Java 版与基岩版之间的世界才能如此顺畅地自由流转，也让移动端的格式转换得以成为可能。\n\n谨以此作，向原作的智慧与开放致敬。\n\n由「方块烬火社·烬火社区」123 开发，\n由「方块烬火社」ZERO寂零 策划移植。</string>
     <string name="about_join_btn">加入我们</string>
-    <string name="about_join_url">https://qun.qq.com/universal-share/share?ac=1&amp;authKey=eVl2EPYRYybk7Y7sn50gCvuyQWdU9uN%2Bd32cSLBByBcwdIP9qlD4mTs%2B0Nsf%2F%2FJY&amp;busi_data=eyJncm91cENvZGUiOiIxMDE1MTIyMDc5IiwidG9rZW4iOiJCcHpGREREVDdJQ2k3TVRxdjhoYTF0aGZ2MDhubDllaUdUdHF4TEgwcEF2NmxxVVMrM3czOGJwUlNZT3NBRUNUIiwidWluIjoiMTg3MTkxNTI5OSJ9&amp;data=o4WJ2AdTQXNP5yuWl_p_paxa6TBVuqbZ2eMmj86GW79vyWg_8zorMe0t7iB-1sTRcKpswbaPMyYeclLEvORZYQ&amp;svctype=4&amp;tempid=h5_group_info</string>
+    <string name="about_join_url">https://qm.qq.com/q/6mxOaslq7e</string>
 
     <string-array name="file_types">
         <item>OBJ（Wavefront，含纹理）</item>
