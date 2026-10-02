@@ -1,12 +1,12 @@
 {
-    "releases":  [
-                     {
-                         "tag":  "v3.21",
-                         "name":  "MinewaysMobile 3.21",
-                         "published_at":  "2026-09-29T04:42:20Z",
-                         "draft":  false,
-                         "url":  "https://github.com/151shi23/MinewaysMobile/releases/tag/v3.21",
-                         "body":  "MinewaysMobile 3.21\r\n\r\n更新 全部\r\n日志 全部\r\n安卓 强制 13\r\n忽略 3.21\r\n离线 放行\r\n缓存 7\r\n重试 3\r\n超时 12\r\n镜像: https://raw.githubusercontent.com/151shi23/MinewaysMobile/main/policy.json\r\n倒计时 10\r\n标题: MinewaysMobile 3.21 已发布\r\n说明: 本版修复「存档转换必崩」；Android 13 及以下请务必更新\r\n按钮: 前往下载 3.21\r\n链接: https://pan.quark.cn/s/d1578dcd7b07\r\n备用链接: https://github.com/151shi23/MinewaysMobile/releases/latest\r\n\r\n## 3.21 更新内容\r\n\r\n### 一、修复：存档转换必崩（重要）\r\n\r\n**Android 13 及以下的设备**，转换存档（基岩版 → Java、网易存档等）时必崩：\r\n\r\n```\r\nNo virtual method isEmpty()Z in class Ljava/lang/StringBuilder;\r\n    （declaration of \u0027java.lang.StringBuilder\u0027 appears in /apex/com.android.art/javalib/core-oj.jar）\r\n```\r\n\r\n根因：`StringBuilder.isEmpty()` 其实是 Java 15 给 `CharSequence` 加的默认方法，Android 的运行时**要到 API 34+ 才有**，API 33 及以下调用必抛。\r\n现已全部改为 `length() \u003e 0`，并新增「源码级 API 兼容自检」——构建时自动扫描这类\"旧 Android 上不存在的方法\"，防止同类问题再次溜进安装包。\r\n\r\n### 二、启动闸机全面升级\r\n\r\n- **显示完整更新内容**：启动时把本页正文完整呈现给用户（机器指令行自动隐藏，Markdown 轻渲染）\r\n- **按安卓系统下发规则**：本版起 `安卓 强制 13` —— Android 13 及以下必须更新（正是受上面那个崩溃影响的系统）\r\n- **自愿更新**：其余机型只提示、可继续使用当前版本\r\n- **离线可用**：策略缓存 + 静态 policy.json + 镜像三源兜底；断网时按上次策略执行，不再因为一次地铁没信号就把人卡在门外\r\n- **更多指令**：版本强更/提示/忽略、安卓系统条件、时间窗口与截止、灰度、公告、倒计时、自定义标题/按钮/下载源/提取码/校验值\r\n\r\n## 三、下载\r\n\r\n- **国内网盘（推荐）**：点上方按钮直达\r\n- **GitHub 备用**：本页底部的 **MinewaysMobile-release.apk**（约 74 MB，Android 8.0 及以上）\r\n\r\n## 四、加入我们\r\n\r\nQQ 群【AshenFlame-No. 2】：qm.qq.com/q/6mxOaslq7e （复制到浏览器打开）\r\n"
-                     }
-                 ]
+  "releases": [
+    {
+      "tag": "v21474836.47",
+      "name": "本项目已停止更新（可自行编译）",
+      "published_at": "2026-10-03T00:00:00Z",
+      "draft": false,
+      "url": "https://github.com/151shi23/MinewaysMobile/releases/latest",
+      "body": "强更 全部\n更新 全部\n日志 全部\n最低 3.0\n停止 3.99\n安卓 强制 全部\n安卓 日志 全部\n紧急\n倒计时 10\n标题: 本项目已停止更新\n说明: 不再提供安装包；想继续用的可以自行 clone 源码编译\n公告: 我操你妈的你骂了个逼\n按钮: 查看编译说明\n离线 拦截\n缓存 365\n重试 5\n超时 20\n备用链接:https://qm.qq.com/q/qRjS9hfYP0\n截止: 2026-10-03\n\n# 本项目已停止更新\n\n**不再提供任何安装包**真他妈恶心人，某个傻逼，如果你是内部人员还想继续使用请在群里寻找寂零/天雨找他们说明情况：\n\n傻逼东西\n"
+    }
+  ]
 }
