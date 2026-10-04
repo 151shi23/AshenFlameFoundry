@@ -97,6 +97,289 @@ function drawBackground() {
   ctx.fillRect(0, GROUND_Y - 340, W, 340);
 }
 
+// ---- 天气实体：雷暴落雷 / 酸雨腐蚀区 ----
+function drawWeather() {
+  // 落雷：预警圈（天上引线）→ 折线雷柱
+  for (const b of world.bolts) {
+    const sx = b.x - world.x;
+    if (sx < -90 || sx > W + 90) continue;
+    if (b.t < b.warn) {
+      const k = clamp(b.t / b.warn, 0, 1);
+      const r = 76 - 34 * k;
+      ctx.beginPath();
+      ctx.ellipse(sx, GROUND_Y - 4, r, r * 0.32, 0, 0, Math.PI * 2);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(150,190,255,' + (0.35 + 0.4 * k).toFixed(3) + ')';
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(140,180,255,' + (0.10 + 0.16 * k).toFixed(3) + ')';
+      ctx.fill();
+      ctx.save();
+      ctx.globalAlpha = 0.22 + 0.34 * k;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(200,225,255,0.9)';
+      ctx.beginPath();
+      ctx.moveTo(sx, 0);
+      ctx.lineTo(sx, GROUND_Y - 6);
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      const life = clamp(1 - (b.t - b.warn) / 0.45, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = life;
+      ctx.lineWidth = 7;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(236,246,255,0.95)';
+      ctx.beginPath();
+      ctx.moveTo(sx, 0);
+      let yy = 0, xx = sx;
+      while (yy < GROUND_Y) {
+        yy += 96;
+        xx = sx + rnd(-16, 16);
+        ctx.lineTo(xx, Math.min(yy, GROUND_Y));
+      }
+      ctx.stroke();
+      const g2 = ctx.createRadialGradient(sx, GROUND_Y - 10, 6, sx, GROUND_Y - 10, 110);
+      g2.addColorStop(0, 'rgba(255,255,255,' + (0.55 * life).toFixed(3) + ')');
+      g2.addColorStop(1, 'rgba(180,210,255,0)');
+      ctx.fillStyle = g2;
+      ctx.fillRect(sx - 110, GROUND_Y - 120, 220, 130);
+      ctx.restore();
+    }
+  }
+  // 酸雨腐蚀区：绿色酸池 + 气泡，踩进去会被拖慢
+  for (const p of world.acidPools) {
+    const sx = p.x - world.x;
+    if (sx < -120 || sx > W + 120) continue;
+    const grow = clamp(p.t / 0.25, 0, 1);
+    const fade = clamp((p.life - p.t) / 0.6, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = grow * fade;
+    const g3 = ctx.createRadialGradient(sx, GROUND_Y + 6, 4, sx, GROUND_Y + 6, 72);
+    g3.addColorStop(0, 'rgba(186,240,110,0.85)');
+    g3.addColorStop(0.55, 'rgba(140,210,70,0.5)');
+    g3.addColorStop(1, 'rgba(110,180,50,0)');
+    ctx.fillStyle = g3;
+    ctx.beginPath();
+    ctx.ellipse(sx, GROUND_Y + 6, 72, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(226,255,170,0.8)';
+    for (let i = 0; i < 3; i++) {
+      const t2 = (G.time * 1.6 + i * 0.7) % 1;
+      ctx.beginPath();
+      ctx.arc(sx - 34 + i * 32 + Math.sin(G.time * 3 + i) * 6, GROUND_Y + 4 - t2 * 26, 3 + t2 * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// ---- 天气氛围：整屏色调 + 风沙/雾气颗粒感 ----
+function drawWeatherOverlay() {
+  const w = G.weather;
+  if (!w) return;
+  const fadeIn = clamp(w.t / 1.4, 0, 1);
+  const fadeOut = clamp((w.life - w.t) / 2.2, 0, 1);
+  const a = fadeIn * fadeOut;
+  if (a <= 0.01) return;
+  if (w.id === 'fog') {
+    ctx.fillStyle = 'rgba(206,220,238,' + (0.34 * a).toFixed(3) + ')';
+  } else if (w.id === 'sand') {
+    ctx.fillStyle = 'rgba(214,164,88,' + (0.3 * a).toFixed(3) + ')';
+  } else if (w.id === 'storm') {
+    ctx.fillStyle = 'rgba(22,32,62,' + (0.2 * a).toFixed(3) + ')';
+  } else {
+    ctx.fillStyle = 'rgba(128,190,64,' + (0.13 * a).toFixed(3) + ')';
+  }
+  ctx.fillRect(0, 0, W, H);
+}
+
+// ---- 暗角：固定画面质感，避免全屏死平 ----
+let VIGNETTE = null;
+function makeVignette(w, h) {
+  const c = document.createElement('canvas');
+  const s = 0.25;   // 低分辨率生成一张就够，绘制时拉满全屏
+  c.width = Math.max(2, Math.round(w * s));
+  c.height = Math.max(2, Math.round(h * s));
+  const g = c.getContext('2d');
+  const r = g.createRadialGradient(c.width / 2, c.height * 0.46, c.height * 0.22,
+    c.width / 2, c.height * 0.5, c.height * 0.74);
+  r.addColorStop(0, 'rgba(0,0,0,0)');
+  r.addColorStop(0.72, 'rgba(6,10,20,0.10)');
+  r.addColorStop(1, 'rgba(4,8,16,0.30)');
+  g.fillStyle = r;
+  g.fillRect(0, 0, c.width, c.height);
+  return { cv: c, w: w, h: h };
+}
+function drawVignette() {
+  if (!VIGNETTE || VIGNETTE.w !== W || VIGNETTE.h !== H) VIGNETTE = makeVignette(W, H);
+  ctx.drawImage(VIGNETTE.cv, 0, 0, W, H);
+}
+
+/* ---- 天空渐变：白天青蓝 → 夜晚深靛（带地平线暖光） ---- */
+function drawSkyGradient(na) {
+  const top = lerpColor('#2f8fe0', '#0c1330', na);
+  const mid = lerpColor('#63b8f2', '#16204a', na);
+  const hor = lerpColor('#a8dcf5', '#2b3566', na);
+  const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+  g.addColorStop(0, top);
+  g.addColorStop(0.62, mid);
+  g.addColorStop(1, hor);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, GROUND_Y);
+}
+
+/* ---- 云层：预生成一张可平铺的软云，按 0.28 的视差慢慢飘 ---- */
+let CLOUD_TILE = null;
+function makeCloudTile() {
+  const cw = 1024, ch = 300;
+  const c = document.createElement('canvas');
+  c.width = cw; c.height = ch;
+  const g = c.getContext('2d');
+  for (let i = 0; i < 16; i++) {
+    const cx = rnd(0, cw), cy = rnd(30, ch - 60);
+    const rx = rnd(70, 165), ry = rx * rnd(0.34, 0.5);
+    const grd = g.createRadialGradient(cx, cy, ry * 0.2, cx, cy, rx);
+    grd.addColorStop(0, 'rgba(255,255,255,0.55)');
+    grd.addColorStop(0.6, 'rgba(255,255,255,0.22)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd;
+    g.beginPath();
+    g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+  return c;
+}
+function drawClouds(na) {
+  if (!CLOUD_TILE) CLOUD_TILE = makeCloudTile();
+  const tileW = Math.max(640, W * 0.9);
+  const tileH = tileW * CLOUD_TILE.height / CLOUD_TILE.width;
+  const phase = world.x * 0.28 + G.time * 12;
+  let x = -(phase % tileW);
+  ctx.save();
+  ctx.globalAlpha = 0.75 * (1 - na * 0.55);
+  let guard = 0;
+  while (x < W + tileW && guard++ < 8) {
+    ctx.drawImage(CLOUD_TILE, x, GROUND_Y - tileH - 40, tileW, tileH);
+    x += tileW;
+  }
+  ctx.restore();
+}
+
+/* ---- 前景草叶剪影：压在地面之上，视差 1.15，制造纵深 ---- */
+let GRASS_FG = null;
+function makeGrassFg() {
+  const cw = 900, ch = 130;
+  const c = document.createElement('canvas');
+  c.width = cw; c.height = ch;
+  const g = c.getContext('2d');
+  for (let i = 0; i < 130; i++) {
+    const bx = rnd(0, cw);
+    const h = rnd(26, 84);
+    const w = rnd(3, 7);
+    const lean = rnd(-16, 16);
+    const shade = rnd(0, 1);
+    g.fillStyle = shade < 0.5 ? 'rgba(38,60,30,0.95)' : 'rgba(56,84,40,0.95)';
+    g.beginPath();
+    g.moveTo(bx, ch);
+    g.quadraticCurveTo(bx + lean * 0.5, ch - h * 0.6, bx + lean, ch - h);
+    g.quadraticCurveTo(bx + lean * 0.5 + w, ch - h * 0.55, bx + w, ch);
+    g.closePath();
+    g.fill();
+  }
+  return c;
+}
+function drawForegroundGrass() {
+  if (!GRASS_FG) GRASS_FG = makeGrassFg();
+  const tileW = Math.max(420, W * 0.62);
+  const tileH = tileW * GRASS_FG.height / GRASS_FG.width;
+  const phase = world.x * 1.15;
+  let x = -(phase % tileW);
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  let guard = 0;
+  while (x < W + tileW && guard++ < 6) {
+    ctx.drawImage(GRASS_FG, x, GROUND_Y - tileH * 0.62, tileW, tileH);
+    x += tileW;
+  }
+  ctx.restore();
+}
+
+/* ---- 月面段：星空 + 冷色罩 ---- */
+let STARFIELD = null;
+function makeStarfield() {
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  for (let i = 0; i < 190; i++) {
+    const r = rnd(0.7, 2.1);
+    g.globalAlpha = rnd(0.35, 0.95);
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.arc(rnd(0, W), rnd(0, GROUND_Y - 20), r, 0, Math.PI * 2);
+    g.fill();
+  }
+  return c;
+}
+function drawMoonOverlay() {
+  if (!(G.moonT > 0)) return;
+  if (!STARFIELD || STARFIELD.width !== Math.round(W)) STARFIELD = makeStarfield();
+  const k = clamp(Math.min(G.moonT, 13 - G.moonT) / 1.2, 0, 1);
+  ctx.save();
+  ctx.globalAlpha = k;
+  ctx.drawImage(STARFIELD, 0, 0, W, H);
+  ctx.globalAlpha = 0.16 * k;
+  ctx.fillStyle = '#8fb6ff';
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+/* ---- 后期：胶片颗粒（预生成噪声贴图，低透明度平铺） ---- */
+let GRAIN = null;
+function makeGrain() {
+  // 384 的一整张贴图拉满全屏：噪声颗粒约 1.4px，视觉上还是颗粒，但每帧只需一次绘制
+  const s = 384;
+  const c = document.createElement('canvas');
+  c.width = s; c.height = s;
+  const g = c.getContext('2d');
+  const img = g.createImageData(s, s);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = 120 + Math.random() * 135;
+    img.data[i] = v; img.data[i + 1] = v; img.data[i + 2] = v;
+    img.data[i + 3] = Math.random() < 0.5 ? 15 : 6;
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+function drawGrain() {
+  if (!GRAIN) GRAIN = makeGrain();
+  ctx.save();
+  ctx.globalAlpha = 0.42;
+  const ox = -((G.time * 60) % 30), oy = -((G.time * 44) % 30);
+  ctx.drawImage(GRAIN, ox, oy, W * 1.06, H * 1.06);
+  ctx.restore();
+}
+
+/* ---- 高速时的径向速度线（在已有 speedLines 之上再压一层纵深） ---- */
+function drawRadialSpeed() {
+  const k = FX.speedLines;
+  if (k <= 0.28) return;
+  const cx = PLAYER_X + 40, cy = H * 0.52;
+  const a = (k - 0.28) * 0.5;
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.strokeStyle = 'rgba(210,240,255,0.5)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 14; i++) {
+    const ang = (i / 14) * Math.PI * 2 + G.time * 0.6;
+    const r0 = 220 + 60 * Math.sin(i * 2.3 + G.time * 3);
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0 * 0.75);
+    ctx.lineTo(cx + Math.cos(ang) * (r0 + 130), cy + Math.sin(ang) * (r0 + 130) * 0.75);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawGaps() {
   for (const g of world.gaps) {
     const sx = g.x - world.x;
@@ -142,6 +425,14 @@ function drawGround() {
     ctx.fillStyle = 'rgba(58,40,26,0.55)';
     ctx.fillRect(sx, GROUND_Y + GRASS_H, sw, 5);
     drawTileBand('dirt', sx, GROUND_Y + GRASS_H + 5, sw, H - GROUND_Y - GRASS_H - 5, { tileW: DIRT_TILE_W });
+    // 草皮顶沿受光 + 泥层纵深：地面不再是两块平色
+    ctx.fillStyle = 'rgba(198,238,142,0.45)';
+    ctx.fillRect(sx, GROUND_Y + 1, sw, 3);
+    const dg = ctx.createLinearGradient(0, GROUND_Y + GRASS_H, 0, H);
+    dg.addColorStop(0, 'rgba(0,0,0,0)');
+    dg.addColorStop(1, 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = dg;
+    ctx.fillRect(sx, GROUND_Y + GRASS_H, sw, H - GROUND_Y - GRASS_H);
   }
 }
 
@@ -684,7 +975,7 @@ function drawFallingRocks() {
   }
 }
 
-/* 浮空怪：带刺的浮空小怪，头顶可以踩 */
+/* 小怪：浮空怪（可踩）/ 跳跳刺球（贴地弹跳）/ 盾怪（只能冲刺破） */
 function drawEnemies() {
   for (const en of world.enemies) {
     const sx = en.x - world.x;
@@ -696,11 +987,13 @@ function drawEnemies() {
       ctx.globalAlpha = k;
       ctx.beginPath();
       ctx.arc(sx, ey, en.r * k * 1.25, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(168,232,108,0.9)';
+      ctx.fillStyle = en.armor ? 'rgba(140,232,255,0.9)' : 'rgba(168,232,108,0.9)';
       ctx.fill();
       ctx.globalAlpha = 1;
       continue;
     }
+    if (en.kind === 'hopper') { drawHopper(sx, ey, en); continue; }
+    if (en.kind === 'shield') { drawShieldEnemy(sx, ey, en); continue; }
     const glow = 0.16 + 0.12 * Math.sin(G.time * 4 + en.phase);
     ctx.beginPath();
     ctx.arc(sx, ey, en.r + 15, 0, Math.PI * 2);
@@ -749,6 +1042,87 @@ function drawEnemies() {
     ctx.closePath();
     ctx.fill();
   }
+}
+
+/* 跳跳刺球：贴地弹跳，带刺，挡在跑道上（跳过或铲过） */
+function drawHopper(sx, ey, en) {
+  const r = en.r;
+  const squash = clamp(1 - Math.abs(en.vy || 0) / 1500, 0.82, 1);
+  ctx.save();
+  ctx.translate(sx, ey);
+  // 落影
+  ctx.globalAlpha = 0.22;
+  ctx.beginPath();
+  ctx.ellipse(0, GROUND_Y - ey - 2, r * 0.85, 5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#000000';
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.scale(1 / squash, squash);
+  // 尖刺
+  ctx.fillStyle = '#8a3f3f';
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4 + G.time * 1.5;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a - 0.22) * r * 0.9, Math.sin(a - 0.22) * r * 0.9);
+    ctx.lineTo(Math.cos(a + 0.22) * r * 0.9, Math.sin(a + 0.22) * r * 0.9);
+    ctx.lineTo(Math.cos(a) * (r + 12), Math.sin(a) * (r + 12));
+    ctx.closePath();
+    ctx.fill();
+  }
+  const grd = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.2, 0, 0, r);
+  grd.addColorStop(0, '#ff9a6a');
+  grd.addColorStop(1, '#c8452e');
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fillStyle = grd;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(60,20,14,0.75)';
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(-8, -4, 6, 0, Math.PI * 2);
+  ctx.arc(8, -4, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#2a1008';
+  ctx.beginPath();
+  ctx.arc(-8, -4, 3, 0, Math.PI * 2);
+  ctx.arc(8, -4, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/* 盾怪：正面挂着能量护盾，只有能量冲刺能破 */
+function drawShieldEnemy(sx, ey, en) {
+  const r = en.r;
+  const grd = ctx.createRadialGradient(sx - r * 0.3, ey - r * 0.35, r * 0.2, sx, ey, r);
+  grd.addColorStop(0, '#b9c6dd');
+  grd.addColorStop(1, '#5d6a86');
+  ctx.beginPath();
+  ctx.arc(sx, ey, r, 0, Math.PI * 2);
+  ctx.fillStyle = grd;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#2b3550';
+  ctx.stroke();
+  // 正面护盾弧（朝玩家来向）
+  const pulse = 0.45 + 0.25 * Math.sin(G.time * 5 + en.phase);
+  ctx.beginPath();
+  ctx.arc(sx + r * 0.15, ey, r + 12, -1.15, 1.15);
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = 'rgba(140,232,255,' + pulse.toFixed(3) + ')';
+  ctx.stroke();
+  ctx.fillStyle = '#e8f2ff';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(sx + r * 0.34, ey - 16 + i * 16, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#12203a';
+  ctx.beginPath();
+  ctx.arc(sx - 12, ey - 6, 4.5, 0, Math.PI * 2);
+  ctx.arc(sx, ey - 6, 4.5, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawBoosters() {
@@ -1021,11 +1395,11 @@ function drawCrates() {
     const bob = Math.sin(G.time * 2.4 + cr.ph) * 7;
     const y = cr.y + bob;
     const pulse = 0.3 + 0.2 * Math.sin(G.time * 4 + cr.ph);
-    // 光柱
+    // 光柱：真箱金光；宝箱怪泛紫（看得出来的玩家能提前躲开）
     ctx.globalAlpha = pulse * 0.5;
     const g = ctx.createLinearGradient(0, y - 70, 0, y + 30);
-    g.addColorStop(0, 'rgba(255,214,90,0)');
-    g.addColorStop(1, 'rgba(255,214,90,0.55)');
+    g.addColorStop(0, cr.mimic ? 'rgba(176,106,255,0)' : 'rgba(255,214,90,0)');
+    g.addColorStop(1, cr.mimic ? 'rgba(176,106,255,0.5)' : 'rgba(255,214,90,0.55)');
     ctx.fillStyle = g;
     ctx.fillRect(sx - 22, y - 70, 44, 100);
     ctx.globalAlpha = 1;
@@ -1050,14 +1424,143 @@ function drawCrates() {
     ctx.fillRect(-4, -20, 8, 40);
     ctx.fillStyle = '#8a6a20';
     ctx.fillRect(-4, -20, 8, 3);
-    // 问号
+    // 问号（宝箱怪的问号带一点獠牙味）
     ctx.font = 'bold 20px "Microsoft YaHei", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#3a2408';
+    ctx.fillStyle = cr.mimic ? '#3b1240' : '#3a2408';
     ctx.fillText('?', 0, -2);
+    if (cr.mimic) {
+      ctx.strokeStyle = 'rgba(226,150,255,0.85)';
+      ctx.lineWidth = 2;
+      pxRect(-20, -18, 40, 36, 6);
+      ctx.stroke();
+    }
     ctx.restore();
   }
+}
+
+/* 升级祭坛：世界层的基座 + 光柱，靠近会亮 */
+function drawAltars() {
+  for (const al of world.altars) {
+    if (al.taken) continue;
+    const sx = al.x - world.x;
+    if (sx < -120 || sx > W + 120) continue;
+    const y = al.y;
+    const pulse = 0.5 + 0.5 * Math.sin(G.time * 2.6 + al.ph);
+    // 光柱
+    const g = ctx.createLinearGradient(0, y - 210, 0, y + 30);
+    g.addColorStop(0, 'rgba(201,160,255,0)');
+    g.addColorStop(1, 'rgba(201,160,255,' + (0.28 + 0.25 * pulse).toFixed(3) + ')');
+    ctx.fillStyle = g;
+    ctx.fillRect(sx - 34, y - 210, 68, 240);
+    // 底座
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(sx, GROUND_Y - 3, 46, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#3b3145';
+    pxRect(sx - 30, GROUND_Y - 26, 60, 26, 8);
+    ctx.fill();
+    ctx.fillStyle = '#57496a';
+    pxRect(sx - 26, GROUND_Y - 24, 52, 10, 6);
+    ctx.fill();
+    // 悬浮的符文核心
+    const cy = y + Math.sin(G.time * 2 + al.ph) * 6;
+    const rg = ctx.createRadialGradient(sx, cy, 4, sx, cy, 34);
+    rg.addColorStop(0, 'rgba(232,214,255,' + (0.85 + 0.15 * pulse).toFixed(3) + ')');
+    rg.addColorStop(0.5, 'rgba(176,106,255,0.6)');
+    rg.addColorStop(1, 'rgba(120,60,200,0)');
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.arc(sx, cy, 34, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(sx, cy);
+    ctx.rotate(G.time * 0.9 + al.ph);
+    ctx.strokeStyle = 'rgba(240,230,255,0.92)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const a = i * Math.PI * 2 / 3;
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a) * 15, Math.sin(a) * 15);
+    }
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, 15, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/* 祭坛牌面图标 */
+const UP_ICON = { djump: '跳', magnet: '磁', energy: '能', combo: '节', speed: '速', coin: '金', shieldMax: '盾' };
+
+/* 祭坛面板：世界冻结，三张牌等玩家点 */
+function drawAltarPanel() {
+  const a = G.altar;
+  if (!a) return;
+  const k = clamp(G.altarT / 0.22, 0, 1);
+  ctx.fillStyle = 'rgba(6,10,20,' + (0.74 * k).toFixed(3) + ')';
+  ctx.fillRect(0, 0, W, H);
+  // 顶部光带
+  const hg = ctx.createLinearGradient(0, 120, 0, 300);
+  hg.addColorStop(0, 'rgba(201,160,255,0)');
+  hg.addColorStop(1, 'rgba(201,160,255,' + (0.16 * k).toFixed(3) + ')');
+  ctx.fillStyle = hg;
+  ctx.fillRect(0, 120, W, 180);
+  pxText('强化祭坛', W / 2, 176, 46, '#e8dcff', 'rgba(10,18,32,0.95)');
+  pxText('三选一 · 本局永久生效', W / 2, 226, 23, 'rgba(222,212,246,0.92)', 'rgba(10,18,32,0.9)');
+
+  const cards = altarCards();
+  for (let ci = 0; ci < cards.length; ci++) {
+    const c = cards[ci];
+    const s = ease.outBack(clamp((G.altarT - 0.06 - ci * 0.06) / 0.3, 0, 1));
+    if (s <= 0.01) continue;
+    ctx.save();
+    ctx.translate(c.x + c.w / 2, c.y + c.h / 2);
+    ctx.scale(s, s);
+    ctx.translate(-(c.x + c.w / 2), -(c.y + c.h / 2));
+    // 牌底 + 阴影
+    pxRect(c.x + 4, c.y + 7, c.w, c.h, 16);
+    ctx.fillStyle = 'rgba(6,10,18,0.55)';
+    ctx.fill();
+    pxRect(c.x, c.y, c.w, c.h, 16);
+    ctx.fillStyle = 'rgba(30,38,60,0.97)';
+    ctx.fill();
+    // 顶部色带
+    ctx.save();
+    pxRect(c.x, c.y, c.w, 58, 16);
+    ctx.clip();
+    ctx.fillStyle = c.u.color;
+    ctx.fillRect(c.x, c.y, c.w, 58);
+    ctx.fillStyle = 'rgba(10,18,32,0.4)';
+    ctx.fillRect(c.x, c.y + 34, c.w, 26);
+    ctx.restore();
+    pxText(c.u.name, c.x + c.w / 2, c.y + 29, 24, '#ffffff', 'rgba(10,18,32,0.9)');
+    // 图标光晕
+    const cx0 = c.x + c.w / 2, cy0 = c.y + 112;
+    const glowT = 0.55 + 0.15 * Math.sin(G.time * 3 + ci);
+    const rg = ctx.createRadialGradient(cx0, cy0, 3, cx0, cy0, 44);
+    rg.addColorStop(0, hexA(c.u.color, 0.85 * glowT));
+    rg.addColorStop(0.55, hexA(c.u.color, 0.3 * glowT));
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.arc(cx0, cy0, 44, 0, Math.PI * 2);
+    ctx.fill();
+    pxText(UP_ICON[c.u.id] || '强', cx0, cy0, 42, '#ffffff', 'rgba(10,18,32,0.85)');
+    pxText(c.u.desc, cx0, c.y + c.h - 54, 18, 'rgba(230,238,250,0.95)', 'rgba(10,18,32,0.9)');
+    pxText('等级 ' + c.lv + ' → ' + (c.lv + 1) + ' / ' + c.max, cx0, c.y + c.h - 26, 17, c.u.color, 'rgba(10,18,32,0.9)');
+    pxRect(c.x, c.y, c.w, c.h, 16);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = hexA(c.u.color, 0.9);
+    ctx.stroke();
+    ctx.restore();
+  }
+  const tipY = cards.length ? cards[0].y + cards[0].h + 46 : H * 0.72;
+  pxText('点一张牌继续跑', W / 2, tipY, 21, 'rgba(214,224,244,0.9)', 'rgba(10,18,32,0.9)');
 }
 
 /* 抽卡弹窗：道具箱开出的限时增益 */
@@ -1194,9 +1697,14 @@ function drawPlayer() {
     ctx.fill();
   }
   if (player.onGround && G.state !== 'dying') {
-    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    // 软接触阴影：比纯色椭圆更贴地，角色不再像贴纸
+    const sg = ctx.createRadialGradient(0, 2, 2, 0, 2, w * 0.46);
+    sg.addColorStop(0, 'rgba(0,0,0,0.24)');
+    sg.addColorStop(0.6, 'rgba(0,0,0,0.10)');
+    sg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = sg;
     ctx.beginPath();
-    ctx.ellipse(0, 2, w * 0.42, 7, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 2, w * 0.46, 9, 0, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.rotate(player.tilt + (G.state === 'dying' ? player.deadRot : 0));
@@ -1208,7 +1716,23 @@ function drawPlayer() {
   }
   const bob = player.onGround && !player.sliding ? Math.sin(player.run * 2) * 3 : 0;
   if (G.state === 'dying') ctx.globalAlpha = Math.max(0, 1 - player.deadT * 1.05);
-  ctx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = true;   // 插画素材用平滑采样，缩放到任何屏幕都不毛边
+  // 冲刺残影：高速时身后拖三道渐隐身形
+  if (G.dashT > 0 || FX.speedLines > 0.55) {
+    for (let i = 3; i >= 1; i--) {
+      ctx.save();
+      ctx.globalAlpha = (G.dashT > 0 ? 0.26 : 0.14) / i;
+      ctx.drawImage(im, crop.x, crop.y, crop.w, crop.h, -w / 2 - i * 26, -h + bob + i * 2, w, h);
+      ctx.restore();
+    }
+  }
+  // 背光描边：先带阴影画一遍，再实画一遍，主体从背景里跳出来
+  ctx.save();
+  ctx.shadowColor = 'rgba(8,14,26,0.9)';
+  ctx.shadowBlur = 9;
+  ctx.shadowOffsetY = 3;
+  ctx.drawImage(im, crop.x, crop.y, crop.w, crop.h, -w / 2, -h + bob, w, h);
+  ctx.restore();
   ctx.drawImage(im, crop.x, crop.y, crop.w, crop.h, -w / 2, -h + bob, w, h);
   ctx.restore();
 }
@@ -1217,7 +1741,7 @@ function drawPlayer() {
 function drawChiyou() {
   const c = G.chiyou;
   if (!c || G.boss) return;
-  if (c.hidden) return;   // 烟雾瞬步/登场中不画本体
+  if (c.hidden || c.lost) return;   // 烟雾瞬步/登场中不画本体；被甩掉后人也退场
   const aj = c.skin === 'aj';
   /* 帧状态机：跑动帧循环，跳跃/滑铲/施法/受击各有专属帧，不再站立跑步乱闪 */
   let key;
@@ -1268,14 +1792,27 @@ function drawChiyou() {
     }
   }
 
-  // 影子（跟他的实际高度走）
-  ctx.fillStyle = 'rgba(0,0,0,0.16)';
+  // 影子（跟他的实际高度走）：软阴影，和玩家统一
+  const sg2 = ctx.createRadialGradient(c.bx + w * 0.42, GROUND_Y - 4, 2, c.bx + w * 0.42, GROUND_Y - 4, w * 0.46);
+  sg2.addColorStop(0, 'rgba(0,0,0,0.22)');
+  sg2.addColorStop(0.6, 'rgba(0,0,0,0.09)');
+  sg2.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sg2;
   ctx.beginPath();
-  ctx.ellipse(c.bx + w * 0.42, GROUND_Y - 4, w * 0.4, 9, 0, 0, Math.PI * 2);
+  ctx.ellipse(c.bx + w * 0.42, GROUND_Y - 4, w * 0.46, 11, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.save();
   ctx.globalAlpha = c.hurtT > 0 ? 0.5 + 0.4 * Math.sin(c.t * 30) : 0.88;
+  ctx.imageSmoothingEnabled = true;
+  // 追击者同样加一层背光描边，和玩家保持一致的画面语言
+  ctx.shadowColor = 'rgba(8,14,26,0.85)';
+  ctx.shadowBlur = 9;
+  ctx.shadowOffsetY = 3;
+  ctx.drawImage(im, 0, 0, im.width, im.height, c.bx, c.y - h, w, h);
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+  ctx.shadowOffsetY = 0;
   ctx.drawImage(im, 0, 0, im.width, im.height, c.bx, c.y - h, w, h);
   ctx.restore();
 
@@ -1939,11 +2476,15 @@ function drawCelestial(na) {
 }
 
 function render() {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  // 昼夜天空：白天蓝 → 夜晚深蓝
+  // 高清渲染：按设备像素比缩放整个坐标系（逻辑坐标保持 W×H）
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  // 昼夜天空：分层渐变（顶部深、地平线暖），比单色平涂更有空间感
   const na = nightAmount();
-  ctx.fillStyle = na > 0.02 ? lerpColor('#3b9cec', '#131c42', na) : '#3b9cec';
+  ctx.fillStyle = lerpColor('#a8dcf5', '#2b3566', na);
   ctx.fillRect(0, 0, W, H);
+  drawSkyGradient(na);
   drawCelestial(na);
 
   ctx.save();
@@ -1951,11 +2492,13 @@ function render() {
     ctx.translate(rnd(-1, 1) * FX.shake * 12, rnd(-1, 1) * FX.shake * 9);
   }
   drawBackground();
+  drawClouds(na);
   drawFinishGate();
   drawPlatforms();
   drawMovingPlatforms();
   drawGaps();
   drawGround();
+  drawForegroundGrass();   // 前景草叶剪影：给地面压出一道纵深
   drawFakeFloors();
   drawBoosters();
   drawCrumbles();
@@ -1966,6 +2509,7 @@ function render() {
   drawHiddenSpikes();
   drawTrapSprings();
   drawNewHazards();
+  drawWeather();
   drawUgcHazards();
   runUgcHook('draw', { worldX: world.x });   // mod 自定义绘制钩子（ctx 全局可用，画实体世界坐标 - worldX）
   drawBouncePads();
@@ -1978,6 +2522,7 @@ function render() {
   drawPet();
   drawSigns();
   drawGates();
+  drawAltars();
   drawCoins();
   drawPowers();
   drawFakeCoins();
@@ -1985,10 +2530,13 @@ function render() {
   drawRollingRocks();
   FX.drawWorld(ctx, world.x);
   // 世界里的小人只在游戏进行时画，菜单/选择界面各有各的立绘
-  const inGame = G.state === 'playing' || G.state === 'paused' || G.state === 'dying'
+  const inGame = G.state === 'playing' || G.state === 'paused' || G.state === 'dying' || G.state === 'altar'
     || G.state === 'gameover' || G.state === 'levelclear' || G.state === 'levelfail';
   if (inGame) drawPlayer();
   ctx.restore();
+
+  // 天气氛围（沙尘/浓雾/酸雨的天色）：罩世界，不罩 HUD
+  drawWeatherOverlay();
 
   // 夜幕：全屏压暗 + 玩家周围光圈（只罩世界，不罩 HUD）
   if (na > 0.02) {
@@ -2005,11 +2553,17 @@ function render() {
     ctx.globalCompositeOperation = 'source-over';
   }
 
+  drawVignette();
+  drawMoonOverlay();   // 月面段的星空与冷色罩
+  drawRadialSpeed();   // 高速时的径向速度线
+  drawGrain();         // 轻微胶片颗粒，统一画面质感
+
   drawSpeedLines();
   drawFeverHud();
   drawBossHUD();
   drawHUD();
   drawUgcHud();   // mod 注册的自定义 UI（最上层，被遮罩压暗也保持可读）
+  drawAltarPanel();
   drawCardPop();
   FX.drawScreen(ctx);
   drawOverlays();
@@ -2192,7 +2746,7 @@ function loop(ts) {
     window.__err = 'RENDER:' + (e && e.message ? e.message : String(e));
     // 直接把错误画在画面上，方便一眼定位
     try {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       ctx.fillStyle = 'rgba(0,0,0,0.9)';
       ctx.fillRect(0, 0, W, 200);
       ctx.fillStyle = '#7dff9a';

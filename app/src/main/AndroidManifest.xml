@@ -19,16 +19,38 @@
          13+ 该位置基本落在应用私有沙箱内，由 Shizuku 提权或“手动指定文件夹”覆盖，故上限到 32。 -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <!-- 「串词工具箱 → 从手机文件夹导入」要直接扫 Download / Documents 找 txt：
+         有些设备/容器里压根没有系统文件选择器（SAF 拉不起来），这条不依赖它。
+         Android 13+ 读非媒体文件只能靠「所有文件访问」这个开关，授权页会跳设置。 -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+
+    <!-- Android 11+ 的包可见性：不声明这段，resolveActivity()/queryIntentActivities()
+         一律返回 null，App 就会误判成"这台设备没有文件选择器"（实际系统文件管理器、
+         MT 管理器都能处理）。startActivity 本身不受限制，但探测要准确就得声明。 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+    </queries>
 
     <application
         android:name=".MinewaysApp"
-        android:label="Mineways Mobile"
+        android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.MinewaysMobile"
         android:hardwareAccelerated="true"
         android:largeHeap="true"
-        android:extractNativeLibs="false"
+        android:extractNativeLibs="true"
+        android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="s">
 
         <!-- Shizuku 服务提供者（用于检测/连接 Shizuku） -->
@@ -40,7 +62,8 @@
             android:exported="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
-        <!-- 启动强更闸门：每次启动必须联网检查 GitHub Releases，命中关键词则不允许进入主界面 -->
+        <!-- 启动闸门（唯一入口）：云控走**本仓库 AshenFlameFoundry 的 Release 正文**，
+             按关键词规则（强更/更新/日志/最低/停止/安卓/忽略/离线/倒计时/标题/说明/按钮/链接…）决定强更 / 提示 / 放行 -->
         <activity
             android:name=".UpdateGateActivity"
             android:exported="true"
@@ -52,10 +75,46 @@
             </intent-filter>
         </activity>
 
+        <!-- 旧启动墙：读另一个仓库（Mineways-Gate）根目录的文件计数。已不作为入口，保留代码备查。 -->
+        <activity
+            android:name=".CloudGateActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode" />
+
+        <!-- 格式转换：图片 / 音频 / 模型互转（原生内核 fmtconv：Assimp + zstd + stb） -->
+        <activity
+            android:name="com.mineways.conv.FormatConvertActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode" />
+
+        <!-- 莱茵生命终端（RhineLabUI，MIT）：站点打包在 assets/rhinelab，WebView 离线运行 -->
+        <activity
+            android:name=".RhineLabActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode" />
+
+        <!-- 工具箱主界面：底部导航 全部 / 免费功能 / 付费功能 / 限制功能 / 关于（纯 UI 外壳） -->
         <activity
             android:name=".MainActivity"
             android:exported="false"
+            android:theme="@style/Theme.MinewaysMobile.Toolbox"
             android:configChanges="orientation|screenSize|uiMode" />
+
+        <!-- 原主界面（导出 / 网易 / 转换 / 工具页）迁出为独立 Activity，由工具箱卡片进入 -->
+        <activity
+            android:name=".ExportActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|uiMode" />
+
+        <!-- 网页工具容器（Minecraft 在线资源，全部免费） -->
+        <activity
+            android:name=".WebToolActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MinewaysMobile.Toolbox"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden" />
 
         <!-- Blockbench 模型编辑器（在线 / 离线 WebView 页） -->
         <activity
@@ -95,6 +154,22 @@
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
             android:theme="@style/Theme.MinewaysMobile" />
 
+        <!-- Blender 离线渲染：Shizuku 提权 + 运行时下载的官方 Linux 版 Blender（glibc 走自带 sysroot） -->
+        <activity
+            android:name=".blender.BlenderActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- Blender 工程工具：改材质 / 换贴图(含 Poly Haven CC0) / 套 UV / 打包 / 导出 -->
+        <activity
+            android:name=".blender.ProjectToolsActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
         <!-- 内置小游戏《寂零快跑》（assets/minigame 下的纯静态 HTML5 跑酷，竖屏触屏操作） -->
         <activity
             android:name=".MiniGameActivity"
@@ -109,6 +184,93 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
             android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- 真实世界生成（Arnis 原项目交叉编译成安卓 ARM64 可执行文件，关掉桌面 GUI 只留核心） -->
+        <activity
+            android:name=".RealWorldActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- 离线种子地图（cubiomes 内核 · 纯离线：群系 / 结构 / 要塞 / 出生点 / 史莱姆区块） -->
+        <activity
+            android:name=".SeedMapActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- 颜色代码（Java / 基岩 通用 § 颜色与格式代码，离线，一键复制） -->
+        <activity
+            android:name=".ColorCodeActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- App 内一键授权登录（WebView 打开论坛授权页 → 取码 → 立即兑换，不抄码） -->
+        <activity
+            android:name=".OAuthWebActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- GIF 工具（离线：旋转 GIF / 拆帧 / 合成 / 材质包动画贴图） -->
+        <activity
+            android:name=".GifActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- 串词工具箱（纯本地：内置串词库 / 复制时谐音替换 / 一键出图当表情包） -->
+        <activity
+            android:name=".PhraseToolboxActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- P3D 工程工具（Prisma3D 工程包：识别版本 / 修头 / 解包 / 数据报告） -->
+        <activity
+            android:name=".P3DConvertActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- Mine-imator 动画工作室（内置引擎：libmineimator.so + Qt5 运行库；界面由引擎自绘，
+             资源在 assets/{Data,Sprites,Compiled,Schematics,Particles,shader_*,world_*}）。
+             锁横屏、沉浸式；configChanges 与原包一致，避免旋转/密度变化时重建 Activity 丢状态。 -->
+        <activity
+            android:name="com.mineimator.app.MainActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:process=":studio"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="keyboardHidden|orientation|screenLayout|screenSize|density"
+            android:windowSoftInputMode="adjustResize"
+            android:label="@string/mim_app_name"
+            android:theme="@style/Theme.Mineways.MineImator" />
+
+        <!-- 文件修复：P3D 工程包（2.0/3.0）/ ZIP / 图片 / 音频 / BB 导出格式 -->
+        <activity
+            android:name=".FileRepairActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:label="文件修复" />
+
+        <!-- 我的作品：列出 Mine-imator 工作室产出的视频/图片，保存到相册 / 分享 / 打开 -->
+        <activity
+            android:name=".MineImatorWorksActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|uiMode"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:label="我的作品" />
 
         <!-- FileProvider：供“快捷工具”等访问并打开导出/转换输出目录 -->
         <provider

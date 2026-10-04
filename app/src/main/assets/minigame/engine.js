@@ -3,6 +3,7 @@
 /* 核心引擎：常量、素材、世界状态、物理、生成、陷阱判定 */
 
 let W = 540;            // 逻辑宽度随屏幕比例伸缩（自适应）
+let DPR = 1;            // 设备像素比（高清渲染用，上限 2，逻辑坐标仍是 W×H）
 const H = 960;
 const GROUND_Y = 700;
 const GRAVITY = 2900;
@@ -202,11 +203,16 @@ function resize() {
   /* 自适应：逻辑高度固定 960，宽度完全跟随屏幕比例（大屏铺满大屏）。
      仅给超长竖屏设下限防视野过窄。 */
   W = clamp(Math.round((H * vw) / vh), 444, 2560);
-  cv.width = W;
-  cv.height = H;
+  /* 高清渲染：画布 backing store 按设备像素比放大（上限 2 倍，兼顾性能），
+     逻辑坐标依旧是 W×H，所有绘制与输入换算都不用改。 */
+  DPR = clamp(window.devicePixelRatio || 1, 1, 2);
+  cv.width = Math.round(W * DPR);
+  cv.height = Math.round(H * DPR);
   cv.style.width = vw + 'px';
   cv.style.height = vh + 'px';
-  ctx.imageSmoothingEnabled = false;
+  // 素材是柔和笔触的插画，缩放时用平滑采样更干净（像素字体在 ui.js 里单独关掉）
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   // 大屏时玩家位置前移（保持画面约 1/3 处），左侧留出空间看蚩尤全身追逐
   PLAYER_X = Math.round(clamp(W * 0.34, 152, 560));
   // 右下操作键跟随新宽度贴边
@@ -404,6 +410,8 @@ const G = {
   energy: 0,              // 冲刺能量 0~100
   dashT: 0,               // 冲刺剩余时间
   dashN: 0,               // 本局冲刺次数
+  /* ---- 局内升级等级（祭坛三选一，本局有效） ---- */
+  up: { djump: 0, magnet: 0, energy: 0, combo: 0, speed: 0, coin: 0, shieldMax: 0 },
 };
 try { G.best = +(localStorage.getItem('jiling_best') || 0) || 0; } catch (e) { G.best = 0; }
 try { const sv0 = localStorage.getItem('jiling_skin'); G.skinIdx = (/^\d+$/.test(sv0 || '') ? clamp(+sv0, 0, SKINS.length - 1) : 0); } catch (e) { G.skinIdx = 0; }   // 自定义皮肤 id 由 installCustomSkins 异步恢复
@@ -448,6 +456,9 @@ const world = {
   crates: [],
   enemies: [],
   bullets: [],
+  bolts: [],        // 雷暴落雷（无尽天气）
+  acidPools: [],    // 酸雨腐蚀区（无尽天气）
+  altars: [],       // 局内升级祭坛（三选一）
 };
 
 const player = {
@@ -501,6 +512,9 @@ function clearWorld() {
   world.crates = [];
   world.enemies = [];
   world.bullets = [];
+  world.bolts = [];
+  world.acidPools = [];
+  world.altars = [];
   world.gates = [];
   world.flames = [];
   world.belts = [];
@@ -578,7 +592,7 @@ function clearWorld() {
   G.nearCd = 0;
   G.holdJump = true;
   G.holdSlide = true;
-  G.airJump = AIR_JUMP_MAX;
+  G.airJump = AIR_JUMP_MAX + upLv('djump');
   G.airCd = 0;
   G.energy = 0;
   G.dashT = 0;
@@ -587,6 +601,36 @@ function clearWorld() {
   G.feverNeed = 20;
   G.dayT = 0;
   G.dayMark = 0;
+  /* ---- 无尽模式：追击脱身 / 天气 / 悬赏 / 陷阱风暴 ---- */
+  G.weather = null;       // 当前天气
+  G.weatherT = 0;         // 当前天气剩余秒数
+  G.weatherNext = 24;     // 距离下次天气
+  G.weatherMark = '';
+  G.acidUnder = false;    // 玩家是否踩在酸雨腐蚀区里（速度惩罚）
+  G.bounty = null;        // 当前悬赏
+  G.bountyDone = 0;       // 已完成悬赏数
+  G.bountyNextM = 150;    // 下一个悬赏的里程
+  G.surgeT = 0;           // 陷阱风暴剩余秒数
+  G.surgeNextM = 500;     // 下一次陷阱风暴的里程
+  G.surgeWin = 0;         // 撑过风暴次数
+  G.escapeN = 0;          // 本局甩掉追击者次数
+  G.escapeFlash = 0;      // 甩掉提示的高光计时
+  /* ---- 局内升级（祭坛三选一，本局有效） ---- */
+  G.up = { djump: 0, magnet: 0, energy: 0, combo: 0, speed: 0, coin: 0, shieldMax: 0 };
+  G.altar = null;         // 当前正在选的三张牌
+  G.altarT = 0;
+  G.altarNextM = 320;     // 下一个祭坛的里程
+  G.altarCount = 0;       // 本局吃了几个祭坛
+  /* ---- 月面低重力段 / 疾风挑战段 ---- */
+  G.moonT = 0;            // 月面剩余秒数
+  G.moonNextM = 420;
+  G.moonCount = 0;
+  G.galeT = 0;            // 疾风段剩余秒数
+  G.galeNextM = 780;
+  G.galeCount = 0;
+  G.nearStreak = 0;       // 连续极限闪避次数（身法连击）
+  G.streakBest = 0;
+  G.wallHit = 0;          // 刚刚撞过宝箱怪（用于视觉提示）
   G.revive = 0;
   G.knives = 0;
   FX.reset();
@@ -595,7 +639,7 @@ function clearWorld() {
 /* ---------------- 命运之门：跳起来穿上门，跑/滑铲穿下门 ---------------- */
 const GATES = [
   { id: 'magnet', name: '磁铁 25s', color: '#7de0c8', icon: '吸', act() { G.buff.magnet = 25; } },
-  { id: 'shield', name: '护盾 +1', color: '#63c9f0', icon: '盾', act() { G.shield = Math.min(2, G.shield + 1); } },
+  { id: 'shield', name: '护盾 +1', color: '#63c9f0', icon: '盾', act() { G.shield = Math.min(shieldCap(), G.shield + 1); } },
   { id: 'rich',   name: '金币 +60', color: '#ffd34d', icon: '金', act() { G.coins += 60; } },
   { id: 'x2',     name: '双倍 25s', color: '#c9a0ff', icon: '×2', act() { G.buff.x2 = 25; } },
   { id: 'invinc', name: '无敌 6s', color: '#ff9a5a', icon: '无', act() { G.buff.invinc = Math.max(G.buff.invinc, 6); } },
@@ -709,6 +753,397 @@ function nightAmount() {
   if (t < 70) return 1;                    // 深夜
   if (t < 80) return 1 - (t - 70) / 10;    // 黎明
   return 0;
+}
+
+/* ---------------- 无尽天气：雷暴 / 沙尘暴 / 酸雨 / 浓雾 ----------------
+   每 40~62 秒随机来一种，持续 26~30 秒；撑过去有金币与能量奖励。
+   天气只影响无尽模式，且都是「靠跑位能躲」的设计，不靠运气。 */
+const WEATHERS = [
+  { id: 'storm', name: '雷暴',   color: '#8cb4ff', life: 26, tip: '脚下蓝圈会落雷，跑开就行' },
+  { id: 'sand',  name: '沙尘暴', color: '#d8a86a', life: 30, tip: '顶风跑会被拖慢，抓紧节奏' },
+  { id: 'acid',  name: '酸雨',   color: '#a6e05a', life: 27, tip: '别站在腐蚀区里，会断连击' },
+  { id: 'fog',   name: '浓雾',   color: '#c8d8f0', life: 30, tip: '看不远，但空气里飘满金币' },
+];
+
+function startWeather(w) {
+  G.weather = {
+    id: w.id, name: w.name, color: w.color, tip: w.tip,
+    t: 0, life: w.life, boltCd: 1.1, acidCd: 0.6, moteCd: 0.25,
+  };
+  G.weatherT = w.life;
+  G.weatherMark = w.id;
+  FX.flashScreen(w.color, 0.2);
+  FX.sfloat(W / 2, 256, '天象 · ' + w.name, { color: w.color, size: 40, life: 1.8, vy: -9 });
+  FX.sfloat(W / 2, 312, w.tip, { color: 'rgba(255,255,255,0.95)', size: 25, life: 2.1, vy: -7 });
+  Snd.whoosh();
+}
+
+function endWeather() {
+  const w = G.weather;
+  G.weather = null;
+  G.weatherT = 0;
+  G.acidUnder = false;
+  if (!w) return;
+  const bonus = 45;
+  G.coins += bonus;
+  G.energy = Math.min(ENERGY_MAX, G.energy + 40);
+  FX.flashScreen('#ffe066', 0.16);
+  FX.sfloat(W / 2, 262, '天气转晴  +' + bonus + ' 金币', { color: '#ffe066', size: 34, life: 1.7, vy: -9 });
+  Snd.milestone();
+}
+
+/* 落雷落点：按当前速度预判玩家前方，给足 1 秒以上的跑位时间 */
+function spawnBolt() {
+  const lead = world.speed * rnd(1.3, 1.95);
+  world.bolts.push({ x: world.x + PLAYER_X + clamp(lead, 240, W - 60), t: 0, warn: 1.05, hit: false });
+}
+
+/* 酸滴落点 → 砸出一小片腐蚀区 */
+function spawnAcid() {
+  const x = world.x + rnd(PLAYER_X - 70, W - 40);
+  world.acidPools.push({ x: x, t: 0, life: 2.4, hit: false });
+  FX.burst(x, GROUND_Y - 250, 3, {
+    vx0: -14, vx1: 14, vy0: 300, vy1: 460,
+    life0: 0.28, life1: 0.46, size0: 4, size1: 9, color: 'rgba(166,224,90,0.85)',
+  });
+}
+
+function updateWeather(dt) {
+  if (G.mode !== 'endless') return;
+  if (!G.weather) {
+    G.weatherNext -= dt;
+    if (G.weatherNext <= 0) {
+      startWeather(WEATHERS[Math.floor(Math.random() * WEATHERS.length)]);
+      G.weatherNext = rnd(40, 62);
+    }
+    return;
+  }
+  const w = G.weather;
+  w.t += dt;
+  G.weatherT = Math.max(0, w.life - w.t);
+
+  if (w.id === 'storm') {
+    w.boltCd -= dt;
+    if (w.boltCd <= 0) { w.boltCd = rnd(1.15, 2.0); spawnBolt(); Snd.spikeOut(); }
+  }
+  // 落雷推进与命中（竖雷：站在圈里就中，跳没用，必须横移）
+  // 注意坐标系：bolt.x 与玩家判定框都是世界坐标，粒子也是世界层
+  const box = playerBox();
+  const pc = (box.l + box.r) / 2;
+  for (const b of world.bolts) {
+    b.t += dt;
+    if (!b.hit && b.t >= b.warn && b.t < b.warn + 0.22) {
+      b.hit = true;
+      FX.flashScreen('#eaf3ff', 0.24);
+      FX.addShake(0.4);
+      Snd.crack();
+      for (let i = 0; i < 10; i++) {
+        FX.burst(b.x, GROUND_Y - rnd(0, 30), 1, {
+          vx0: -280, vx1: 280, vy0: -320, vy1: -40,
+          life0: 0.25, life1: 0.5, size0: 4, size1: 11, color: 'rgba(226,240,255,0.9)',
+        });
+      }
+      if (Math.abs(pc - b.x) < 42) { die('bolt'); return; }
+    }
+  }
+  if (world.bolts.length) world.bolts = world.bolts.filter(b => b.t < b.warn + 0.45);
+
+  // 酸雨：腐蚀区拖慢脚步 + 断连击（不致死，压力型）
+  if (w.id === 'acid') {
+    w.acidCd -= dt;
+    if (w.acidCd <= 0) { w.acidCd = rnd(0.75, 1.35); spawnAcid(); }
+  }
+  let under = false;
+  if (world.acidPools.length) {
+    for (const p of world.acidPools) {
+      p.t += dt;
+      if (!p.hit && p.t > 0.15 && Math.abs(pc - p.x) < 58 && player.y > GROUND_Y - 96) {
+        p.hit = true;
+        if (G.combo > 0) {
+          G.combo = 0;
+          FX.float(world.x + PLAYER_X + 30, player.y - 190, '连击断了', { color: '#a6e05a', size: 24 });
+        }
+        Snd.nearMiss();
+      }
+      if (Math.abs(pc - p.x) < 58 && player.y > GROUND_Y - 96) under = true;
+    }
+    world.acidPools = world.acidPools.filter(p => p.t < p.life);
+  }
+  G.acidUnder = under;
+
+  // 沙尘 / 雾：飘动颗粒（氛围 + 能见度）
+  if (w.id === 'sand' || w.id === 'fog') {
+    w.moteCd -= dt;
+    if (w.moteCd <= 0) {
+      const sand = w.id === 'sand';
+      w.moteCd = sand ? 0.05 : 0.16;
+      // FX.burst 是世界层粒子：沙尘从屏幕右侧往左飘，雾在全屏随机
+      FX.burst(world.x + rnd(sand ? W - 40 : 0, W + 120), rnd(60, GROUND_Y - 20), 1, {
+        vx0: sand ? -430 : -90, vx1: sand ? -260 : -40,
+        vy0: sand ? -30 : -8, vy1: sand ? 40 : 10,
+        life0: sand ? 0.5 : 1.6, life1: sand ? 1.0 : 2.6,
+        size0: sand ? 3 : 4, size1: sand ? 7 : 9,
+        color: sand ? 'rgba(216,168,106,0.55)' : 'rgba(222,232,246,0.42)',
+      });
+    }
+  }
+
+  if (w.t >= w.life) endWeather();
+}
+
+/* ---------------- 无尽悬赏：每 150 米一个随机小目标，达成有奖 ---------------- */
+const BOUNTIES = [
+  { id: 'coin',  need: 30, name: '收集 30 枚金币',   color: '#ffd34d' },
+  { id: 'combo', need: 16, name: '累计 16 连击',     color: '#ff9ed8' },
+  { id: 'nohit', need: 220, name: '不失误跑 220 米', color: '#7de08a' },
+  { id: 'jump',  need: 18, name: '跳跃 18 次',       color: '#8ce8ff' },
+  { id: 'slide', need: 14, name: '滑铲 14 次',       color: '#c9a0ff' },
+];
+
+function rollBounty() {
+  const b = BOUNTIES[Math.floor(Math.random() * BOUNTIES.length)];
+  G.bounty = {
+    id: b.id, name: b.name, color: b.color, need: b.need, have: 0,
+    base: Math.floor(world.x / PX_PER_M),
+  };
+  FX.sfloat(W / 2, 300, '悬赏 · ' + b.name, { color: b.color, size: 31, life: 1.7, vy: -8 });
+  Snd.spikeOut();
+}
+
+function bountyHave() {
+  const b = G.bounty;
+  if (!b) return 0;
+  return b.id === 'nohit' ? Math.floor(world.x / PX_PER_M) - b.base : b.have;
+}
+
+function bountyAdd(id, n) {
+  const b = G.bounty;
+  if (!b || b.id !== id) return;
+  b.have += (n || 1);
+  if (b.have >= b.need) completeBounty();
+}
+
+function completeBounty() {
+  const b = G.bounty;
+  if (!b) return;
+  G.bounty = null;
+  G.bountyDone++;
+  const gold = 60 + G.bountyDone * 15;
+  G.coins += gold;
+  G.energy = Math.min(ENERGY_MAX, G.energy + 45);
+  if (Math.random() < 0.45) G.shield = Math.min(shieldCap(), G.shield + 1);
+  FX.flashScreen(b.color, 0.18);
+  FX.ring(world.x + PLAYER_X, player.y - 90, { r0: 18, r1: 170, max: 0.5, color: b.color, width: 7 });
+  FX.sfloat(W / 2, 284, '悬赏达成 +' + gold + ' 金币', { color: b.color, size: 38, life: 1.8, vy: -10 });
+  Snd.milestone();
+}
+
+function updateBounty() {
+  if (G.mode !== 'endless') return;
+  if (G.bounty && G.bounty.id === 'nohit' && bountyHave() >= G.bounty.need) completeBounty();
+  const m = Math.floor(world.x / PX_PER_M);
+  if (!G.bounty && m >= G.bountyNextM) {
+    G.bountyNextM = m + 150;
+    rollBounty();
+  }
+}
+
+/* ---------------- 陷阱风暴：每 500 米一段高密度机关期 ---------------- */
+function updateSurge(dt) {
+  if (G.mode !== 'endless') return;
+  if (G.surgeT > 0) {
+    G.surgeT = Math.max(0, G.surgeT - dt);
+    if (G.surgeT === 0) {
+      const gold = 90 + (G.surgeWin || 0) * 30;
+      G.surgeWin = (G.surgeWin || 0) + 1;
+      G.coins += gold;
+      G.energy = ENERGY_MAX;
+      FX.flashScreen('#ffd34d', 0.22);
+      FX.sfloat(W / 2, 286, '风暴平息 +' + gold + ' 金币', { color: '#ffe066', size: 38, life: 1.8, vy: -10 });
+      Snd.clear();
+    }
+    return;
+  }
+  const m = Math.floor(world.x / PX_PER_M);
+  if (m >= G.surgeNextM) {
+    G.surgeNextM = m + 500;
+    G.surgeT = 34;
+    FX.flashScreen('#ff5a4a', 0.3);
+    FX.addShake(0.55);
+    FX.sfloat(W / 2, 258, '陷阱风暴！机关翻倍', { color: '#ff8f7e', size: 42, life: 1.9, vy: -11 });
+    Snd.crack();
+  }
+}
+
+/* ---------------- 局内升级：无尽祭坛三选一 ----------------
+   每 320 米出现一座祭坛，碰到就暂停世界、亮出三张牌，选一张永久强化本局。
+   词条全部挂到已有系统（跳跃/磁铁/能量/连击/速度/金币/护盾）上，不另造一套规则。 */
+const UPGRADES = [
+  { id: 'djump', name: '风息之靴', desc: '空中补跳 +1', color: '#8ce8ff', max: 3 },
+  { id: 'magnet', name: '磁力核心', desc: '拾取范围 +45', color: '#ff9ed8', max: 4 },
+  { id: 'energy', name: '超导线圈', desc: '冲刺能量攒得更快', color: '#a8e86c', max: 3 },
+  { id: 'combo', name: '节拍器', desc: '连击窗口 +0.2 秒', color: '#c9a0ff', max: 3 },
+  { id: 'speed', name: '疾风羽', desc: '奔跑速度 +5%', color: '#ff9a5a', max: 4 },
+  { id: 'coin', name: '贪金护符', desc: '金币收益 +20%', color: '#ffd34d', max: 4 },
+  { id: 'shieldMax', name: '守护刻印', desc: '立刻 +1 护盾，上限 +1', color: '#7de08a', max: 2 },
+];
+
+function upLv(id) { return (G.up && G.up[id]) || 0; }
+/** 护盾上限：基础 2 + 祭坛「守护刻印」 */
+function shieldCap() { return 2 + upLv('shieldMax'); }
+
+/** 祭坛亮牌：抽 3 张还能升的；全满则直接折成金币。 */
+function openAltar() {
+  const pool = UPGRADES.filter(u => upLv(u.id) < u.max);
+  if (!pool.length) {
+    G.coins += 150;
+    FX.sfloat(W / 2, 300, '祭坛 · 已无强化  +150 金币', { color: '#ffd34d', size: 32, life: 1.8, vy: -8 });
+    Snd.milestone();
+    return;
+  }
+  const picks = [];
+  const left = pool.slice();
+  while (picks.length < 3 && left.length) picks.push(left.splice(Math.floor(Math.random() * left.length), 1)[0]);
+  G.altar = { picks: picks };
+  G.altarT = 0;
+  G.state = 'altar';
+  G.altarCount = (G.altarCount || 0) + 1;
+  FX.flashScreen('#c9a0ff', 0.22);
+  Snd.gate(false);
+}
+
+/** 选牌生效（本局永久）。 */
+function pickUpgrade(uid) {
+  const a = G.altar;
+  if (!a) return;
+  const u = a.picks.find(x => x.id === uid);
+  if (!u) return;
+  if (!G.up) G.up = {};
+  G.up[u.id] = upLv(u.id) + 1;
+  G.altar = null;
+  G.state = 'playing';
+  G.buff.invinc = Math.max(G.buff.invinc, 1.3);      // 缓冲一下，避免刚恢复就被撞
+  if (u.id === 'shieldMax') G.shield = Math.min(2 + upLv('shieldMax'), G.shield + 1);
+  if (u.id === 'djump') G.airJump = AIR_JUMP_MAX + upLv('djump');
+  if (u.id === 'magnet') applyBuff('magnet', true);
+  FX.flashScreen(u.color, 0.24);
+  FX.sfloat(W / 2, 300, u.name + ' · ' + u.desc, { color: u.color, size: 33, life: 1.9, vy: -9 });
+  FX.ring(world.x + PLAYER_X, player.y - 90, { r0: 18, r1: 180, max: 0.5, color: u.color, width: 7 });
+  Snd.clear();
+}
+
+/** 祭坛三张牌的坐标（绘制与点击热区共用，保证所见即所点）。 */
+function altarCards() {
+  const a = G.altar;
+  if (!a) return [];
+  const n = a.picks.length;
+  const cw = Math.min(300, Math.round((W - 60) / Math.max(1, n)) - 12);
+  const ch = 210;
+  const totalW = n * cw + (n - 1) * 12;
+  const x0 = Math.round((W - totalW) / 2);
+  const y = Math.round(H * 0.46);
+  return a.picks.map((u, i) => ({
+    u: u, x: x0 + i * (cw + 12), y: y, w: cw, h: ch, lv: upLv(u.id), max: u.max,
+  }));
+}
+
+/* ---------------- 月面低重力段 / 疾风挑战段 ----------------
+   月面：重力降到 55%，跳得更高更飘；
+   疾风：全程 +22% 速度、金币翻倍，跑满 15 秒给大奖。都是限时的节奏变化。 */
+function moonActive() { return G.moonT > 0; }
+function gravMul() { return moonActive() ? 0.55 : 1; }
+
+function updateWorldEvents(dt) {
+  if (G.mode !== 'endless') return;
+  const m = Math.floor(world.x / PX_PER_M);
+  // ── 月面段 ──
+  if (G.moonT > 0) {
+    G.moonT = Math.max(0, G.moonT - dt);
+    // 月面上漂着成排金币（配合更高的跳跃）
+    if (Math.random() < 0.07) {
+      const bx0 = world.x + W + rnd(40, 240);
+      const by = GROUND_Y - rnd(230, 330);
+      for (let i = 0; i < 5; i++) {
+        world.coins.push({
+          x: bx0 + i * 74, y: by - Math.sin((i / 4) * Math.PI) * 42,
+          phase: i * 1.1, taken: false,
+        });
+      }
+    }
+    if (Math.random() < 0.25) {
+      FX.burst(world.x + rnd(0, W), rnd(GROUND_Y - 420, GROUND_Y - 250), 1, {
+        vx0: -30, vx1: 10, vy0: -20, vy1: 10,
+        life0: 0.9, life1: 1.8, size0: 2, size1: 5, color: 'rgba(220,235,255,0.75)',
+      });
+    }
+    if (G.moonT === 0) {
+      FX.sfloat(W / 2, 268, '回到地面 · 重力恢复', { color: '#a8c4f2', size: 32, life: 1.7, vy: -8 });
+      FX.addShake(0.25);
+    }
+  } else if (m >= G.moonNextM) {
+    G.moonNextM = m + 520;
+    G.moonT = 13;
+    G.moonCount = (G.moonCount || 0) + 1;
+    FX.flashScreen('#b8d0ff', 0.26);
+    FX.sfloat(W / 2, 262, '月面段 · 重力变轻', { color: '#cfe0ff', size: 42, life: 1.9, vy: -10 });
+    FX.sfloat(W / 2, 316, '跳得更高更飘，别冲过头', { color: 'rgba(255,255,255,0.95)', size: 26, life: 2.1, vy: -7 });
+    Snd.whoosh();
+  }
+  // ── 疾风段 ──
+  if (G.galeT > 0) {
+    G.galeT = Math.max(0, G.galeT - dt);
+    if (Math.random() < 0.5) {
+      FX.burst(world.x + rnd(W - 60, W + 80), rnd(60, GROUND_Y - 20), 1, {
+        vx0: -620, vx1: -380, vy0: -20, vy1: 20,
+        life0: 0.35, life1: 0.7, size0: 3, size1: 8, color: 'rgba(200,240,255,0.5)',
+      });
+    }
+    if (G.galeT === 0) {
+      const gold = 120;
+      G.coins += gold;
+      G.energy = ENERGY_MAX;
+      FX.flashScreen('#8ce8ff', 0.22);
+      FX.sfloat(W / 2, 280, '疾风跑完 +' + gold + ' 金币', { color: '#8ce8ff', size: 38, life: 1.9, vy: -10 });
+      Snd.clear();
+    }
+  } else if (m >= G.galeNextM) {
+    G.galeNextM = m + 820;
+    G.galeT = 15;
+    G.galeCount = (G.galeCount || 0) + 1;
+    FX.flashScreen('#8ce8ff', 0.28);
+    FX.addShake(0.4);
+    FX.sfloat(W / 2, 258, '疾风段 · 全程提速', { color: '#8ce8ff', size: 44, life: 1.9, vy: -11 });
+    FX.sfloat(W / 2, 314, '这一路金币翻倍，跑满 15 秒有大奖', { color: 'rgba(255,255,255,0.95)', size: 25, life: 2.1, vy: -7 });
+    Snd.dash();
+  }
+}
+
+/* 身法连击：连续极限闪避攒「身法」，满 4 次送一次短无敌 + 能量 */
+function nearStreakAdd() {
+  G.nearStreak = (G.nearStreak || 0) + 1;
+  if (G.nearStreak > (G.streakBest || 0)) G.streakBest = G.nearStreak;
+  if (G.nearStreak >= 4) {
+    G.nearStreak = 0;
+    G.buff.invinc = Math.max(G.buff.invinc, 1.1);
+    G.energy = Math.min(ENERGY_MAX, G.energy + 25);
+    G.coins += 20;
+    FX.flashScreen('#ffe066', 0.18);
+    FX.sfloat(W / 2, 292, '身法！+20 金币 · 短无敌', { color: '#ffe066', size: 34, life: 1.7, vy: -9 });
+    Snd.milestone();
+  } else {
+    FX.float(world.x + PLAYER_X + 40, player.y - 214, '身法 ' + G.nearStreak + '/4', { color: '#ffe066', size: 19 });
+  }
+}
+
+/* 撞碎障碍 / 踩死小怪的统一收益出口 */
+function smashReward(x, y, label, gold) {
+  G.coins += gold;
+  G.combo++;
+  G.comboDelay = 0.7;
+  if (G.combo > G.maxCombo) G.maxCombo = G.combo;
+  bountyAdd('combo', 1);
+  FX.float(x, y, label + ' +' + gold, { color: '#8ce8ff', size: 24 });
+  Snd.star(1);
 }
 
 // ---- 关卡数据：赛道 + 随机目标 ----
@@ -1746,15 +2181,53 @@ function spawnFeature(kind, c, dM) {
     }
     case 'crate': {
       const x = c + clamp(world.speed * 0.5, 200, 320);
-      world.crates.push({ x, y: GROUND_Y - rnd(96, 152), taken: false, ph: rnd(0, 6.28) });
+      // 三成概率是宝箱怪：咬人一口（断连击 + 掉金币 + 减速），看得出来的玩家能提前躲开
+      const mimic = Math.random() < 0.3;
+      world.crates.push({ x, y: GROUND_Y - rnd(96, 152), taken: false, ph: rnd(0, 6.28), mimic: mimic });
       return x + 130;
+    }
+    case 'fork': {
+      /* 双路线：上面是高台链（安全、金币多，但跳空就掉进坑），
+         下面留一道路障（要滑铲/跳）。让玩家自己选一条路走。 */
+      const x = c + clamp(world.speed * 0.55, 230, 360);
+      const n = 2 + Math.floor(Math.random() * 2);          // 2~3 段高台
+      const top = GROUND_Y - rnd(238, 262);
+      const pw = rnd(180, 250);
+      for (let i = 0; i < n; i++) {
+        const px = x + i * (pw + rnd(96, 132));
+        world.platforms.push({ x: px, w: pw, top: top - (i % 2) * 22, h: 70 });
+        for (let k = 0; k < 3; k++) {
+          world.coins.push({ x: px + pw * (0.22 + 0.28 * k), y: top - 74, phase: k * 1.1, taken: false });
+        }
+      }
+      // 地面路线：一段坑 + 一排刺，走下面要会跳会铲
+      const gw = rnd(140, 178);
+      world.gaps.push({ x: x, w: gw, spikes: Math.max(2, Math.round(gw / 44)) });
+      world.signs.push({ x: x - 200 });
+      world.hiddenSpikes.push({ x: x + (n * (pw + 110)) * 0.5, w: 104, t: -1 });
+      return x + n * (pw + 120) + 120;
     }
     case 'enemy': {
       const x = c + clamp(world.speed * 0.5, 210, 330);
-      world.enemies.push({
-        x, y0: GROUND_Y - rnd(142, 186), amp: rnd(28, 40), spd: rnd(0.9, 1.3),
-        phase: rnd(0, 6.28), r: 26, dead: false, deadT: 0,
-      });
+      // 三种小怪：浮空怪（可踩）/ 跳跳刺球（贴地弹跳，要跳或铲）/ 盾怪（只能冲刺撞碎）
+      const r0 = Math.random();
+      const kind = r0 < 0.55 ? 'float' : r0 < 0.82 ? 'hopper' : 'shield';
+      if (kind === 'hopper') {
+        world.enemies.push({
+          kind: kind, x, y0: GROUND_Y - 34, amp: 0, spd: 1, phase: rnd(0, 6.28),
+          hopT: rnd(0, 0.9), hopCd: 1.15, vy: 0, y: GROUND_Y - 34, r: 30, dead: false, deadT: 0,
+        });
+      } else if (kind === 'shield') {
+        world.enemies.push({
+          kind: kind, x, y0: GROUND_Y - 74, amp: 12, spd: 1.4, phase: rnd(0, 6.28),
+          y: GROUND_Y - 74, r: 34, dead: false, deadT: 0, armor: true,
+        });
+      } else {
+        world.enemies.push({
+          kind: 'float', x, y0: GROUND_Y - rnd(142, 186), amp: rnd(28, 40), spd: rnd(0.9, 1.3),
+          phase: rnd(0, 6.28), r: 26, dead: false, deadT: 0,
+        });
+      }
       return x + 130;
     }
     case 'fakeCoins': {
@@ -1849,6 +2322,9 @@ function generateAhead() {
       if (dM > 65) pool.push('spikeTrap', 'crate');
       if (dM > 95) pool.push('lowBar', 'belt');
       if (dM > 125) pool.push('flame', 'movingPlatform');
+      if (dM > 110) pool.push('fork');
+      // 小怪解锁早、权重高：它是有互动性的对手（能踩能撞），不该跟纯陷阱一样稀有
+      if (dM > 130) pool.push('enemy', 'enemy');
       if (dM > 155) pool.push('updraft', 'ceilingPair', 'fakeFloor');
       if (dM > 195) pool.push('pendulum', 'bouncePad', 'bait');
       if (dM > 235) pool.push('rollingRock', 'booster', 'fakeCoins');
@@ -1857,14 +2333,20 @@ function generateAhead() {
       let pick = pool[Math.floor(Math.random() * pool.length)];
       // 玩家 mod 库非空时，18% 概率投放自定义机关（60 米后解锁）
       if (dM > 60 && (world.ugcMods || []).length && Math.random() < 0.18) pick = 'ugc';
-      // 陷阱大减：危险机关有一半概率被换成金币，压力主要交给蚩尤
-      else if (pick !== 'coins' && pick !== 'gap' && pick !== 'platform' && pick !== 'crate' && Math.random() < 0.55) {
+      // 陷阱大减：危险机关有一半概率被换成金币，压力主要交给蚩尤（陷阱风暴期间不稀释）
+      // 小怪不参与稀释——踩它/撞它是主动玩法，不是「又一处躲不掉的地刺」
+      else if (G.surgeT <= 0 && pick !== 'coins' && pick !== 'gap' && pick !== 'platform' && pick !== 'crate'
+        && pick !== 'enemy' && Math.random() < 0.55) {
         pick = 'coins';
       }
+      // 浓雾天：空气里飘满金币
+      if (G.weather && G.weather.id === 'fog' && pick !== 'coins' && Math.random() < 0.3) pick = 'coins';
       end = spawnFeature(pick, c, dM);
     }
     const ease = 1 - Math.min(0.45, dM / 2600);
-    world.genCursor = end + clamp(rnd(360, 540) * ease, 260, 540);
+    const step = clamp(rnd(360, 540) * ease, 260, 540);
+    // 陷阱风暴：机关间距压缩，密度翻倍
+    world.genCursor = end + (G.surgeT > 0 ? Math.max(190, step * 0.66) : step);
   }
 }
 
@@ -2220,7 +2702,39 @@ function updateBoss(dt) {
   }
 }
 
-/* 常态蚩尤：无尽模式里在远处缀着，玩家失误就逼近。
+/* 甩掉追击者：他退场一段，玩家拿到喘息与奖励（无尽模式的「以跑代打」） */
+function shakeOffChaser(c) {
+  const name = c.skin === 'aj' ? '阿坚' : '蚩尤';
+  c.lost = true;
+  c.lostT = rnd(13, 17);
+  c.lostWarn = false;
+  c.hidden = true;
+  c.escape = 0;
+  c.skillT = -1;
+  c.sliding = false;
+  c.slideT = 0;
+  c.y = GROUND_Y;
+  c.vy = 0;
+  c.onGround = true;
+  c.bx = -420;
+  G.escapeN = (G.escapeN || 0) + 1;
+  G.escapeFlash = 2.6;
+  const bonus = 40 + G.escapeN * 20;
+  G.coins += bonus;
+  G.energy = Math.min(ENERGY_MAX, G.energy + 50);
+  FX.flashScreen('#8ce8ff', 0.3);
+  FX.addShake(0.35);
+  FX.sfloat(W / 2, 248, '甩掉了！', { color: '#8ce8ff', size: 56, life: 1.9, vy: -12 });
+  FX.sfloat(W / 2, 312, name + '被甩在身后  +' + bonus + ' 金币 · 能量 +50',
+    { color: '#ffe066', size: 28, life: 2.0, vy: -9 });
+  FX.burst(world.x + PLAYER_X, player.y - 90, 30, {
+    vx0: -320, vx1: 320, vy0: -300, vy1: 60,
+    life0: 0.35, life1: 0.8, size0: 5, size1: 13, color: 'rgba(140,232,255,0.95)',
+  });
+  Snd.clear();
+}
+
+/* 常态蚩尤：无尽模式里缀在身后，玩家失误就逼近；跑得好可以把他甩掉。
    三种技能轮换：改陷阱 / 掷骨刺 / 突进爪击 */
 function updateChiyou(dt) {
   let c = G.chiyou;
@@ -2235,6 +2749,9 @@ function updateChiyou(dt) {
       phase: 0, starsLeft: 0, starT: 0, bigDone: false,
       marks: 0, markT: 0,           // 忍印：随时间积攒，满 3 层放大招「影分身之术」
       cloneOn: false, cloneT: 0, cloneBx: 0, cloneStar: 0,   // 影分身活动状态
+      /* 追击松紧：escape = 玩家脱身进度(0~1)，aggro = 他的压迫值(0~1)；
+         跑得好他能被甩掉，失误就被重新咬住 */
+      escape: 0, aggro: 0.35, lost: false, lostT: 0, lostWarn: false,
     };
     if (skin === 'aj') {
       // 忍者烟雾登场：藏 0.4 秒后现身
@@ -2249,6 +2766,27 @@ function updateChiyou(dt) {
   }
   c.t += dt;
   if (c.hurtT > 0) c.hurtT -= dt;
+  /* 被甩掉后：他在后面重整旗鼓，玩家拿到一小段没有追击者的窗口 */
+  if (c.lost) {
+    c.lostT -= dt;
+    if (c.lostT <= 3.2 && !c.lostWarn) {
+      c.lostWarn = true;
+      FX.sfloat(W / 2, 262, (c.skin === 'aj' ? '阿坚' : '蚩尤') + ' 又追上来了…',
+        { color: '#ff9a8a', size: 32, life: 1.6, vy: -8 });
+      Snd.whoosh();
+    }
+    if (c.lostT <= 0) {
+      c.lost = false;
+      c.lostWarn = false;
+      c.hidden = false;
+      c.bx = -260; c.escape = 0.2; c.aggro = 0.8;
+      c.skillCd = rnd(2.6, 4.2); c.skillT = -1;
+      c.y = GROUND_Y; c.vy = 0; c.onGround = true; c.sliding = false; c.waitT = 0;
+      FX.burst(world.x + 70, GROUND_Y - 110, 14, {
+        vx0: -150, vx1: 150, vy0: -190, vy1: 20, life0: 0.25, life1: 0.55, size0: 6, size1: 16, color: 'rgba(255,150,120,0.8)',
+      });
+    }
+  }
   // 烟雾登场计时：到点现身
   if (c.introT > 0) {
     c.introT -= dt;
@@ -2375,16 +2913,33 @@ function updateChiyou(dt) {
     }
   }
 
-  // 一直追：跟在玩家左后方约 300px（屏宽伸缩时保持相对距离，全身可见），失误会压上来
-  // mod 可改：cyTune.gap 跟随距离 / cyTune.speed 追速 / cyTune.skills 技能频率
+  /* ---- 追击松紧：跑得好就能拉开距离，失误就被压上来（他是能甩掉的） ----
+     escape 涨满 + 他已经被甩到身后 → 脱身成功，退场一段；
+     被减速/踩酸雨/被打断 → escape 掉、aggro 涨，他立刻逼近。
+     mod 可改：cyTune.gap 基准跟随距离 / cyTune.speed 追速 / cyTune.skills 技能频率 */
   const cyGap = (world.cyTune && world.cyTune.gap) || 300;
   const cySpd = (world.cyTune && world.cyTune.speed) || 1;
-  c.bx += ((PLAYER_X - cyGap) - c.bx) * Math.min(1, dt * 0.6 * cySpd);
+  const clean = c.hurtT <= 0 && !(c.waitT > 0);
+  const fast = world.speed > BASE_SPEED * 1.12 || G.dashT > 0 || G.buff.sprint > 0;
+  const winded = (G.beltMul && G.beltMul < 1) || G.acidUnder || (G.weather && G.weather.id === 'sand');
+  if (clean && fast && !winded) {
+    c.escape = clamp((c.escape || 0) + dt * (0.08 + Math.min(0.05, G.combo * 0.0015)), 0, 1);
+  } else if (winded) {
+    c.escape = clamp((c.escape || 0) - dt * 0.14, 0, 1);
+  } else {
+    c.escape = clamp((c.escape || 0) - dt * 0.035, 0, 1);
+  }
+  c.aggro = clamp((c.aggro || 0.35) + dt * ((c.escape || 0) < 0.45 ? 0.07 : -0.14), 0, 1);
+  // 追赶目标距离：脱身进度把他往后推，压迫值把他往前拉（最多拉到基准的 2.6 倍）
+  const gap = clamp(cyGap * (1 + (c.escape || 0) * 1.7 - c.aggro * 0.3), 80, cyGap * 2.6);
+  c.bx += ((PLAYER_X - gap) - c.bx) * Math.min(1, dt * 0.6 * cySpd * (1 + c.aggro * 0.6));
   // 强制规则：非技能状态下不许贴脸/重叠——距离过近就停在原地，等玩家跑过去（技能爪击突进不受此限）
   if (c.skillT < 0 && PLAYER_X - c.bx < 100) {
     c.bx = PLAYER_X - 100;
     c.waitT = (c.waitT || 0) + dt;
   } else if (c.waitT > 0) c.waitT = 0;
+  // 脱身达成：他已经彻底落在身后 → 甩掉！
+  if ((c.escape || 0) >= 1 && c.bx < -140 && c.skillT < 0) shakeOffChaser(c);
   // 追逐尘土：落地奔跑时才有（停下等待时不扬尘）
   if (c.onGround && c.hurtT <= 0 && !(c.waitT > 0) && Math.random() < 0.35) {
     FX.burst(c.bx + 60 + rnd(-30, 40), c.y - rnd(4, 26), 1, {
@@ -2522,7 +3077,8 @@ function updateChiyou(dt) {
   if (world.meteors.length) world.meteors = world.meteors.filter(m => m.boom === 0 || m.boom < 0.55);
 
   // 技能轮换触发：蚩尤五招 / 阿坚六招轮着来
-  c.skillCd -= dt * ((world.cyTune && world.cyTune.skills) || 1);
+  // 被甩开的趋势越明显，他放技能越少（压迫感跟着追击距离走）
+  c.skillCd -= dt * ((world.cyTune && world.cyTune.skills) || 1) * (0.6 + (c.aggro || 0.35) * 0.75);
   if (c.skillCd <= 0 && c.skillT < 0) {
     c.skillT = 0;
     c.spawned = false;
@@ -2849,6 +3405,11 @@ function playerBox() {
 function nearMiss() {
   if (G.nearCd > 0 || G.state !== 'playing') return;
   G.nearCd = 0.55;
+  // 极限闪避 = 身法好：脱身进度小涨，奖励走位而不是硬吃
+  if (G.chiyou && !G.chiyou.lost) {
+    G.chiyou.escape = clamp((G.chiyou.escape || 0) + 0.025, 0, 1);
+  }
+  nearStreakAdd();   // 身法连击：满 4 次送短无敌
   Snd.nearMiss();
   FX.float(world.x + PLAYER_X + 34, player.y - 196, '险！', { color: '#ffe066', size: 25 });
   FX.ring(world.x + PLAYER_X, player.y - 70, {
@@ -2974,9 +3535,18 @@ function updateHazards(dt) {
     }
   }
 
-  // 浮空怪死亡动画计时
+  // 小怪：死亡动画计时 + 跳跳刺球的弹跳物理 + 盾怪的浮动
   for (const en of world.enemies) {
-    if (en.dead) en.deadT = (en.deadT || 0) + dt;
+    if (en.dead) { en.deadT = (en.deadT || 0) + dt; continue; }
+    if (en.kind === 'hopper') {
+      en.hopCd = (en.hopCd || 0) - dt;
+      if (en.hopCd <= 0 && en.y >= GROUND_Y - 36) { en.vy = -790; en.hopCd = rnd(1.0, 1.5); }
+      en.vy += GRAVITY * 0.62 * dt;
+      en.y += en.vy * dt;
+      if (en.y > GROUND_Y - 34) { en.y = GROUND_Y - 34; en.vy = 0; }
+    } else if (en.kind === 'shield') {
+      en.y = en.y0 + Math.sin(G.time * en.spd + en.phase) * en.amp;
+    }
   }
 
   for (const bo of world.boosters) {
@@ -3007,8 +3577,9 @@ function updateHazards(dt) {
   }
 }
 
-/* 浮空怪：上下浮动，踩头顶可以借力弹起并回补一次补跳 */
+/* 小怪位置：浮空怪上下浮动（可踩），跳跳刺球走自己的弹跳物理，盾怪小幅浮动 */
 function enemyY(en) {
+  if (en.kind === 'hopper') return en.y;
   return en.y0 + Math.sin(G.time * en.spd + en.phase) * en.amp;
 }
 
@@ -3026,8 +3597,8 @@ function spikeTrapHeight(tr) {
 function doJump() {
   if (G.state !== 'playing') return;
   const canGround = player.onGround || player.coyote > 0;
-  // 道具给的二段跳
-  const canBuff = G.buff.djump > 0 && !player.onGround && (player.jumps || 0) < 2;
+  // 道具给的二段跳（祭坛「风息之靴」再放宽上限）
+  const canBuff = G.buff.djump > 0 && !player.onGround && (player.jumps || 0) < 2 + upLv('djump');
   // 被动补跳：只能在下坠途中触发，且不在冷却里
   const canAir = !canGround && !canBuff && player.vy > 0 && G.airJump > 0 && G.airCd <= 0;
   // mod 给的固有空中跳（api.player({ airJumps })）
@@ -3044,6 +3615,7 @@ function doJump() {
   const lowJump = canGround && (G.holdSlide && (!player.sliding || player.slidingT < 0.34));
   player.sliding = false;
   G.jumpCount++;
+  bountyAdd('jump', 1);
   player.jumpCut = true;   // 本跳可被「松手截断」：长按 = 满跳，轻点 = 小跳
   const jm = (world.pTune && world.pTune.jumpMul) || 1;
 
@@ -3099,6 +3671,7 @@ function doSlide() {
   if (player.onGround) {
     if (!player.sliding) {
       G.slideCount++;
+      bountyAdd('slide', 1);
       Snd.slide();
       FX.burst(world.x + PLAYER_X - 30, player.y - 6, 8, {
         vx0: -300, vx1: -120, vy0: -120, vy1: -20,
@@ -3142,7 +3715,8 @@ function doDash() {
 // ---- 物理 ----
 function updatePlayer(dt) {
   player.prevY = player.y;
-  player.vy += GRAVITY * ((world.pTune && world.pTune.gravMul) || 1) * dt;
+  // 重力 = 基准 × 月面段倍率 × mod 倍率
+  player.vy += GRAVITY * gravMul() * ((world.pTune && world.pTune.gravMul) || 1) * dt;
   // 可变跳跃高度：上升中松开跳跃键 → 立刻砍动量快速回落（轻点小跳 / 长按满跳）
   if (player.vy < 0 && !G.holdJump && player.jumpCut) {
     player.jumpCut = false;
@@ -3354,7 +3928,20 @@ function updatePlayer(dt) {
     const ed2 = ddx * ddx + ddy * ddy;
     const er = en.r * 0.88;
     if (ed2 < er * er) {
-      if (player.vy > 60 && player.prevY <= ey + 14) {
+      const stomp = player.vy > 60 && player.prevY <= ey + 14;
+      // 冲刺撞碎：盾怪唯一的解法（普通怪也能撞）
+      if (G.dashT > 0) {
+        en.dead = true;
+        en.deadT = 0;
+        smashReward(en.x, ey - 40, en.armor ? '破盾撞碎' : '撞碎', en.armor ? 15 : 9);
+        FX.burst(en.x, ey, 16, {
+          vx0: -260, vx1: 260, vy0: -240, vy1: 60,
+          life0: 0.25, life1: 0.5, size0: 5, size1: 13, color: 'rgba(140,232,255,0.95)',
+        });
+        player.vy = Math.min(player.vy, -430);
+        return;
+      }
+      if (stomp && !en.armor) {
         // 踩飞：弹起 + 回补一次补跳 + 掉落金币
         en.dead = true;
         en.deadT = 0;
@@ -3363,7 +3950,7 @@ function updatePlayer(dt) {
         player.jumps = 1;
         player.spinOn = true;
         player.spinT = 0;
-        if (G.airCd <= 0 && G.airJump < AIR_JUMP_MAX) G.airJump++;
+        if (G.airCd <= 0 && G.airJump < AIR_JUMP_MAX + upLv('djump')) G.airJump++;
         G.coins += 3;
         G.stompN = (G.stompN || 0) + 1;
         Snd.stomp();
@@ -3473,7 +4060,7 @@ function applyBuff(key, quiet) {
   const d = BUFF_DEF[key];
   if (!d) return;
   if (key === 'shield') {
-    G.shield = Math.min(2, G.shield + 1);
+    G.shield = Math.min(shieldCap(), G.shield + 1);
   } else if (key === 'revive') {
     G.revive = Math.min(1, (G.revive || 0) + 1);   // 一次性救命，最多攒 1 个
   } else {
@@ -3491,14 +4078,32 @@ function applyBuff(key, quiet) {
   }
 }
 
-/* 道具箱：随机抽出 1 张限时增益 */
-function openCrate(cx) {
+/* 道具箱：真箱抽 1 张限时增益；宝箱怪会咬人一口（断连击 + 掉金币 + 减速） */
+function openCrate(cr) {
+  if (cr && cr.mimic) {
+    G.wallHit = 1.4;
+    G.combo = 0;
+    G.comboDelay = 0;
+    G.nearStreak = 0;
+    const loss = Math.min(G.coins, 25);
+    G.coins -= loss;
+    G.buff.slow = Math.max(G.buff.slow || 0, 1.2);
+    Snd.crack();
+    FX.flashScreen('#b06aff', 0.2);
+    FX.addShake(0.5);
+    FX.float(cr.x, cr.y - 70, '宝箱怪！-' + loss + ' 金币', { color: '#d3a8ff', size: 28 });
+    FX.burst(cr.x, cr.y, 18, {
+      vx0: -240, vx1: 240, vy0: -260, vy1: 20,
+      life0: 0.25, life1: 0.55, size0: 5, size1: 12, color: 'rgba(176,106,255,0.9)',
+    });
+    return;
+  }
   const key = CRATE_POOL[Math.floor(Math.random() * CRATE_POOL.length)];
   applyBuff(key);
   G.crateCount++;
   Snd.clear();
   FX.floats.push({
-    x: cx, y: player.y - 170, text: '抽到 ' + BUFF_DEF[key].name,
+    x: cr ? cr.x : world.x + PLAYER_X, y: player.y - 170, text: '抽到 ' + BUFF_DEF[key].name,
     life: 0, max: 1.2, color: BUFF_DEF[key].color, size: 28, vy: -60, scale: 1,
   });
 }
@@ -3534,9 +4139,10 @@ function die(cause) {
   }
   // 无敌冲刺期间免疫一切
   if (G.buff.invinc > 0) return;
-  // 能量冲刺撞碎一切
+  // 能量冲刺撞碎一切：给金币 + 连击，冲刺期间就是一路碾过去
   if (G.dashT > 0) {
-    FX.float(world.x + PLAYER_X + 40, player.y - 170, '撞碎！', { color: '#8ce8ff', size: 26 });
+    smashReward(world.x + PLAYER_X + 40, player.y - 170, '撞碎', 6);
+    G.energy = Math.min(ENERGY_MAX, G.energy + 2);
     return;
   }
   // 护盾能挡一次，但掉坑不算
@@ -3544,8 +4150,15 @@ function die(cause) {
     G.shield--;
     G.hurtCount++;
     G.buff.invinc = 1.8;
-    // 玩家露出破绽，蚩尤趁机压上来一段
-    if (G.chiyou) G.chiyou.bx += 96;
+    // 玩家露出破绽：追击者立刻压上来，脱身进度被打掉一截
+    if (G.chiyou) {
+      G.chiyou.bx += 96;
+      G.chiyou.escape = Math.max(0, (G.chiyou.escape || 0) - 0.55);
+      G.chiyou.aggro = Math.min(1, (G.chiyou.aggro || 0.35) + 0.35);
+    }
+    // 悬赏「不失误跑」被中断，里程重新计；身法连击也断
+    if (G.bounty && G.bounty.id === 'nohit') G.bounty.base = Math.floor(world.x / PX_PER_M);
+    G.nearStreak = 0;
     Snd.crack();
     FX.flashScreen('#8ce8ff', 0.42);
     FX.addShake(0.55);
@@ -3591,8 +4204,10 @@ function updateCoins(dt) {
   // FEVER 期间连击不清零（宽容窗口）
   if (G.comboDelay <= 0 && G.feverT <= 0) G.combo = 0;
   const mag = (world.pTune && world.pTune.magnet) || 0;
-  const range = G.feverT > 0 ? 720 : Math.max(G.buff.magnet > 0 ? 175 : (petEnabled() ? 130 : 44), mag);
-  const mul = (G.buff.x2 > 0 ? 2 : 1) * (G.buff.frenzy > 0 ? 2 : 1);
+  // 祭坛词条「磁力核心」直接加拾取半径
+  const range = G.feverT > 0 ? 720
+    : Math.max(G.buff.magnet > 0 ? 175 : (petEnabled() ? 130 : 44), mag) + 45 * upLv('magnet');
+  const mul = (G.buff.x2 > 0 ? 2 : 1) * (G.buff.frenzy > 0 ? 2 : 1) * (G.galeT > 0 ? 2 : 1);
 
   // 关卡增益道具拾取
   for (const p of world.powers) {
@@ -3614,6 +4229,19 @@ function updateCoins(dt) {
     }
   }
 
+  // 祭坛：碰到就亮出三张牌（世界随即冻结）
+  for (const al of world.altars) {
+    if (al.taken) continue;
+    const nx = clamp(al.x, box.l, box.r);
+    const ny = clamp(al.y, box.t, box.b);
+    const dx = al.x - nx, dy = al.y - ny;
+    if (dx * dx + dy * dy < 72 * 72) {
+      al.taken = true;
+      openAltar();
+      return;
+    }
+  }
+
   // 道具箱
   for (const cr of world.crates) {
     if (cr.taken) continue;
@@ -3622,7 +4250,7 @@ function updateCoins(dt) {
     const dx = cr.x - nx, dy = cr.y - ny;
     if (dx * dx + dy * dy < 64 * 64) {
       cr.taken = true;
-      openCrate(cr.x);
+      openCrate(cr);
     }
   }
 
@@ -3633,14 +4261,17 @@ function updateCoins(dt) {
     const dx = c.x - nx, dy = c.y - ny;
     if (dx * dx + dy * dy < range * range) {
       c.taken = true;
-      G.coins += mul;
+      // 「贪金护符」：金币收益 +20%/级
+      G.coins += Math.max(1, Math.round(mul * (1 + 0.2 * upLv('coin'))));
       G.combo++;
       if (G.combo > G.maxCombo) G.maxCombo = G.combo;
-      G.comboDelay = 0.7;
+      G.comboDelay = 0.7 + 0.2 * upLv('combo');
+      bountyAdd('coin', 1);
+      bountyAdd('combo', 1);
       runUgcHook('coin', { x: c.x, y: c.y, combo: G.combo });
-      // 金币攒冲刺能量，翻倍时攒得更快
+      // 金币攒冲刺能量，翻倍时攒得更快；「超导线圈」再乘一道
       if (G.dashT <= 0 && G.energy < ENERGY_MAX) {
-        G.energy = Math.min(ENERGY_MAX, G.energy + (G.buff.x2 > 0 ? 6 : 3));
+        G.energy = Math.min(ENERGY_MAX, G.energy + (G.buff.x2 > 0 ? 6 : 3) * (1 + 0.6 * upLv('energy')));
         if (G.energy >= ENERGY_MAX) {
           Snd.charged();
           FX.float(world.x + PLAYER_X + 20, player.y - 182, '冲刺就绪！', { color: '#8ce8ff', size: 26 });
@@ -3706,6 +4337,7 @@ function updateCoins(dt) {
   if (world.chaseTriggers.length) world.chaseTriggers = world.chaseTriggers.filter(s => s.x > cutoff);
   if (world.powers.length) world.powers = world.powers.filter(s => !s.taken && s.x > cutoff);
   if (world.crates.length) world.crates = world.crates.filter(s => !s.taken && s.x > cutoff);
+  if (world.altars.length) world.altars = world.altars.filter(s => !s.taken && s.x > cutoff);
   if (world.signs.length) world.signs = world.signs.filter(s => s.x > cutoff);
   if (world.platforms.length) world.platforms = world.platforms.filter(p => p.x + p.w > cutoff);
   if (world.gaps.length) world.gaps = world.gaps.filter(g => g.x + g.w > cutoff);
@@ -3752,8 +4384,13 @@ function update(dt) {
     if (G.dashT > 0) gain *= (world.pTune && world.pTune.dashSpd) || 1.55;   // 能量冲刺（倍率可被 mod 的 dashSpd 改）
     if (G.beltMul && G.beltMul > 1) gain *= G.beltMul;   // 传送带加速
     gain = Math.min(gain, (G.dashT > 0) ? 1.6 : 1.32);
+    // 祭坛「疾风羽」与疾风段：额外的速度增益不吃上面的封顶，单独叠
+    if (upLv('speed')) gain *= 1 + 0.05 * upLv('speed');
+    if (G.galeT > 0) gain *= 1.22;
     if (G.buff.slow > 0) gain *= 0.85;   // 减速不吃上限
     if (G.beltMul && G.beltMul < 1) gain *= G.beltMul;   // 传送带减速
+    if (G.weather && G.weather.id === 'sand') gain *= 0.92;   // 沙尘暴顶风
+    if (G.acidUnder) gain *= 0.78;                            // 踩在酸雨腐蚀区里
     spd *= gain;
     // BOSS 战照常奔跑：边跑酷边对决，只稍微减速给反应空间
     if (G.boss) spd *= 0.96;
@@ -3769,6 +4406,12 @@ function update(dt) {
     if (G.mode === 'endless') {
       G.dayT += dt;
       updateGates(dt);
+      updateWeather(dt);
+      updateBounty();
+      updateSurge(dt);
+      updateWorldEvents(dt);      // 月面段 / 疾风段
+      if (G.escapeFlash > 0) G.escapeFlash = Math.max(0, G.escapeFlash - dt);
+      if (G.wallHit > 0) G.wallHit = Math.max(0, G.wallHit - dt);
       if (G.feverT > 0) {
         G.feverT = Math.max(0, G.feverT - dt);
         if (G.feverT === 0) {
@@ -3802,6 +4445,12 @@ function update(dt) {
           phase: rnd(0, 6.28), taken: false, vy: vy0,
         });
       }
+      // 祭坛：每 320 米一座，碰到就暂停世界三选一（本局永久强化）
+      const altM = Math.floor(world.x / PX_PER_M);
+      if (altM >= G.altarNextM) {
+        G.altarNextM = altM + 320;
+        world.altars.push({ x: world.x + W + 320, y: GROUND_Y - 118, taken: false, ph: rnd(0, 6.28) });
+      }
       // 无尽模式：每 130~220m 在地面刷一枚发光道具球（含稀有复活与飞刀）
       if (world.x + W * 2 > (world.nextPowerX || 2600)) {
         const r = Math.random();
@@ -3833,7 +4482,7 @@ function update(dt) {
     if (G.airCd > 0) {
       G.airCd = Math.max(0, G.airCd - dt);
       if (G.airCd <= 0) {
-        G.airJump = AIR_JUMP_MAX;
+        G.airJump = AIR_JUMP_MAX + upLv('djump');
         FX.float(world.x + PLAYER_X + 18, player.y - 172, '补跳就绪', { color: '#8ce8ff', size: 23 });
         Snd.charged();
       }
@@ -3894,6 +4543,13 @@ function update(dt) {
       G.state = 'gameover';
       Music.duck(0.08);
     }
+  } else if (G.state === 'altar') {
+    // 祭坛三选一：世界冻结（时间与粒子仍在走，画面不死），等玩家点一张牌
+    G.time += dt;
+    G.altarT += dt;
+    // 兜底：长时间不选就自动拿第一张，避免玩家被卡在牌面前
+    if (G.altarT > 14 && G.altar && G.altar.picks.length) pickUpgrade(G.altar.picks[0].id);
+    FX.update(dt);
   } else if (G.state === 'levelfail') {
     // 目标未达成：世界缓慢停下，粒子继续
     G.time += dt;

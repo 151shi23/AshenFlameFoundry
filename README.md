@@ -10,8 +10,8 @@
 > Export Minecraft builds to **OBJ** (textures & materials included), entirely on-device:
 > pick a region, export, preview in 3D, get a ZIP in your Downloads folder.
 
-**本仓库不包含任何编译好的 APK / AAB。** 请按下文自行构建。
-**This repository ships no prebuilt APK/AAB.** Build it yourself — see [构建 / Build](#构建--build).
+**安装包走本仓库的 [Releases](https://github.com/151shi23/AshenFlameFoundry/releases)（最新版的正文同时承载云控规则），源码照旧可以自行构建。**
+**Prebuilt APKs live in this repository's [Releases](https://github.com/151shi23/AshenFlameFoundry/releases) (the newest release body also carries the cloud-control rules); you can still build from source — see [构建 / Build](#构建--build).**
 
 > **特别鸣谢 / Special thanks**
 > **蚩尤** —— 测试：找出多个重大 bug（导出选项失效、3D 预览、导出 0 方块、玻璃等方块漏导、维度错误、选择器三态…），并给出可复现的现象与可靠日志
@@ -33,6 +33,7 @@
   - [导出选项的三态：多选 / 单选 / 不选](#导出选项的三态多选--单选--不选)
   - [模组转换：模组地图 → OBJ](#模组转换模组地图--obj)
   - [环境要求](#环境要求)
+  - [启动闸门与云控协议](#启动闸门与云控协议)
   - [构建](#构建--build)
   - [目录结构](#目录结构)
   - [常见问题](#常见问题)
@@ -167,6 +168,40 @@ Mineways 的**绝对坐标 OBJ** 在默认设置下是**与世界坐标同向**�
 > 克隆到纯英文路径（如 `C:\dev\MinewaysMobile`）再构建；仓库自带 `tools/build_release.ps1` 也会先把源码复制到 `C:\mmbuild` 这类纯 ASCII 目录再编译。
 
 > 原生库已按 **16 KB 页**对齐（`arm64-v8a` / `x86_64`），可在 Android 15+ 的 16 KB 页设备上正常加载。
+
+### 启动闸门与云控协议
+
+App 启动先进入 `.UpdateGateActivity`（启动闸门）。它联网读**本仓库的 Release 列表**（GitHub API → 仓库根 `policy.json`（raw 静态）→ 镜像，三级兜底），把**最新版 Release 正文里的关键词规则**解析成一套策略：
+
+| 结果 | 触发条件 | 表现 |
+|---|---|---|
+| **强制更新（拦截）** | 命中 `强更` / `最低` / `停止`（版本规则）或 `安卓 强制`（系统规则） | 只允许更新，返回键无效 |
+| **提示更新（可继续）** | 命中 `更新` / `提示更新` | 弹一次更新说明，点「继续」照常用 |
+| **放行** | 命中 `忽略`（白名单），或没有任何规则命中 | 直接进主界面 |
+
+规则**一行一条、必须写在行首**；写进最新版 Release 正文即可生效，**改完立刻生效、不用重新发版**：
+
+```
+强更 全部                       # 所有低版本强制更新
+强更 2.1 / 强更 2.1-2.5 / 强更 排除 2.2,2.3
+更新 全部                       # 只提示、不强制
+日志 全部                       # 顺带展示完整更新内容（可与强更组合）
+忽略 3.21 / 忽略 全部            # 白名单；「忽略 全部」= 临时关掉闸门
+最低 3.1 / 停止 3.0              # 低于该版本一律强制 / 该版本已停用（红字）
+安卓 强制 13 / 安卓 跳过 12       # 按 Android 版本强制 / 跳过
+离线 放行|拦截 / 缓存 7 / 重试 3 / 超时 12 / 镜像: URL
+截止 2026-10-01 / 窗口 2026-10-01~2026-10-07 / 生效 2026-10-05
+标题: … / 说明: … / 按钮: … / 公告: … / 紧急 / 倒计时 10
+链接: URL / 备用链接: URL / 提取码: … / SHA256: … / 大小: …
+灰度 10% / 灰度 排除 10%
+```
+
+- **离线与缓存**：所有源都拿不到时按 `离线 放行|拦截` 执行；有缓存则沿用「上次成功的策略」（有效期 `缓存 N` 天）；全新安装 + 无网默认放行，联网后自动补检，避免把人锁在门外。
+- **兜底源**：GitHub API 被限流或直连不通时，自动改用仓库根目录的 [`policy.json`](policy.json)（raw 静态）与镜像；该文件的正文规则应与最新 Release 保持同步。
+- **临时停服 / 恢复**：在最新 Release 正文写 `强更 全部` + `公告: …`（可加 `紧急`）；恢复时删掉这两行即可。
+- **不采集数据**：闸门只判断「要不要更新」和「展示什么文案」，网络请求只有本仓库的 Release 接口与 raw 文件。
+
+**Cloud-control, in one sentence:** the launcher reads this repo's newest Release body, parses the line-leading keywords above (`强更/FORCE`, `最低/MIN`, `停止/EOL`, `忽略/SKIP`, `更新/UPDATE`, `安卓 FORCE`, `离线`, `缓存`, `镜像`, `标题/说明/按钮/公告`, `倒计时`, `链接/备用链接`, `灰度`, `截止/窗口/生效` …) and decides between hard-block, notify-only or pass. Editing that Release body changes app behaviour immediately, with no new build.
 
 ### 构建 / Build
 

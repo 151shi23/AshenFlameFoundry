@@ -345,6 +345,78 @@ function pxSquareBtn(x, y, size, pressed, icon, dim) {
   ctx.restore();
 }
 
+/* 无尽模式专属 HUD：追击脱身进度 / 天气 / 悬赏 / 陷阱风暴 */
+function drawEndlessHud() {
+  // ── 追击脱身：跑得好进度涨，被追上就掉 ──
+  const cy = G.chiyou;
+  if (cy && !G.boss) {
+    if (cy.lost) {
+      // 刚甩掉的那一刻高亮一下，之后转入冷静的倒计时
+      const hot = (G.escapeFlash || 0) > 0;
+      const t = '已甩掉追击者 ' + Math.max(0, cy.lostT).toFixed(0) + 's' + (hot ? ' · 喘息中' : '');
+      pxText(t, 34, 152, 17, hot ? '#c8f4ff' : '#8ce8ff', 'rgba(10,18,32,0.9)', 'left');
+    } else if ((cy.escape || 0) > 0.02 || (cy.aggro || 0) > 0.6) {
+      const esc = clamp(cy.escape || 0, 0, 1);
+      const bx = 34, by = 150, bw = Math.min(W - 240, 250), bh = 13;
+      pxText('甩掉追击', bx, by - 13, 16, 'rgba(200,220,245,0.9)', 'rgba(10,18,32,0.9)', 'left');
+      pxRect(bx, by, bw, bh, 5);
+      ctx.fillStyle = 'rgba(10,18,32,0.72)';
+      ctx.fill();
+      ctx.fillStyle = esc > 0.72 ? '#8ce8ff' : (esc > 0.4 ? '#ffd34d' : '#ff8f7e');
+      ctx.fillRect(bx + 2, by + 2, Math.max(2, (bw - 4) * esc), bh - 4);
+      if (esc >= 1) {
+        pxText('甩掉了！', bx + bw + 10, by + 6, 16, '#8ce8ff', 'rgba(10,18,32,0.9)', 'left');
+      } else if ((cy.aggro || 0) > 0.75) {
+        pxText('快追上了！', bx + bw + 10, by + 6, 16, '#ff8f7e', 'rgba(10,18,32,0.9)', 'left');
+      }
+    }
+  }
+
+  // ── 悬赏：目标 + 进度条 ──
+  const b = G.bounty;
+  if (b) {
+    const need = b.need;
+    const have = clamp(b.id === 'nohit' ? bountyHave() : b.have, 0, need);
+    const bw2 = Math.min(W - 250, 200), bx2 = 34, by2 = 196, bh2 = 9;
+    pxText(b.name, bx2, by2 - 16, 16, b.color, 'rgba(10,18,32,0.9)', 'left');
+    pxNum(have + '/' + need, bx2 + bw2 + 10, by2 + 4, 17, '#ffffff', 'rgba(10,18,32,0.9)', 'left');
+    pxRect(bx2, by2, bw2, bh2, 4);
+    ctx.fillStyle = 'rgba(10,18,32,0.72)';
+    ctx.fill();
+    ctx.fillStyle = b.color;
+    ctx.fillRect(bx2 + 2, by2 + 2, Math.max(2, (bw2 - 4) * (have / need)), bh2 - 4);
+  }
+
+  // ── 天气 / 陷阱风暴（右上角，避开方块按钮） ──
+  const w = G.weather;
+  let ry = 108;
+  if (w) {
+    pxText(w.name + ' ' + Math.ceil(G.weatherT) + 's', W - 34, ry, 18, w.color, 'rgba(10,18,32,0.9)', 'right');
+    ry += 28;
+  }
+  if (G.surgeT > 0) {
+    pxText('陷阱风暴 ' + Math.ceil(G.surgeT) + 's', W - 34, ry, 18,
+      'rgba(255,143,126,0.95)', 'rgba(10,18,32,0.9)', 'right');
+    ry += 28;
+  }
+  // ── 月面 / 疾风 / 身法 / 强化等级 ──
+  if (G.moonT > 0) {
+    pxText('月面段 ' + Math.ceil(G.moonT) + 's', W - 34, ry, 18, '#cfe0ff', 'rgba(10,18,32,0.9)', 'right');
+    ry += 28;
+  }
+  if (G.galeT > 0) {
+    pxText('疾风段 ' + Math.ceil(G.galeT) + 's', W - 34, ry, 18, '#8ce8ff', 'rgba(10,18,32,0.9)', 'right');
+    ry += 28;
+  }
+  if ((G.nearStreak || 0) > 0) {
+    pxText('身法 ' + G.nearStreak + '/4', W - 34, ry, 18, '#ffe066', 'rgba(10,18,32,0.9)', 'right');
+    ry += 28;
+  }
+  if ((G.altarCount || 0) > 0) {
+    pxText('强化 ×' + G.altarCount, W - 34, ry, 18, '#d3a8ff', 'rgba(10,18,32,0.9)', 'right');
+  }
+}
+
 // ---- HUD ----
 function drawHUD() {
   const st = G.state;
@@ -394,6 +466,8 @@ function drawHUD() {
     const lh = lw * ASSETS.logo.crop.h / ASSETS.logo.crop.w;
     drawImg('logo', Math.round((W - lw) / 2), 24, lw, lh);
   }
+  // 无尽模式：追击脱身 / 天气 / 悬赏 / 陷阱风暴
+  if (G.mode === 'endless' && (st === 'playing' || st === 'paused')) drawEndlessHud();
 
   // 关卡进度条
   if ((G.mode === 'level' || G.mode === 'ugc') && st !== 'levelclear' && st !== 'levelfail') {
@@ -1472,6 +1546,15 @@ function getUIButtons() {
   const add = o => { list.push(o); return o; };
   const cx = w => Math.round((W - w) / 2);              // 水平居中
   const gw = Math.min(242, Math.round((W - 56) / 2));   // 两列卡片自适应宽
+
+  // 祭坛三选一：热区与 drawAltarPanel 共用 altarCards()，保证所见即所点
+  if (st === 'altar') {
+    altarCards().forEach((c, i) => add({
+      id: 'altar' + i, kind: 'gold', label: '',
+      x: c.x, y: c.y, w: c.w, h: c.h,
+      act: () => pickUpgrade(c.u.id),
+    }));
+  }
 
   if (st === 'menu') {
     const mw = Math.min(484, W - 40);

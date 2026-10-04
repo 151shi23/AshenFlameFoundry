@@ -77,15 +77,15 @@ public class UpdateGateActivity extends Activity {
 
     // ---------------------------------------------------------------- 常量
 
-    private static final String API = "https://api.github.com/repos/151shi23/MinewaysMobile/releases?per_page=100";
-    private static final String PAGE = "https://github.com/151shi23/MinewaysMobile/releases/latest";
+    private static final String API = "https://api.github.com/repos/151shi23/AshenFlameFoundry/releases?per_page=100";
+    private static final String PAGE = "https://github.com/151shi23/AshenFlameFoundry/releases/latest";
     private static final String QQ_GROUP = "https://qm.qq.com/q/6mxOaslq7e";
 
     /** 备用策略源（不吃 GitHub API 限流；国内直连不通时可被 镜像: 指令扩展）。 */
     private static final String[] FALLBACK_SOURCES = new String[]{
-            "https://raw.githubusercontent.com/151shi23/MinewaysMobile/main/policy.json",
-            "https://ghproxy.net/https://raw.githubusercontent.com/151shi23/MinewaysMobile/main/policy.json",
-            "https://raw.gitmirror.com/151shi23/MinewaysMobile/main/policy.json",
+            "https://raw.githubusercontent.com/151shi23/AshenFlameFoundry/main/policy.json",
+            "https://ghproxy.net/https://raw.githubusercontent.com/151shi23/AshenFlameFoundry/main/policy.json",
+            "https://raw.gitmirror.com/151shi23/AshenFlameFoundry/main/policy.json",
     };
 
     private static final int DEFAULT_RETRY = 3;
@@ -1382,7 +1382,7 @@ public class UpdateGateActivity extends Activity {
         Matcher m = RE_MAIN_LINK.matcher(body);
         while (m.find()) {
             String u = cleanUrl(m.group(1));
-            if (u.contains("github.com/151shi23/MinewaysMobile")) {
+            if (u.contains("github.com/151shi23/AshenFlameFoundry")) {
                 continue;   // 仓库自身链接只作兜底入口
             }
             if (isBackupLine(body, m.start())) {
@@ -1393,7 +1393,7 @@ public class UpdateGateActivity extends Activity {
         m = RE_ANY_LINK.matcher(body);
         while (m.find()) {
             String u = cleanUrl(m.group(1));
-            if (!u.contains("github.com/151shi23/MinewaysMobile")) {
+            if (!u.contains("github.com/151shi23/AshenFlameFoundry")) {
                 return u;
             }
         }
