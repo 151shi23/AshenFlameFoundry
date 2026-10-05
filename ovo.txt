@@ -1,10 +1,25 @@
-id: wolfpack-2026-10-05
-title: 狼群公告
-body: 我们研发部都是银狼，所以我们是狼群，小狗狗快过来呀。
+id: thanks-batch6-2026-10-05
+level: success
+once: day
+title: AFF 工具箱 · 感谢有你
+body: 从第一个手机端版本，到中间的「转存档」阶段，再到今天。
+body: 一路撑下来的其实不是代码，是你在旁边一句句「这个能不能修」「这里好像不对」试出来的。
+body: AFF 工具箱能走到今天，有你一份功劳 —— 谢谢。
 body:
-body: 甄选名言
-body: “一想到xx要开会，我就绷不住”
-body: “一会儿又说社团人员平等，一会儿又用上位者的语气跟别人说话”
-body: “他说我一点职位没有，没有任何发言权”
-body: “我去，看到这句话的时候，我彻底绷不住了呀”
-body: “真说了，你又不愿意了”
+body: 福利：10 个激活码，先到先得（一个码只能用一次）
+body: CEGFL-VWZEA-SEH7Z
+body: SWJWX-H7RCM-WRTDU
+body: MTQMP-JS4FY-YRN6U
+body: QQYXY-WK2RA-NW4H7
+body: LWB87-NWXPP-KDDLK
+body: 3FZQR-2Y8GM-B8CW9
+body: UF45M-ZTA2S-3MJW3
+body: YK4EF-F5DC4-LSYJB
+body: UYZJE-4UMPJ-99S4U
+body: 82JP2-C96C7-66YHX
+body:
+body: 怎么用：带「限制」标签的功能，点一下会提示输入激活码，粘一个进去就能用。
+body: 另外每天在社区网页签到也能领 1 个，别忘了。
+copy: 复制全部 10 个码|CEGFL-VWZEA-SEH7Z SWJWX-H7RCM-WRTDU MTQMP-JS4FY-YRN6U QQYXY-WK2RA-NW4H7 LWB87-NWXPP-KDDLK 3FZQR-2Y8GM-B8CW9 UF45M-ZTA2S-3MJW3 YK4EF-F5DC4-LSYJB UYZJE-4UMPJ-99S4U 82JP2-C96C7-66YHX
+button: 去签到领码|checkin
+button: 知道了|close
