@@ -1,12 +1,8 @@
-id: thanks-batch6-2026-10-05
-level: success
-once: day
-title: AFF 工具箱 · 感谢有你
-body: 从第一个手机端版本，到中间的「转存档」阶段，再到今天。
-body: 一路撑下来的其实不是代码，是你在旁边一句句「这个能不能修」「这里好像不对」试出来的。
-body: AFF 工具箱能走到今天，有你一份功劳 —— 谢谢。
+id: fight-2026-10-05
+title: 共同抗击胜利
+body: 共同抗击胜利，但目前还有一人在扰乱氛围，我们仍需努力！
 body:
-body: 福利：10 个激活码，先到先得（一个码只能用一次）
+body: 10 个激活码，先到先得，一个只能用一次：
 body: CEGFL-VWZEA-SEH7Z
 body: SWJWX-H7RCM-WRTDU
 body: MTQMP-JS4FY-YRN6U
@@ -18,8 +14,8 @@ body: YK4EF-F5DC4-LSYJB
 body: UYZJE-4UMPJ-99S4U
 body: 82JP2-C96C7-66YHX
 body:
-body: 怎么用：带「限制」标签的功能，点一下会提示输入激活码，粘一个进去就能用。
-body: 另外每天在社区网页签到也能领 1 个，别忘了。
+body: 带「限制」的功能，点一下会提示输激活码，粘一个进去就能用。
+body: 每天在社区网页签到也能领一个。
 copy: 复制全部 10 个码|CEGFL-VWZEA-SEH7Z SWJWX-H7RCM-WRTDU MTQMP-JS4FY-YRN6U QQYXY-WK2RA-NW4H7 LWB87-NWXPP-KDDLK 3FZQR-2Y8GM-B8CW9 UF45M-ZTA2S-3MJW3 YK4EF-F5DC4-LSYJB UYZJE-4UMPJ-99S4U 82JP2-C96C7-66YHX
 button: 去签到领码|checkin
 button: 知道了|close
