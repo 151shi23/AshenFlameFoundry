@@ -1,8 +1,17 @@
-id: fight-2026-10-05
-title: 共同抗击胜利
-body: 共同抗击胜利，但目前还有一人在扰乱氛围，我们仍需努力！
+id: credits-2026-10-05
+title: 共同创作
+body: 共同创作：ZERO寂零、蚩尤
 body:
-body: 10 个激活码，先到先得，一个只能用一次：
+body: 这个工具箱现在有这些东西：
+body: · 导出 / 转换：网易端存档导出、PC 与手机互转、格式转换
+body: · 建模：Blockbench、OBJ 预览、PNG 转模型、BB 转 OBJ、AI 动画
+body: · 实用：粒子编辑、种子地图、色码、GIF、文件修复
+body: · 玩的：寂零快跑（内置跑酷）、云间列车（能录视频的渲染页）
+body: · 社区：每天签到领激活码，激活码解锁限制功能
+body:
+body: 感谢每一位用过、骂过、反馈过的人，这些功能一半是被你们催出来的。
+body:
+body: 还有 10 个激活码，先到先得，一个只能用一次：
 body: CEGFL-VWZEA-SEH7Z
 body: SWJWX-H7RCM-WRTDU
 body: MTQMP-JS4FY-YRN6U
@@ -15,7 +24,6 @@ body: UYZJE-4UMPJ-99S4U
 body: 82JP2-C96C7-66YHX
 body:
 body: 带「限制」的功能，点一下会提示输激活码，粘一个进去就能用。
-body: 每天在社区网页签到也能领一个。
 copy: 复制全部 10 个码|CEGFL-VWZEA-SEH7Z SWJWX-H7RCM-WRTDU MTQMP-JS4FY-YRN6U QQYXY-WK2RA-NW4H7 LWB87-NWXPP-KDDLK 3FZQR-2Y8GM-B8CW9 UF45M-ZTA2S-3MJW3 YK4EF-F5DC4-LSYJB UYZJE-4UMPJ-99S4U 82JP2-C96C7-66YHX
 button: 去签到领码|checkin
 button: 知道了|close
