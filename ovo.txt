@@ -1,13 +1,18 @@
+# 5.12 发布公告（全员 · 每次启动显示 · 不强制更新）
 id: release-5.12
 level: success
-title: 5.12 已上线：剪辑标识清除
-body: 新增「剪辑标识清除」—— 剪映 / 快影 / 必剪 导出的视频，把元数据里的软件署名、压制器版本号、平台转码参数原地抹掉。不转码，画面和音频一个字节都不动，洗完直接进相册，原件不改。支持 .mp4 / .mov，可以一次选多个，清单里勾哪条清哪条。
-body: 这个功能带「限制」，用 1 个激活码用一次；白名单账号免码直接进。
+title: 公告：AshenFlame Foundry 5.12 现已发布
+body: 各位用户：
 body:
-body: 顺带修好一件事：「白名单功能」页以前整页空白，视频剪辑的入口看不见，这版恢复了。
-body: 格式转换那边 .blend 也能转 GLB / OBJ / STL，Blender 渲染照旧全离线出图。
+body: 现将 5.12 版本更新内容公布如下。
+body: 一、新增「剪辑标识清除」。剪映、快影、必剪导出的视频，可将元数据内的软件署名、压制器版本号、平台转码参数原地清除；不转码，画面与音频数据不作任何改动，处理后直接写入相册，原件保持不变。支持 .mp4 与 .mov，可一次选择多个文件，逐项勾选处理。
+body: 二、该功能列为「限制」类，每次使用消耗 1 个激活码；白名单账号免码进入。
+body: 三、修复「白名单功能」页整页空白、视频剪辑入口不显示的问题。
+body: 四、格式转换新增 .blend 转 GLB / OBJ / STL；Blender 渲染保持全离线。
 body:
-body: 新版本在下面，覆盖安装不掉数据；老版本继续能用，这版不强制更新。
+body: 新版本请通过下方按钮下载，覆盖安装不丢失数据。本版为提示更新，不强制更新，继续使用旧版本不受影响。
+body:
+body: 特此公告。
 url: https://github.com/151shi23/AshenFlameFoundry/releases/tag/v5.12
 copy: 复制 5.12 下载地址|https://github.com/151shi23/AshenFlameFoundry/releases/download/v5.12/AshenFlameFoundry-5.12.apk
 button: 前往下载 5.12|url|https://github.com/151shi23/AshenFlameFoundry/releases/tag/v5.12
@@ -16,33 +21,26 @@ button: 知道了|close
 
 ---
 
-id: credits-2026-10-05
-title: 共同创作
-body: 共同创作：ZERO寂零、蚩尤
+# 测试招募公告（稳定灰度 40% · 每次启动显示）
+id: testcall-5.12
+level: warn
+percent: 40
+title: 公告：5.12 测试招募
+body: 各位用户：
 body:
-body: 这个工具箱现在有这些东西：
-body: · 导出 / 转换：网易端存档导出、PC 与手机互转、格式转换
-body: · 建模：Blockbench、OBJ 预览、PNG 转模型、BB 转 OBJ、AI 动画
-body: · 实用：粒子编辑、种子地图、色码、GIF、文件修复
-body: · 玩的：寂零快跑（内置跑酷）、云间列车（能录视频的渲染页）
-body: · 社区：每天签到领激活码，激活码解锁限制功能
-body: · 剪辑：OpenCut 视频剪辑器（白名单）、剪辑标识清除、云间列车录像
+body: 本公告为测试邀请，仅向部分用户展示。
+body: 请下载 5.12 版本参与测试，重点验证以下三处：剪辑标识清除、白名单功能页、格式转换。
 body:
-body: 感谢每一位用过、骂过、反馈过的人，这些功能一半是被你们催出来的。
+body: 测试要求如下：
+body: 一、发现缺陷（闪退、无响应、结果不对、界面错位、按钮点不动等）均视为有效反馈。
+body: 二、希望新增的功能一并提出，说明用途即可，不限数量。
+body: 三、反馈时请截取本弹窗的截图，连同问题描述与期望说明，发送给「天雨」，由其统一汇总。无本弹窗截图的反馈不予受理。
 body:
-body: 还有 10 个激活码，先到先得，一个只能用一次：
-body: CEGFL-VWZEA-SEH7Z
-body: SWJWX-H7RCM-WRTDU
-body: MTQMP-JS4FY-YRN6U
-body: QQYXY-WK2RA-NW4H7
-body: LWB87-NWXPP-KDDLK
-body: 3FZQR-2Y8GM-B8CW9
-body: UF45M-ZTA2S-3MJW3
-body: YK4EF-F5DC4-LSYJB
-body: UYZJE-4UMPJ-99S4U
-body: 82JP2-C96C7-66YHX
+body: 参与测试者优先进入后续版本名单。
 body:
-body: 带「限制」的功能，点一下会提示输激活码，粘一个进去就能用。
-copy: 复制全部 10 个码|CEGFL-VWZEA-SEH7Z SWJWX-H7RCM-WRTDU MTQMP-JS4FY-YRN6U QQYXY-WK2RA-NW4H7 LWB87-NWXPP-KDDLK 3FZQR-2Y8GM-B8CW9 UF45M-ZTA2S-3MJW3 YK4EF-F5DC4-LSYJB UYZJE-4UMPJ-99S4U 82JP2-C96C7-66YHX
+body: 特此公告。
+url: https://github.com/151shi23/AshenFlameFoundry/releases/tag/v5.12
+copy: 复制 5.12 下载地址|https://github.com/151shi23/AshenFlameFoundry/releases/download/v5.12/AshenFlameFoundry-5.12.apk
+button: 前往下载 5.12|url|https://github.com/151shi23/AshenFlameFoundry/releases/tag/v5.12
 button: 去签到领码|checkin
 button: 知道了|close

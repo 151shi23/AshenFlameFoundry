@@ -2,12 +2,12 @@
   "_comment": "启动闸门的备用策略源（raw 静态，规避 GitHub API 限流/被墙）。格式与 GitHub Releases API 一致：{\"releases\":[…]}；正文里的关键词规则与最新版 Release 正文保持同步。",
   "releases": [
     {
-      "tag": "v5.06",
-      "name": "AshenFlame Foundry 5.06",
-      "published_at": "2026-10-04T00:00:00Z",
+      "tag": "v5.12",
+      "name": "AshenFlame Foundry 5.12",
+      "published_at": "2026-10-06T07:50:00Z",
       "draft": false,
-      "url": "https://github.com/151shi23/AshenFlameFoundry/releases/latest",
-      "body": "强更 全部\n更新 全部\n日志 全部\n离线 放行\n缓存 7\n重试 3\n超时 12\n镜像: https://raw.githubusercontent.com/151shi23/AshenFlameFoundry/main/policy.json\n倒计时 10\n标题: AshenFlame Foundry 5.06 已发布\n说明: 修复「启动被误拦截」；内置小游戏《寂零快跑》大更新，建议全部更新\n按钮: 前往 Release 下载\n链接: https://github.com/151shi23/AshenFlameFoundry/releases/latest\n备用链接: https://github.com/151shi23/AshenFlameFoundry/releases\n\n## 5.06 更新内容\n\n### 一、云控接入本仓库 Release\n\n- 启动闸门回到「读本仓库 Release 正文」的关键词规则：强更 / 更新 / 日志 / 最低 / 停止 / 忽略 / 安卓 / 离线 / 缓存 / 重试 / 超时 / 镜像 / 标题 / 说明 / 按钮 / 公告 / 紧急 / 倒计时 / 链接 / 备用链接 / 灰度 / 截止 / 窗口 / 生效；\n- 关掉闸门只需在最新 Release 正文里写 `忽略 全部`；临时停更写 `强更 全部`；\n- policy.json 作为 raw 静态备用源，规则与 Release 正文同步。\n\n### 二、内置小游戏《寂零快跑》大更新\n\n- 新机制：局内三选一升级祭坛、双路线分叉、宝箱怪、三种小怪（可踩/可撞）、月面低重力段、疾风挑战段、身法连击；\n- 配合原有的天气、悬赏、陷阱风暴、可甩掉的追击者，无尽模式共 11 套机制轮转；\n- 画质：高 DPI 渲染、角色描边、冲刺残影、云层视差、前景草叶、月面星空、暗角与胶片颗粒。\n\n### 三、仓库与文档\n\n- 仓库更名为 AshenFlame Foundry（旧链接自动跳转）；\n- README 补充云控协议说明与安装包分发说明。\n"
+      "url": "https://github.com/151shi23/AshenFlameFoundry/releases/tag/v5.12",
+      "body": "更新 全部\n日志 全部\n离线 放行\n缓存 7\n重试 3\n超时 12\n镜像: https://raw.githubusercontent.com/151shi23/AshenFlameFoundry/main/policy.json\n标题: 公告：AshenFlame Foundry 5.12 现已发布\n说明: 现将 5.12 更新内容公布如下：一、新增「剪辑标识清除」（限制功能，1 个激活码用一次）；二、修复「白名单功能」页整页空白、视频剪辑入口不显示；三、格式转换新增 .blend 转 GLB / OBJ / STL。\n公告: 本版为提示更新，不强制更新；覆盖安装不丢失数据，继续使用旧版本不受影响。\n按钮: 前往下载 5.12\n链接: https://github.com/151shi23/AshenFlameFoundry/releases/download/v5.12/AshenFlameFoundry-5.12.apk\n备用链接: https://github.com/151shi23/AshenFlameFoundry/releases\nSHA256: 6d92c174e3538c2992f2daa1e04344299c5463627e2b0418fd19fa964ed46c44\n大小: 186MB\n\n## AshenFlame Foundry 5.12（versionCode 522）\n\n- 新增「剪辑标识清除」：不转码抹掉剪映 / 快影 / 必剪 写进视频元数据的标识，限制功能（1 个激活码用一次），白名单账号免码。\n- 修复「白名单功能」页整页空白（视频剪辑入口看不见）。\n- 提示更新，不强制；每次启动都显示。\n"
     }
   ]
 }
