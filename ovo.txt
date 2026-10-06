@@ -1,3 +1,21 @@
+id: release-5.12
+level: success
+title: 5.12 已上线：剪辑标识清除
+body: 新增「剪辑标识清除」—— 剪映 / 快影 / 必剪 导出的视频，把元数据里的软件署名、压制器版本号、平台转码参数原地抹掉。不转码，画面和音频一个字节都不动，洗完直接进相册，原件不改。支持 .mp4 / .mov，可以一次选多个，清单里勾哪条清哪条。
+body: 这个功能带「限制」，用 1 个激活码用一次；白名单账号免码直接进。
+body:
+body: 顺带修好一件事：「白名单功能」页以前整页空白，视频剪辑的入口看不见，这版恢复了。
+body: 格式转换那边 .blend 也能转 GLB / OBJ / STL，Blender 渲染照旧全离线出图。
+body:
+body: 新版本在下面，覆盖安装不掉数据；老版本继续能用，这版不强制更新。
+url: https://github.com/151shi23/AshenFlameFoundry/releases/tag/v5.12
+copy: 复制 5.12 下载地址|https://github.com/151shi23/AshenFlameFoundry/releases/download/v5.12/AshenFlameFoundry-5.12.apk
+button: 前往下载 5.12|url|https://github.com/151shi23/AshenFlameFoundry/releases/tag/v5.12
+button: 去签到领码|checkin
+button: 知道了|close
+
+---
+
 id: credits-2026-10-05
 title: 共同创作
 body: 共同创作：ZERO寂零、蚩尤
@@ -8,6 +26,7 @@ body: · 建模：Blockbench、OBJ 预览、PNG 转模型、BB 转 OBJ、AI 动�
 body: · 实用：粒子编辑、种子地图、色码、GIF、文件修复
 body: · 玩的：寂零快跑（内置跑酷）、云间列车（能录视频的渲染页）
 body: · 社区：每天签到领激活码，激活码解锁限制功能
+body: · 剪辑：OpenCut 视频剪辑器（白名单）、剪辑标识清除、云间列车录像
 body:
 body: 感谢每一位用过、骂过、反馈过的人，这些功能一半是被你们催出来的。
 body:
