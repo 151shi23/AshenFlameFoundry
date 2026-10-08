@@ -9,8 +9,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.MediaStore;
-import android.view.Gravity;
+import android.provider.MediaStore;import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -39,7 +38,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -73,6 +75,10 @@ public class OpenCutActivity extends AppCompatActivity {
     private static final String ASSET_ROOT = "opencut/";
     private static final String ENTRY_URL = "https://" + DOMAIN + "/projects/";
     private static final int REQ_FILE = 4002;
+    /** 在线下载的字体存放处（私有 files 下的子目录，同时挂在站内 /res-fonts/ 路径上） */
+    private static final String FONT_STORE_DIR = "res-fonts";
+    /** 单个在线字体的体积上限：中文字体一个字重常见 8~30MB，再大基本不是单个字体 */
+    private static final long MAX_FONT_DOWNLOAD_BYTES = 64L * 1024L * 1024L;
     /** 第三方管理器给的裸文件路径要复制成 content URI，但大文件不复制（私有目录经不起双倍占位） */
     private static final long MAX_UPLOAD_COPY_BYTES = 256L * 1024L * 1024L;
     private static final int BG = 0xFF15171A;
@@ -92,6 +98,9 @@ public class OpenCutActivity extends AppCompatActivity {
 
         WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
                 .setDomain(DOMAIN)
+                // 在线下载的字体落在私有目录，按站内路径发回页面（同源，省掉跨域与 blob 落盘）
+                .addPathHandler("/res-fonts/", new DirPathHandler(
+                        new File(getFilesDir(), FONT_STORE_DIR)))
                 .addPathHandler("/", new AssetsRootHandler(getAssets()))
                 .build();
 
@@ -393,6 +402,40 @@ public class OpenCutActivity extends AppCompatActivity {
         MIME_BY_EXTENSION.put(".ttc", "font/collection");
     }
 
+    /**
+     * 把私有目录里的一个子目录挂到站内路径上。
+     *
+     * <p>为什么自己写：这版 androidx.webkit 没有 {@code FilesPathHandler}（编译期就报
+     * "找不到符号"），而打包是 {@code --offline} 的，不能靠升依赖解决。
+     */
+    private static final class DirPathHandler implements WebViewAssetLoader.PathHandler {
+        private final File root;
+
+        DirPathHandler(File root) {
+            this.root = root;
+        }
+
+        @Override
+        public WebResourceResponse handle(String path) {
+            try {
+                File target = new File(root, path == null ? "" : path).getCanonicalFile();
+                String rootPath = root.getCanonicalPath();
+                // 页面给的路径要能逃出这个目录就绝不发出去
+                if (!target.getPath().startsWith(rootPath + File.separator)) {
+                    return null;
+                }
+                if (!target.isFile()) {
+                    return null;
+                }
+                // 这个构造子默认就是 200/OK，不需要再显式设状态
+                return new WebResourceResponse(
+                        "application/octet-stream", null, new FileInputStream(target));
+            } catch (Throwable t) {
+                return null;
+            }
+        }
+    }
+
     /** 裸文件路径 → 私有目录副本 + content URI；太大、读不到或拷坏就原样交出去，不拦路。 */
     private Uri viaProvider(Uri raw) {
         if (!"file".equals(raw.getScheme())) {
@@ -480,6 +523,156 @@ public class OpenCutActivity extends AppCompatActivity {
         }
     }
 
+    // ------------------------------------------------------- 在线字体（软件资源服务）
+
+    /** 服务端整包 JSON 能用就用，不能用就退化成一条中文错误。 */
+    private static String pickRaw(ActivationClient.Result r, String what) {
+        String raw = r == null ? null : r.raw;
+        if (raw != null) {
+            String trimmed = raw.trim();
+            if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                return trimmed;
+            }
+        }
+        String message = r == null || r.message == null || r.message.length() == 0
+                ? what + "失败"
+                : r.message;
+        return errorJson(message);
+    }
+
+    private static String errorJson(String message) {
+        return "{\"success\":false,\"error\":\""
+                + ActivationClient.jsonEscape(message == null ? "未知错误" : message) + "\"}";
+    }
+
+    private static String friendlyError(Throwable t) {
+        String name = t == null ? "" : t.getClass().getSimpleName();
+        return "出错了：" + (name.length() == 0 ? "未知原因" : name);
+    }
+
+    /** 把 JSON 交给页面回调；回调名先消毒，免得拼进 JS 时被当成代码执行。 */
+    private void deliverJson(final String callback, final String json) {
+        final String fn = callback == null ? "" : callback.replaceAll("[^A-Za-z0-9_$]", "");
+        if (fn.length() == 0) {
+            return;
+        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    webView.evaluateJavascript(
+                            "if(window." + fn + "){window." + fn + "(" + json + ")}", null);
+                } catch (Throwable ignored) {
+                }
+            }
+        });
+    }
+
+    /** 取直链 → 下载（边下边算 SHA256）→ 校验 → 落到私有目录。返回给页面的 JSON。 */
+    private String fetchFont(String rawSlug) throws Exception {
+        String slug = rawSlug == null ? "" : rawSlug.replaceAll("[^A-Za-z0-9._-]", "");
+        if (slug.length() == 0) {
+            return errorJson("字体标识不合法");
+        }
+        String raw = ActivationClient.resourceDownload(slug).raw;
+        if (raw == null || raw.trim().length() == 0) {
+            return errorJson("服务端没有返回内容");
+        }
+        org.json.JSONObject root = new org.json.JSONObject(raw);
+        if (!root.optBoolean("success", false)) {
+            String why = root.optString("error", root.optString("message", ""));
+            return errorJson(why.length() == 0 ? "服务端拒绝发放下载链接" : why);
+        }
+        org.json.JSONObject data = root.optJSONObject("data");
+        if (data == null) {
+            return errorJson("返回里没有下载信息");
+        }
+        String url = data.optString("download_url", "");
+        String wantSha = data.optString("file_sha256", "").toLowerCase();
+        String fileName = data.optString("file_name", slug + ".ttf");
+        if (!url.startsWith("http")) {
+            return errorJson("下载链接不可用（可能已过期，请重试）");
+        }
+        File dir = new File(getFilesDir(), FONT_STORE_DIR);
+        if (!dir.isDirectory() && !dir.mkdirs()) {
+            return errorJson("存不下来：目录创建失败");
+        }
+        File out = new File(dir, System.currentTimeMillis() + "-" + safeName(fileName));
+        String gotSha = downloadTo(url, out);
+        if (gotSha == null) {
+            if (out.isFile()) {
+                out.delete();
+            }
+            return errorJson("下载失败（网络或对象存储那边拒绝了）");
+        }
+        // 校验值不一致就丢掉：文档要求防传输损坏，坏字节喂给 FontFace 只会更难懂的报错
+        if (wantSha.length() > 0 && !wantSha.equals(gotSha)) {
+            out.delete();
+            return errorJson("文件校验不通过，已丢弃");
+        }
+        long size = out.length();
+        if (size <= 0L || size > MAX_FONT_DOWNLOAD_BYTES) {
+            out.delete();
+            return errorJson(size > MAX_FONT_DOWNLOAD_BYTES ? "字体文件太大" : "字体文件是空的");
+        }
+        return "{\"success\":true,\"url\":\"/res-fonts/" + ActivationClient.jsonEscape(out.getName())
+                + "\",\"name\":\"" + ActivationClient.jsonEscape(fileName)
+                + "\",\"size\":" + size + "}";
+    }
+
+    /** 边下边算 SHA256；返回小写 hex，任何失败都回 null。 */
+    private String downloadTo(String url, File out) {
+        HttpURLConnection conn = null;
+        InputStream in = null;
+        OutputStream o = null;
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            conn = (HttpURLConnection) new URL(url).openConnection();
+            conn.setConnectTimeout(20000);
+            conn.setReadTimeout(60000);
+            conn.setInstanceFollowRedirects(true);
+            int status = conn.getResponseCode();
+            if (status < 200 || status >= 300) {
+                return null;
+            }
+            in = conn.getInputStream();
+            o = new FileOutputStream(out);
+            byte[] buf = new byte[1 << 16];
+            long total = 0L;
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                total += n;
+                if (total > MAX_FONT_DOWNLOAD_BYTES) {
+                    return null;
+                }
+                digest.update(buf, 0, n);
+                o.write(buf, 0, n);
+            }
+            o.flush();
+            return hexLower(digest.digest());
+        } catch (Throwable t) {
+            return null;
+        } finally {
+            closeQuietly(in);
+            closeQuietly(o);
+            if (conn != null) {
+                try {
+                    conn.disconnect();
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+    }
+
+    private static String hexLower(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(Character.forDigit((b >> 4) & 0xF, 16));
+            sb.append(Character.forDigit(b & 0xF, 16));
+        }
+        return sb.toString();
+    }
+
     // ---------------------------------------------------------------- 导出落盘（页面分片传回）
 
     private final Object recLock = new Object();
@@ -498,6 +691,49 @@ public class OpenCutActivity extends AppCompatActivity {
                     Toast.makeText(OpenCutActivity.this, msg, Toast.LENGTH_LONG).show();
                 }
             });
+        }
+
+        /**
+         * 在线字体清单。签名通道复用激活码那套（五个必填头，缺 X-Client-Type 会被网关
+         * 风控），服务端整包 JSON 原样转给页面，字段解释留在页面侧 —— 以后加字段不用动原生层。
+         */
+        @JavascriptInterface
+        public void listFonts(final String callback) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    String json;
+                    try {
+                        json = pickRaw(ActivationClient.resourcesList("font"), "字体清单");
+                    } catch (Throwable t) {
+                        json = errorJson(friendlyError(t));
+                    }
+                    deliverJson(callback, json);
+                }
+            }).start();
+        }
+
+        /**
+         * 下载一个在线字体到私有目录，成功后回站内路径 {@code /res-fonts/<文件名>}。
+         *
+         * <p>为什么绕原生层而不是页面直接 fetch：① 清单和直链接口都要 HMAC 签名，密钥只在
+         * BuildConfig（local.properties 注入），绝不能进 Web 产物；② 对象存储直链的域名不在
+         * WebView 的放行范围内，页面自己拉会被 CORS 和请求拦截双双挡掉。
+         */
+        @JavascriptInterface
+        public void downloadFont(final String slug, final String callback) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    String json;
+                    try {
+                        json = fetchFont(slug);
+                    } catch (Throwable t) {
+                        json = errorJson(friendlyError(t));
+                    }
+                    deliverJson(callback, json);
+                }
+            }).start();
         }
 
         @JavascriptInterface
