@@ -580,12 +580,27 @@ public class OpenCutActivity extends AppCompatActivity {
         }
         org.json.JSONObject root = new org.json.JSONObject(raw);
         if (!root.optBoolean("success", false)) {
+            // code 必须一起带给页面：`TIMESTAMP_EXPIRED`（手机时钟偏差）这类只有靠码
+            // 才能翻成"去开自动校时"，只给 message 用户不知道该干什么
+            String code = root.optString("code", "");
             String why = root.optString("error", root.optString("message", ""));
-            return errorJson(why.length() == 0 ? "服务端拒绝发放下载链接" : why);
+            String fallback = code.length() > 0 ? "" : "服务端拒绝发放下载链接";
+            String message = why.length() > 0 ? why : fallback;
+            return "{\"success\":false,\"error\":\"" + ActivationClient.jsonEscape(message)
+                    + "\",\"code\":\"" + ActivationClient.jsonEscape(code) + "\"}";
         }
         org.json.JSONObject data = root.optJSONObject("data");
         if (data == null) {
             return errorJson("返回里没有下载信息");
+        }
+        /*
+         * 文档 §6.4：现阶段服务端不强校验 require_feature，"先激活再下载"由 App 端
+         * 负责。清单那侧已经不给下载按钮了，这里再挡一道 —— 因为**直链响应里也带这个
+         * 字段**，才是这次下载该不该放行的权威依据（清单可能是几分钟前缓存的）。
+         */
+        String requireFeature = data.optString("require_feature", "");
+        if (requireFeature.length() > 0) {
+            return errorJson("需先激活");
         }
         String url = data.optString("download_url", "");
         String wantSha = data.optString("file_sha256", "").toLowerCase();

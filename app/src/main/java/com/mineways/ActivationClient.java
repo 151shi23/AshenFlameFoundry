@@ -155,10 +155,14 @@ public final class ActivationClient {
         return post("/api/app/resources/list", body);
     }
 
-    /** 取某个资源的下载直链（服务端发 24 小时预签名 URL，客户端直连对象存储下载）。 */
+    /**
+     * 取某个资源的下载直链（服务端发 24 小时预签名 URL，客户端直连对象存储下载）。
+     * 带上 app_version_code：服务端下载日志按它统计，排查"某个版本下不动"时才有的对。
+     */
     public static Result resourceDownload(String slug) {
         return post("/api/app/resources/download",
-                "{\"slug\":\"" + jsonEscape(slug) + "\"}");
+                "{\"slug\":\"" + jsonEscape(slug) + "\",\"app_version_code\":"
+                        + BuildConfig.VERSION_CODE + "}");
     }
 
     static String jsonEscape(String s) {
