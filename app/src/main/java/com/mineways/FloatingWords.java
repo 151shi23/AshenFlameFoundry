@@ -33,8 +33,11 @@ import java.util.Random;
  * callback，所以列表点按、输入、滑动、WebView 里的点击全都不受影响。</p>
  *
  * <p>按用户提的几条重做：点哪就在哪出（文字中心落在指尖）、每条随机换色、抽干再洗牌的<b>不重复</b>、
- * 可以连着点（只留 200ms 冷却 + 同屏 7 条上限）、<b>滑动时不消失</b>；生效范围是<b>所有页面</b> ——
- * 由 {@link MinewaysApp} 统一给每个 Activity 装，包括底部四个分类页、关于页，和每个自建的功能页。</p>
+ * 可以连着点（只留 200ms 冷却 + 同屏 7 条上限）、<b>滑动时不消失</b>；生效范围是<b>本 App 自己画的
+ * 界面</b> —— 由 {@link MinewaysApp} 统一给每个 Activity 装，包括底部四个分类页、关于页和每个自建
+ * 功能页。<b>指尖落在 web 表面上时不生效</b>（剪辑器、Blockbench、粒子编辑器、云间列车 WebGL、
+ * 网页工具、授权页）：判据是"这一点被哪个 View 接住"，不是"树里有没有 WebView"，也不是记类名 ——
+ * bb 转 OBJ 那页就有一个被原生面板盖住的满屏内核 WebView，按树判会误杀它。</p>
  *
  * <p>文案在 {@code res/values/core_values.xml}，收录标准写在那份注释里。</p>
  */
@@ -119,17 +122,54 @@ public final class FloatingWords {
         if (now - lastSpawnAt < COOLDOWN_MS || alive >= MAX_ALIVE) {
             return;
         }
+        View root = decor.getRootView();
+        int x = (int) ev.getRawX(), y = (int) ev.getRawY();
+        if (root == null || hitWebView(root, x, y)) {
+            return;     // 指尖落在 web 表面上（剪辑器、Blockbench、粒子、WebGL 页…）→ 不冒字
+        }
         lastSpawnAt = now;
         try {
-            spawn(decor, (int) ev.getRawX(), (int) ev.getRawY());
+            spawn(root, x, y);
         } catch (Throwable ignored) {
         }
     }
 
+    /**
+     * 指尖这一点是不是落在 web 表面上 —— <b>顶层命中优先</b>，不是"树里有没有 WebView"。
+     *
+     * <p>为什么不能只看"树里有没有"：bb 模型转 OBJ 那页把 Blockbench 内核用<b>满屏 WebView</b> 承载
+     * （0 尺寸会让 WebGL 上下文创建失败），但上面盖了一层不透明的原生面板 —— 那页的界面是
+     * 本 App 画的，该冒字。按命中判就自然对了：点在原生面板上算我们的，点在露出来的 web 上不算。</p>
+     */
+    private static boolean hitWebView(View v, int winX, int winY) {
+        if (v.getVisibility() != View.VISIBLE || !containsPoint(v, winX, winY)) {
+            return false;
+        }
+        if (v instanceof android.webkit.WebView) {
+            return true;
+        }
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup) v;
+            for (int i = group.getChildCount() - 1; i >= 0; i--) {   // 后画的在上层，先判
+                View child = group.getChildAt(i);
+                if (child.getVisibility() == View.VISIBLE && containsPoint(child, winX, winY)) {
+                    return hitWebView(child, winX, winY);
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsPoint(View v, int winX, int winY) {
+        int[] loc = new int[2];
+        v.getLocationInWindow(loc);
+        return winX >= loc[0] && winX < loc[0] + v.getWidth()
+                && winY >= loc[1] && winY < loc[1] + v.getHeight();
+    }
+
     // ---------------------------------------------------------------- 冒字
 
-    private void spawn(View decor, int tapX, int tapY) {
-        View root = decor.getRootView();
+    private void spawn(View root, int tapX, int tapY) {
         if (!(root instanceof FrameLayout)) {
             return;
         }
