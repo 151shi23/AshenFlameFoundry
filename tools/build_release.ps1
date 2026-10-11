@@ -38,6 +38,38 @@ $bt = (Get-ChildItem (Join-Path $sdk 'build-tools') -Directory -ErrorAction Sile
 if (-not (Test-Path $project)) { Write-Host "找不到工程目录：$project" -ForegroundColor Red; exit 1 }
 Write-Host ("工程：{0}" -f $project)
 Write-Host ("沙箱：{0}" -f $Sandbox)
+
+# ---------------------------------------------------------------- 0/6. 内存守卫
+# 撞过：连续构建多次后，残留的 Gradle 守护进程一直占内存 + 页面文件耗尽，
+# 编译 JVM 连 64MB 都申请不下来：
+#   os::commit_memory(...) failed; error='页面文件太小，无法完成操作。' (DOS error/errno=1455)
+#   insufficient memory for the Java Runtime Environment to continue
+# 这里在构建前先回收上一次的守护进程，并在虚拟内存不足时明确提示。
+Write-Host '== 0/6 内存守卫 ==' -ForegroundColor Cyan
+$osInfo = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+$freeMb = if ($osInfo) { [int]($osInfo.FreePhysicalMemory / 1024) } else { 0 }
+$pageMb = if ($osInfo) { [int]($osInfo.FreeVirtualMemory / 1024) } else { 0 }
+$stale = Get-CimInstance Win32_Process -Filter "Name = 'java.exe'" -ErrorAction SilentlyContinue |
+         Where-Object { $_.CommandLine -and ($_.CommandLine -match 'GradleDaemon' -or $_.CommandLine -match 'org\.gradle') }
+if ($stale) {
+    foreach ($p in $stale) {
+        try {
+            Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
+            Write-Host ('  回收残留构建进程 pid=' + $p.ProcessId) -ForegroundColor Green
+        } catch { }
+    }
+    Start-Sleep -Seconds 2
+    $osInfo = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+    if ($osInfo) {
+        $freeMb = [int]($osInfo.FreePhysicalMemory / 1024)
+        $pageMb = [int]($osInfo.FreeVirtualMemory / 1024)
+    }
+}
+Write-Host ("  物理内存剩余 {0} MB · 页面文件剩余 {1} MB" -f $freeMb, $pageMb)
+if ($pageMb -lt 512) {
+    Write-Host '  [警告] 虚拟内存（页面文件）快满了，构建很可能因内存不足失败。' -ForegroundColor Yellow
+    Write-Host '         处理：关掉占内存的程序，或调大页面文件（系统属性 → 高级 → 性能 → 虚拟内存）。' -ForegroundColor Yellow
+}
 Write-Host ("build-tools：{0}" -f $bt)
 
 # ---------------------------------------------------------------- 1. 沙箱
@@ -169,6 +201,47 @@ if ($apiHits.Count) {
     $apiHits | Select-Object -Unique | ForEach-Object { '    ' + $_ }
 } else {
     Write-Host '  通过：无 StringBuilder.isEmpty / String.repeat / isBlank / strip / lines' -ForegroundColor Green
+}
+
+# ---------------------------------------------------------------- 5c/6. JNI 符号自检
+# 撞过：native 声明在 com.mineways.ExportActivity，C 侧却写成 Java_com_mineways_MainActivity_xxx
+#   → 运行时 UnsatisfiedLinkError（存档导出整个不可用），只有真机点「开始导出」才暴露。
+# 这里在打包前把 Java 的 native 声明与 .so 里的符号名对一遍（两个 .so 一起查）。
+Write-Host '== 5c/6 JNI 符号自检 ==' -ForegroundColor Cyan
+$jniBad = @()
+$soText = ''
+foreach ($rel in @('app\build\intermediates\stripped_native_libs\release', 'app\build\intermediates\merged_native_libs\release')) {
+    $root = Join-Path $Sandbox $rel
+    if (-not (Test-Path $root)) { continue }
+    foreach ($so in (Get-ChildItem $root -Recurse -Filter '*.so' -ErrorAction SilentlyContinue)) {
+        $txt = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($so.FullName))
+        $soText += $txt
+    }
+}
+if ($soText.Length -eq 0) {
+    Write-Host '  [跳过] 没找到 release 的 .so' -ForegroundColor Yellow
+} else {
+    $javaDir = Join-Path $Sandbox 'app\src\main\java\com\mineways'
+    $checked = 0
+    foreach ($jf in (Get-ChildItem $javaDir -Filter '*.java' -ErrorAction SilentlyContinue)) {
+        $cls = $jf.BaseName
+        $txt = Get-Content $jf.FullName -Raw -Encoding UTF8
+        foreach ($m in [regex]::Matches($txt, '(?m)^\s*(?:public\s+|private\s+|protected\s+|static\s+|final\s+)*native\s+[A-Za-z0-9_\[\]<>\.]+\s+(\w+)\s*\(')) {
+            $name = $m.Groups[1].Value
+            $sym = 'Java_com_mineways_' + $cls + '_' + $name
+            $checked++
+            if ($soText.Contains($sym)) {
+                Write-Host ('  通过：' + $sym) -ForegroundColor Green
+            } else {
+                $jniBad += $sym
+                Write-Host ('  [错误] .so 里找不到符号 ' + $sym + '（声明在 ' + $jf.Name + '）') -ForegroundColor Red
+            }
+        }
+    }
+    Write-Host ('  共检查 ' + $checked + ' 个 native 声明')
+}
+if ($jniBad.Count) {
+    Write-Host '  JNI 符号缺失 → 运行时 UnsatisfiedLinkError。C 侧函数名必须写成 Java_<包名>_<声明类>_<方法名>。' -ForegroundColor Yellow
 }
 
 # ---------------------------------------------------------------- 6/6. 分发
