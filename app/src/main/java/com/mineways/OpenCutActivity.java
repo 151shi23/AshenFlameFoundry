@@ -603,13 +603,15 @@ public class OpenCutActivity extends AppCompatActivity {
                 continue;
             }
             int seq = f.optInt("seq", i + 1);
+            String fileName = nullableText(f, "file_name");
+            String versionName = nullableText(f, "version_name");
             org.json.JSONObject meta = new org.json.JSONObject();
             meta.put("seq", seq);
-            meta.put("file_name", f.optString("file_name", "font-" + seq + ".ttf"));
+            meta.put("file_name", fileName.length() > 0 ? fileName : "font-" + seq + ".ttf");
             meta.put("file_size_bytes", f.optLong("file_size_bytes", 0L));
-            meta.put("file_sha256", f.optString("file_sha256", "").toLowerCase());
-            meta.put("version_name", f.optString("version_name", "v" + seq));
-            meta.put("download_url", f.optString("download_url", ""));
+            meta.put("file_sha256", nullableText(f, "file_sha256").toLowerCase());
+            meta.put("version_name", versionName.length() > 0 ? versionName : "v" + seq);
+            meta.put("download_url", nullableText(f, "download_url"));
             packCache.put(slug + "#" + seq, meta);
             out.put(new org.json.JSONObject()
                     .put("seq", seq)
@@ -621,7 +623,8 @@ public class OpenCutActivity extends AppCompatActivity {
         return new org.json.JSONObject()
                 .put("success", true)
                 .put("slug", slug)
-                .put("name", data.optString("name", slug))
+                .put("name", nullableText(data, "name").length() > 0
+                        ? nullableText(data, "name") : slug)
                 .put("total_files", out.length())
                 .put("total_size_bytes", data.optLong("total_size_bytes", 0L))
                 .put("expires_in", data.optInt("expires_in", 86400))
@@ -644,9 +647,12 @@ public class OpenCutActivity extends AppCompatActivity {
         if (meta == null) {
             return errorJson("这个包里没有这个文件，重新打开列表试试");
         }
-        String url = meta.optString("download_url", "");
-        String wantSha = meta.optString("file_sha256", "").toLowerCase();
-        String fileName = meta.optString("file_name", "font.ttf");
+        String url = nullableText(meta, "download_url");
+        String wantSha = nullableText(meta, "file_sha256").toLowerCase();
+        String fileName = nullableText(meta, "file_name");
+        if (fileName.length() == 0) {
+            fileName = "font.ttf";
+        }
         if (!url.startsWith("http")) {
             return errorJson("下载链接不可用（可能已过期，请重新拉一次列表）");
         }
@@ -693,6 +699,24 @@ public class OpenCutActivity extends AppCompatActivity {
                 .toString();
     }
 
+    /**
+     * 读一个「可能是 JSON null」的字段，一律归一成空串。
+     *
+     * <p>这里不能直接用 {@code optString}：安卓那份 org.json 把显式 {@code null} 存成
+     * {@code JSONObject.NULL}，{@code optString} 走 {@code toString()} 会拿到<b>字面量 "null"</b>
+     * （长度 4，非空）。于是服务端写 {@code "require_feature": null}（= 不需要激活）会被读成
+     * "需要激活"，在线字体整条链卡在「需先激活」——真机上就是这么撞的。三种情况都算空：
+     * 字段缺失、值是 JSON null、值被读成字符串 "null"。</p>
+     */
+    private static String nullableText(org.json.JSONObject object, String key) {
+        Object value = object.opt(key);
+        if (value == null || org.json.JSONObject.NULL.equals(value)) {
+            return "";
+        }
+        String text = String.valueOf(value).trim();
+        return "null".equalsIgnoreCase(text) ? "" : text;
+    }
+
     /** 服务端拒绝（success=false）或这次不该放行（require_feature）时给页面的 JSON，否则 null。 */
     private String packRefusal(String raw) {
         if (raw == null || raw.trim().length() == 0) {
@@ -705,8 +729,11 @@ public class OpenCutActivity extends AppCompatActivity {
                  * code 必须一起带给页面：`TIMESTAMP_EXPIRED`（手机时钟偏差）这类只有靠码
                  * 才能翻成"去开自动校时"，只给 message 用户不知道该干什么。
                  */
-                String code = root.optString("code", "");
-                String why = root.optString("error", root.optString("message", ""));
+                String code = nullableText(root, "code");
+                String why = nullableText(root, "error");
+                if (why.length() == 0) {
+                    why = nullableText(root, "message");
+                }
                 String message = why.length() > 0 ? why
                         : (code.length() > 0 ? "" : "服务端拒绝发放下载链接");
                 return new org.json.JSONObject()
@@ -720,8 +747,9 @@ public class OpenCutActivity extends AppCompatActivity {
              * 文档 §6.4：现阶段服务端不强校验 require_feature，"先激活再下载"由 App 端负责。
              * 清单那侧已经不给下载入口了，这里再挡一道 —— 直链响应里也带这个字段，
              * 它才是这次下载该不该放行的权威依据（清单可能是几分钟前缓存的）。
+             * 判空必须走 nullableText：这个字段线上就是 null。
              */
-            if (data != null && data.optString("require_feature", "").length() > 0) {
+            if (data != null && nullableText(data, "require_feature").length() > 0) {
                 return errorJson("需先激活");
             }
             return null;
