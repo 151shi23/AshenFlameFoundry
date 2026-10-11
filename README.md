@@ -34,12 +34,12 @@
 
 > **特别鸣谢 / Special thanks**
 > **蚩尤** —— 测试：找出多个重大 bug（导出选项失效、3D 预览、导出 0 方块、玻璃等方块漏导、维度错误、选择器三态…），并给出可复现的现象与可靠日志
-> **ZERO寂灵** —— 策划与移植主导（功能取舍、与桌面版行为对齐、安卓端交互），**并参与测试，提供了同样可靠的日志**
+> **[ZERO寂灵](https://github.com/ZEROJILING)** —— 策划与移植主导（功能取舍、与桌面版行为对齐、安卓端交互），**并参与测试，提供了同样可靠的日志**
 >
 > 两位的测试与日志，决定了这些问题是"无法复现"还是"已修复"。
 >
 > **蚩尤 (Chiyou)** — testing: surfaced several major bugs (broken export options, 3D preview, zero-block exports, missing block types such as glass, wrong dimension, the three-state selector…) with reproducible symptoms and reliable logs
-> **ZERO寂灵 (ZERO Jiling)** — planning & porting lead (feature scoping, desktop-behaviour alignment, Android UX), **who also tested and supplied equally reliable logs**
+> **[ZERO寂灵 (ZERO Jiling)](https://github.com/ZEROJILING)** — planning & porting lead (feature scoping, desktop-behaviour alignment, Android UX), **who also tested and supplied equally reliable logs**
 >
 > Their testing and logs are what turned these issues from "cannot reproduce" into "fixed".
 
@@ -335,7 +335,7 @@ tools/                            # 构建 / 审计 / 离线化脚本
 | 贡献者 | 角色 | 具体贡献 |
 |---|---|---|
 | **蚩尤** | 测试 | 测出并推动修复了**多个重大 bug**：导出选项点了不生效、3D 预览打不开、导出 0 方块（`MW_NO_BLOCKS_FOUND`）、玻璃等方块漏导、维度不对导致导出"货不对版"、单选组选上了取消不了、导出选项选择器三态等。每次都给出可复现的现象与**可靠日志/导出报告**，这是问题能被定位的关键。|
-| **ZERO寂灵** | 策划 / 移植 **+ 测试** | 主导项目的策划与移植：功能取舍与优先级、与桌面版 Mineways 行为对齐（选项语义、默认值、导出结果一致性）、安卓端交互与整体推进节奏；**同时参与测试，提供了同样可靠的日志**，与蚩尤的反馈一起构成完整的复现链路。|
+| **[ZERO寂灵](https://github.com/ZEROJILING)** | 策划 / 移植 **+ 测试** | 主导项目的策划与移植：功能取舍与优先级、与桌面版 Mineways 行为对齐（选项语义、默认值、导出结果一致性）、安卓端交互与整体推进节奏；**同时参与测试，提供了同样可靠的日志**，与蚩尤的反馈一起构成完整的复现链路。|
 
 **两位的测试同等重要**：一人负责的问题面、另一人负责的复现细节，缺一不可 ——
 这些 bug 大多在手机上才会出现，没有可靠的日志与现象描述，就无法定位，更无法验证修复。
@@ -552,7 +552,7 @@ This project got where it is thanks to two people who kept at it — **equal cre
 | Contributor | Role | Contribution |
 |---|---|---|
 | **蚩尤 (Chiyou)** | Testing | Found and drove fixes for **several major bugs**: export options that had no effect, the 3D preview not opening, exports producing 0 blocks (`MW_NO_BLOCKS_FOUND`), missing block types (e.g. glass), "wrong map" exports caused by the missing dimension switch, radio options that could not be cleared, and the three-state option selector. Every report came with reproducible symptoms and **reliable logs/export reports** — that is what made them fixable. |
-| **ZERO寂灵 (ZERO Jiling)** | Planning / Porting **+ testing** | Led planning and the port: feature scoping and priorities, aligning behaviour with desktop Mineways (option semantics, defaults, output consistency), plus the Android UX and overall pace. **Also tested, supplying equally reliable logs** that completed the reproduction chain together with Chiyou's reports. |
+| **[ZERO寂灵 (ZERO Jiling)](https://github.com/ZEROJILING)** | Planning / Porting **+ testing** | Led planning and the port: feature scoping and priorities, aligning behaviour with desktop Mineways (option semantics, defaults, output consistency), plus the Android UX and overall pace. **Also tested, supplying equally reliable logs** that completed the reproduction chain together with Chiyou's reports. |
 
 **Both contributions to testing carry equal weight:** one covered a different surface of the app, the other
 documented the reproduction details. Most of these bugs only appear on a real device — without reliable logs
