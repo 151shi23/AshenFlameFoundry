@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- API 30+：允许内容延伸进刘海/挖孔区（与原包的 values-v30/styles.xml 一致）。 -->
+    <style name="Theme.Mineways.MineImator" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/mim_window_background</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
+    </style>
+</resources>

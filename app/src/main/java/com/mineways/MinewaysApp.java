@@ -34,6 +34,9 @@ public class MinewaysApp extends Application {
                 Thread.getDefaultUncaughtExceptionHandler();
 
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            // 0) 落盘：闪退后用户还能在应用里看到堆栈（剪贴板会被别的东西覆盖）
+            writeCrashToFile(throwable, thread);
+
             // 1) 无论什么功能、什么线程出错，都复制到剪贴板
             copyErrorToClipboard(throwable);
 
@@ -49,6 +52,33 @@ public class MinewaysApp extends Application {
                 throwable.printStackTrace();
             }
         });
+    }
+
+    /** 闪退日志落盘位置（Blender 页有「查看上次崩溃」按钮读它）。 */
+    public static java.io.File crashFile(Context c) {
+        final java.io.File dir = new java.io.File(c.getFilesDir(), "blender");
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        return new java.io.File(dir, "last_crash.txt");
+    }
+
+    /** 把异常堆栈写到私有目录（失败不抛）。 */
+    private void writeCrashToFile(Throwable throwable, Thread thread) {
+        try {
+            Writer writer = new StringWriter();
+            PrintWriter pw = new PrintWriter(writer);
+            pw.println("时间：" + new java.util.Date());
+            pw.println("线程：" + (thread == null ? "?" : thread.getName()));
+            pw.println("版本：" + getPackageManager().getPackageInfo(getPackageName(), 0).versionName);
+            pw.println();
+            throwable.printStackTrace(pw);
+            pw.flush();
+            final byte[] bytes = writer.toString().getBytes("UTF-8");
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream(crashFile(this), false)) {
+                out.write(bytes);
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     /** 把异常的完整堆栈写入系统剪贴板。 */

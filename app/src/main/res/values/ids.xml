@@ -2,4 +2,6 @@
 <resources>
     <!-- 水印包装层的标记 id：仅用于判断界面是否已经叠加过水印 -->
     <item name="watermark_tag" type="id" />
+    <!-- NavHost 容器用固定 id：进程被杀后恢复时能找回同一个 NavHostFragment，不会建出第二个 NavController -->
+    <item name="nav_host" type="id" />
 </resources>

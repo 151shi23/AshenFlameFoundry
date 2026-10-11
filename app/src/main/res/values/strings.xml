@@ -229,7 +229,7 @@
     <!-- 首次启动引导窗 -->
     <string name="intro_title">欢迎使用 AshenFlame Foundry</string>
     <string name="intro_s1">这个应用是什么</string>
-    <string name="intro_app_body">Minecraft 存档导出与创作工具箱，首页按「本地工具 + 网页工具」两栏摆开。\n\n导出：把 Java、基岩、网易存档里的建筑导成带贴图的 OBJ，框选坐标 → 导出 → 3D 预览 → 打包 ZIP 存到「下载」。\n转换：基岩版世界转 Java 版（Chunker）。\n创作：离线的 Blockbench、粒子编辑器、AI 动画助手、离线种子地图、颜色代码、GIF 工具。\n网页工具：80 多家皮肤、材质、地图画、指令库等站点，站内直接打开。</string>
+    <string name="intro_app_body">Minecraft 存档导出与创作工具箱，首页按「本地工具 + 网页工具」两栏摆开。\n\n导出：把 Java、基岩、网易存档里的建筑导成带贴图的 OBJ，框选坐标 → 导出 → 3D 预览 → 打包 ZIP 存到「下载」。\n转换：基岩版世界转 Java 版（Chunker）。\n创作：离线的 Blockbench、粒子编辑器、AI 动画助手、离线种子地图、颜色代码、GIF 工具。\n地图：像素地图站开放平台原生页，搜图、看详情，地图包直接下到「下载/像素地图」（这一页要联网）。\n网页工具：130 多家皮肤、材质、地图画、指令库、视频图片素材等站点，站内直接打开。</string>
     <string name="intro_s2">开源项目</string>
     <string name="intro_project_body">本项目以 GPL-3.0 开源：github.com/151shi23/AshenFlameFoundry\n安装包放在仓库的 Releases 里，最新版 Release 的正文同时承载云控规则；构建方法与常见问题写在 README 里。</string>
     <string name="intro_s3">开发与贡献人员</string>
@@ -271,6 +271,12 @@
     <string-array name="file_types">
         <item>OBJ（Wavefront，含纹理）</item>
     </string-array>
+
+    <!-- 云间列车（assets/cloudtrain 下的单文件 WebGL2 动画） -->
+    <string name="cloudtrain_load_fail">云间列车加载失败：请确认系统 WebView 支持 WebGL2</string>
+
+    <!-- OpenCut 剪辑器（assets/opencut 下的 Next.js 静态产物） -->
+    <string name="opencut_load_fail">剪辑器加载失败：请确认系统 WebView 已更新到支持 WebCodecs/OPFS 的版本（Chrome 117 内核以上）</string>
 
     <string-array name="cull_modes">
         <item>标准（隐藏技术方块）</item>

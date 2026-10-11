@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mine-imator 动画工作室（内嵌引擎）用的资源。取值与原包一致：底色 #1a1a1a、全屏无 ActionBar。 -->
+    <color name="mim_window_background">#1a1a1a</color>
+    <string name="mim_app_name">Mine-imator 动画工作室</string>
+
+    <style name="Theme.Mineways.MineImator" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/mim_window_background</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>

@@ -3,4 +3,10 @@
     <!-- 应用外部专属目录：导出 OBJ 与转换输出的世界都放在这里 -->
     <external-files-path name="exports" path="exports/" />
     <external-files-path name="converted" path="converted/" />
+    <!-- 文件修复产物（可分享 / 导出） -->
+    <external-files-path name="repair" path="repair/" />
+    <!-- 剪辑标识清除产物 -->
+    <external-files-path name="scrub" path="scrub/" />
+    <!-- Mine-imator 工作室产物：引擎写在应用私有 files 目录里，分享/打开要走 FileProvider -->
+    <files-path name="mim_files" path="./" />
 </paths>

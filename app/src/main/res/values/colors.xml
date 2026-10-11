@@ -5,13 +5,24 @@
     <color name="md_theme_primaryContainer">#A5D6A7</color>
     <color name="md_theme_onPrimaryContainer">#1B5E20</color>
     <color name="md_theme_secondary">#00897B</color>
-    <color name="surface">#FFFFFF</color>
-    <color name="onSurface">#212121</color>
-    <color name="surfaceVariant">#F5F5F5</color>
+    <color name="surface">#0E0F11</color>
+    <color name="onSurface">#EDEDED</color>
+    <color name="surfaceVariant">#15171A</color>
     <color name="outline">#9E9E9E</color>
     <color name="error">#B00020</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
     <!-- 自适应图标背景：取自图标本体边缘的深色，与圆角框内底色一致 -->
     <color name="ic_launcher_background">#1C1E1D</color>
-</resources>
+    <!-- 工具箱（烬火主题）-->
+    <color name="ember_bg">#0E0F11</color>
+    <color name="ember_bg_deep">#090A0C</color>
+    <color name="ember_card">#15171A</color>
+    <color name="ember_card_hi">#1B1E22</color>
+    <color name="ember_stroke">#14FFFFFF</color>
+    <color name="ember_amber">#D9603A</color>
+    <color name="ember_amber_soft">#E5855F</color>
+    <color name="ember_text">#ECEFF1</color>
+    <color name="ember_dim">#8C99A6</color>
+    <color name="ember_mint">#8FE3B0</color>
+    <color name="ember_blue">#8FD3FF</color></resources>

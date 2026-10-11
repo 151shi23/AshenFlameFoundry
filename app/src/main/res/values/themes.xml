@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.MinewaysMobile" parent="Theme.Material3.Light.NoActionBar">
+    <style name="Theme.MinewaysMobile" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/md_theme_primary</item>
         <item name="colorOnPrimary">@color/md_theme_onPrimary</item>
         <item name="colorPrimaryContainer">@color/md_theme_primaryContainer</item>
@@ -10,4 +10,24 @@
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/onSurface</item>
     </style>
-</resources>
+    <style name="Theme.MinewaysMobile.Toolbox" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">@color/ember_bg</item>
+        <item name="android:statusBarColor">@color/ember_bg</item>
+        <item name="android:navigationBarColor">@color/ember_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="colorPrimary">@color/ember_amber</item>
+        <item name="colorOnPrimary">#1A1205</item>
+        <item name="colorSurface">@color/ember_bg</item>
+        <item name="colorOnSurface">@color/ember_text</item>
+    </style>
+    <!--
+      剪辑页专用：主题默认的 statusBarColor 会取 colorPrimary（#2E7D32 绿），横屏顶部
+      就压着一条绿带，页面高度白白少掉 24~48dp。这里让系统栏透明并在窗口层直接全屏，
+      Activity 里再用 WindowInsetsController 保持沉浸式（见 OpenCutActivity#goImmersive）。
+    -->
+    <style name="Theme.MinewaysMobile.OpenCut" parent="Theme.MinewaysMobile">
+        <item name="android:windowBackground">@color/ember_bg_deep</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowFullscreen">true</item>
+    </style></resources>

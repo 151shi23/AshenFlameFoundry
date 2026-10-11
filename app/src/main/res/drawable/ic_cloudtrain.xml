@@ -1,0 +1,22 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <!-- 云朵（右上，三圆合并成一朵） -->
+    <path android:fillColor="#FF000000"
+        android:pathData="M15.6,9.2m-2.3,0a2.3,2.3 0 1,0 4.6,0a2.3,2.3 0 1,0 -4.6,0" />
+    <path android:fillColor="#FF000000"
+        android:pathData="M18.5,10.4m-1.9,0a1.9,1.9 0 1,0 3.8,0a1.9,1.9 0 1,0 -3.8,0" />
+    <path android:fillColor="#FF000000"
+        android:pathData="M13.5,10.6m-1.8,0a1.8,1.8 0 1,0 3.6,0a1.8,1.8 0 1,0 -3.6,0" />
+    <!-- 列车车头：车窗用 evenOdd 真挖空（不依赖染色） -->
+    <path android:fillColor="#FF000000" android:fillType="evenOdd"
+        android:pathData="M6.4,12.2h8.2a2.4,2.4 0 0 1 2.4,2.4v2.2a2.4,2.4 0 0 1 -2.4,2.4H6.4A2.4,2.4 0 0 1 4,16.8v-2.2A2.4,2.4 0 0 1 6.4,12.2zM6.6,14.1h7.8v1.6H6.6z" />
+    <!-- 车轮 -->
+    <path android:fillColor="#FF000000"
+        android:pathData="M7.6,20.2m-1.4,0a1.4,1.4 0 1,0 2.8,0a1.4,1.4 0 1,0 -2.8,0" />
+    <path android:fillColor="#FF000000"
+        android:pathData="M13.4,20.2m-1.4,0a1.4,1.4 0 1,0 2.8,0a1.4,1.4 0 1,0 -2.8,0" />
+    <!-- 轨道 -->
+    <path android:fillColor="#FF000000"
+        android:pathData="M2.8,22h16.4v1.2H2.8z" />
+</vector>

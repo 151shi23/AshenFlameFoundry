@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 只给自建的 Sincerity 工具站放行明文 http（IP 直连、没有 HTTPS 证书）；
+     其余站点一律保持系统默认（Android 9+ 默认禁明文），整体安全策略不变。 -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">110.42.53.159</domain>
+    </domain-config>
+</network-security-config>

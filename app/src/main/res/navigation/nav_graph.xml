@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  标签页导航图：5 个目的地，全部由 com.mineways.PageFragment 承载（索引走 argument）。
+  结构对齐玄戒工具箱（它用 Navigation Compose 的 NavHost + Screen 路由），
+  View 工程这边就是官方的 Navigation 组件（NavHostFragment + NavController）。
+-->
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/page_all">
+
+    <fragment
+        android:id="@+id/page_all"
+        android:name="com.mineways.PageFragment"
+        android:label="全部"
+        app:enterAnim="@anim/nav_fade_in"
+        app:exitAnim="@anim/nav_fade_out"
+        app:popEnterAnim="@anim/nav_fade_in"
+        app:popExitAnim="@anim/nav_fade_out">
+        <argument
+            android:name="index"
+            android:defaultValue="0"
+            app:argType="integer" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/page_free"
+        android:name="com.mineways.PageFragment"
+        android:label="免费"
+        app:enterAnim="@anim/nav_fade_in"
+        app:exitAnim="@anim/nav_fade_out"
+        app:popEnterAnim="@anim/nav_fade_in"
+        app:popExitAnim="@anim/nav_fade_out">
+        <argument
+            android:name="index"
+            android:defaultValue="1"
+            app:argType="integer" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/page_paid"
+        android:name="com.mineways.PageFragment"
+        android:label="白名单功能"
+        app:enterAnim="@anim/nav_fade_in"
+        app:exitAnim="@anim/nav_fade_out"
+        app:popEnterAnim="@anim/nav_fade_in"
+        app:popExitAnim="@anim/nav_fade_out">
+        <argument
+            android:name="index"
+            android:defaultValue="2"
+            app:argType="integer" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/page_limit"
+        android:name="com.mineways.PageFragment"
+        android:label="限制"
+        app:enterAnim="@anim/nav_fade_in"
+        app:exitAnim="@anim/nav_fade_out"
+        app:popEnterAnim="@anim/nav_fade_in"
+        app:popExitAnim="@anim/nav_fade_out">
+        <argument
+            android:name="index"
+            android:defaultValue="3"
+            app:argType="integer" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/page_about"
+        android:name="com.mineways.PageFragment"
+        android:label="关于"
+        app:enterAnim="@anim/nav_fade_in"
+        app:exitAnim="@anim/nav_fade_out"
+        app:popEnterAnim="@anim/nav_fade_in"
+        app:popExitAnim="@anim/nav_fade_out">
+        <argument
+            android:name="index"
+            android:defaultValue="4"
+            app:argType="integer" />
+    </fragment>
+
+</navigation>

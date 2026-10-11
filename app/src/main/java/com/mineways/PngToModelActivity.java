@@ -71,8 +71,23 @@ public class PngToModelActivity extends AppCompatActivity {
                 }
             });
 
+    
+    private String activationToken;
+    private String activationFeature;
+    private boolean activationDone;
+
+    private void finishActivation(boolean success) {
+        if (activationDone) {
+            return;
+        }
+        activationDone = true;
+        ActivationDialog.finish(this, activationFeature, activationToken, success);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        activationToken = getIntent() != null ? getIntent().getStringExtra("activation_token") : null;
+        activationFeature = getIntent() != null ? getIntent().getStringExtra("activation_feature") : null;
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_png_to_model);
 
@@ -233,6 +248,7 @@ public class PngToModelActivity extends AppCompatActivity {
                     lastName = null;
                     setBusy(false);
                     tvStatus.setText(getString(R.string.png_status_failed, e));
+            finishActivation(false);
                     return;
                 }
                 lastResult = r;
@@ -248,6 +264,7 @@ public class PngToModelActivity extends AppCompatActivity {
                             fSrcW, fSrcH, fFactor, fW, fH);
                 }
                 tvStatus.setText(msg);
+            finishActivation(true);
             });
         }, "png-to-model").start();
     }
@@ -422,6 +439,7 @@ public class PngToModelActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        finishActivation(false);   // 未确认就退出 -> release，不扣次
         super.onDestroy();
         if (srcBitmap != null) {
             srcBitmap.recycle();
