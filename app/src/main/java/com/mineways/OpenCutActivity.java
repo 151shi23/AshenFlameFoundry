@@ -79,6 +79,8 @@ public class OpenCutActivity extends AppCompatActivity {
     private static final String FONT_STORE_DIR = "res-fonts";
     /** 单个在线字体的体积上限：中文字体一个字重常见 8~30MB，再大基本不是单个字体 */
     private static final long MAX_FONT_DOWNLOAD_BYTES = 64L * 1024L * 1024L;
+    /** 中转目录的总量上限（一个包 33 个文件就可能 80MB，攒久了私有目录会被吃掉一大块） */
+    private static final long FONT_STORE_MAX_BYTES = 96L * 1024L * 1024L;
     /** 第三方管理器给的裸文件路径要复制成 content URI，但大文件不复制（私有目录经不起双倍占位） */
     private static final long MAX_UPLOAD_COPY_BYTES = 256L * 1024L * 1024L;
     private static final int BG = 0xFF15171A;
@@ -86,6 +88,9 @@ public class OpenCutActivity extends AppCompatActivity {
     private WebView webView;
     private ProgressBar progressBar;
     private ValueCallback<Uri[]> fileCallback;
+    /** 拉包拿到的文件元数据 + 24h 直链，只留在原生侧（键：{@code slug#seq}） */
+    private final java.util.Map<String, org.json.JSONObject> packCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
     private FrameLayout root;
     /** HTML5 全屏层：requestFullscreen() 的内容由系统回调塞进这里（见 onShowCustomView） */
     private FrameLayout fullscreenLayer;
@@ -568,71 +573,192 @@ public class OpenCutActivity extends AppCompatActivity {
         });
     }
 
-    /** 取直链 → 下载（边下边算 SHA256）→ 校验 → 落到私有目录。返回给页面的 JSON。 */
-    private String fetchFont(String rawSlug) throws Exception {
-        String slug = rawSlug == null ? "" : rawSlug.replaceAll("[^A-Za-z0-9._-]", "");
+    /**
+     * 拉一个字体包的文件清单（服务端 v3 文件包模型：一个 slug = 一个包，包内多个文件）。
+     *
+     * <p>直链<b>留在原生侧</b>不进页面：页面既拉不动对象存储域名（CORS + 放行范围），
+     * 拿到一串 24 小时签名 URL 也只是多一处会泄漏的地方。这里只回元数据，
+     * 页面按 {@code seq} 找我们要文件。</p>
+     */
+    private String packFiles(String rawSlug) throws Exception {
+        String slug = safeSlug(rawSlug);
         if (slug.length() == 0) {
             return errorJson("字体标识不合法");
         }
         String raw = ActivationClient.resourceDownload(slug).raw;
-        if (raw == null || raw.trim().length() == 0) {
-            return errorJson("服务端没有返回内容");
+        String refusal = packRefusal(raw);
+        if (refusal != null) {
+            return refusal;
         }
-        org.json.JSONObject root = new org.json.JSONObject(raw);
-        if (!root.optBoolean("success", false)) {
-            // code 必须一起带给页面：`TIMESTAMP_EXPIRED`（手机时钟偏差）这类只有靠码
-            // 才能翻成"去开自动校时"，只给 message 用户不知道该干什么
-            String code = root.optString("code", "");
-            String why = root.optString("error", root.optString("message", ""));
-            String fallback = code.length() > 0 ? "" : "服务端拒绝发放下载链接";
-            String message = why.length() > 0 ? why : fallback;
-            return "{\"success\":false,\"error\":\"" + ActivationClient.jsonEscape(message)
-                    + "\",\"code\":\"" + ActivationClient.jsonEscape(code) + "\"}";
+        org.json.JSONObject data = new org.json.JSONObject(raw).optJSONObject("data");
+        org.json.JSONArray incoming = data == null ? null : data.optJSONArray("files");
+        if (incoming == null || incoming.length() == 0) {
+            return errorJson("这个包里没有可下载的文件");
         }
-        org.json.JSONObject data = root.optJSONObject("data");
-        if (data == null) {
-            return errorJson("返回里没有下载信息");
+        pruneFontStore();
+        org.json.JSONArray out = new org.json.JSONArray();
+        for (int i = 0; i < incoming.length(); i++) {
+            org.json.JSONObject f = incoming.optJSONObject(i);
+            if (f == null) {
+                continue;
+            }
+            int seq = f.optInt("seq", i + 1);
+            org.json.JSONObject meta = new org.json.JSONObject();
+            meta.put("seq", seq);
+            meta.put("file_name", f.optString("file_name", "font-" + seq + ".ttf"));
+            meta.put("file_size_bytes", f.optLong("file_size_bytes", 0L));
+            meta.put("file_sha256", f.optString("file_sha256", "").toLowerCase());
+            meta.put("version_name", f.optString("version_name", "v" + seq));
+            meta.put("download_url", f.optString("download_url", ""));
+            packCache.put(slug + "#" + seq, meta);
+            out.put(new org.json.JSONObject()
+                    .put("seq", seq)
+                    .put("file_name", meta.get("file_name"))
+                    .put("file_size_bytes", meta.get("file_size_bytes"))
+                    .put("file_sha256", meta.get("file_sha256"))
+                    .put("version_name", meta.get("version_name")));
         }
-        /*
-         * 文档 §6.4：现阶段服务端不强校验 require_feature，"先激活再下载"由 App 端
-         * 负责。清单那侧已经不给下载按钮了，这里再挡一道 —— 因为**直链响应里也带这个
-         * 字段**，才是这次下载该不该放行的权威依据（清单可能是几分钟前缓存的）。
-         */
-        String requireFeature = data.optString("require_feature", "");
-        if (requireFeature.length() > 0) {
-            return errorJson("需先激活");
+        return new org.json.JSONObject()
+                .put("success", true)
+                .put("slug", slug)
+                .put("name", data.optString("name", slug))
+                .put("total_files", out.length())
+                .put("total_size_bytes", data.optLong("total_size_bytes", 0L))
+                .put("expires_in", data.optInt("expires_in", 86400))
+                .put("files", out)
+                .toString();
+    }
+
+    /** 按包内序号取一个文件：本地已有同校验值的直接复用，否则边下边算 SHA256。 */
+    private String packFile(String rawSlug, int seq) throws Exception {
+        String slug = safeSlug(rawSlug);
+        if (slug.length() == 0) {
+            return errorJson("字体标识不合法");
         }
-        String url = data.optString("download_url", "");
-        String wantSha = data.optString("file_sha256", "").toLowerCase();
-        String fileName = data.optString("file_name", slug + ".ttf");
+        org.json.JSONObject meta = packCache.get(slug + "#" + seq);
+        if (meta == null) {
+            // 直链只有拉包那一刻才有；页面隔太久才点、或进程被回收过，就重新拉一次
+            packFiles(slug);
+            meta = packCache.get(slug + "#" + seq);
+        }
+        if (meta == null) {
+            return errorJson("这个包里没有这个文件，重新打开列表试试");
+        }
+        String url = meta.optString("download_url", "");
+        String wantSha = meta.optString("file_sha256", "").toLowerCase();
+        String fileName = meta.optString("file_name", "font.ttf");
         if (!url.startsWith("http")) {
-            return errorJson("下载链接不可用（可能已过期，请重试）");
+            return errorJson("下载链接不可用（可能已过期，请重新拉一次列表）");
         }
         File dir = new File(getFilesDir(), FONT_STORE_DIR);
         if (!dir.isDirectory() && !dir.mkdirs()) {
             return errorJson("存不下来：目录创建失败");
         }
-        File out = new File(dir, System.currentTimeMillis() + "-" + safeName(fileName));
-        String gotSha = downloadTo(url, out);
-        if (gotSha == null) {
-            if (out.isFile()) {
-                out.delete();
+        /*
+         * 落盘名以校验值开头：包内文件是"同名重传=换内容、seq 不变"（服务端 §3.2），
+         * 所以只按文件名判断"下过了"必然漏更新；按 sha 命名，换内容就是换文件名，天然差量。
+         */
+        String stored = (wantSha.length() >= 16 ? wantSha.substring(0, 16) : String.valueOf(seq))
+                + "-" + safeName(fileName);
+        File out = new File(dir, stored);
+        boolean skipped = false;
+        if (out.isFile() && out.length() > 0L && out.length() <= MAX_FONT_DOWNLOAD_BYTES) {
+            skipped = true;
+        } else {
+            String gotSha = downloadTo(url, out);
+            if (gotSha == null) {
+                if (out.isFile()) {
+                    out.delete();
+                }
+                return errorJson("下载失败（网络或对象存储那边拒绝了）");
             }
-            return errorJson("下载失败（网络或对象存储那边拒绝了）");
-        }
-        // 校验值不一致就丢掉：文档要求防传输损坏，坏字节喂给 FontFace 只会更难懂的报错
-        if (wantSha.length() > 0 && !wantSha.equals(gotSha)) {
-            out.delete();
-            return errorJson("文件校验不通过，已丢弃");
+            // 校验值不一致就丢掉：坏字节喂给 FontFace 只会变成更难懂的报错
+            if (wantSha.length() > 0 && !wantSha.equals(gotSha)) {
+                out.delete();
+                return errorJson("文件校验不通过，已丢弃");
+            }
         }
         long size = out.length();
-        if (size <= 0L || size > MAX_FONT_DOWNLOAD_BYTES) {
+        if (size <= 0L) {
             out.delete();
-            return errorJson(size > MAX_FONT_DOWNLOAD_BYTES ? "字体文件太大" : "字体文件是空的");
+            return errorJson("字体文件是空的");
         }
-        return "{\"success\":true,\"url\":\"/res-fonts/" + ActivationClient.jsonEscape(out.getName())
-                + "\",\"name\":\"" + ActivationClient.jsonEscape(fileName)
-                + "\",\"size\":" + size + "}";
+        return new org.json.JSONObject()
+                .put("success", true)
+                .put("url", "/res-fonts/" + stored)
+                .put("name", fileName)
+                .put("size", size)
+                .put("sha256", wantSha)
+                .put("skipped", skipped)
+                .toString();
+    }
+
+    /** 服务端拒绝（success=false）或这次不该放行（require_feature）时给页面的 JSON，否则 null。 */
+    private String packRefusal(String raw) {
+        if (raw == null || raw.trim().length() == 0) {
+            return errorJson("服务端没有返回内容");
+        }
+        try {
+            org.json.JSONObject root = new org.json.JSONObject(raw);
+            if (!root.optBoolean("success", false)) {
+                /*
+                 * code 必须一起带给页面：`TIMESTAMP_EXPIRED`（手机时钟偏差）这类只有靠码
+                 * 才能翻成"去开自动校时"，只给 message 用户不知道该干什么。
+                 */
+                String code = root.optString("code", "");
+                String why = root.optString("error", root.optString("message", ""));
+                String message = why.length() > 0 ? why
+                        : (code.length() > 0 ? "" : "服务端拒绝发放下载链接");
+                return new org.json.JSONObject()
+                        .put("success", false)
+                        .put("error", message)
+                        .put("code", code)
+                        .toString();
+            }
+            org.json.JSONObject data = root.optJSONObject("data");
+            /*
+             * 文档 §6.4：现阶段服务端不强校验 require_feature，"先激活再下载"由 App 端负责。
+             * 清单那侧已经不给下载入口了，这里再挡一道 —— 直链响应里也带这个字段，
+             * 它才是这次下载该不该放行的权威依据（清单可能是几分钟前缓存的）。
+             */
+            if (data != null && data.optString("require_feature", "").length() > 0) {
+                return errorJson("需先激活");
+            }
+            return null;
+        } catch (org.json.JSONException e) {
+            return errorJson("服务端返回的内容读不懂");
+        }
+    }
+
+    private static String safeSlug(String rawSlug) {
+        return rawSlug == null ? "" : rawSlug.replaceAll("[^A-Za-z0-9._-]", "");
+    }
+
+    /** 中转目录只是"下载→页面搬进 OPFS"的中转，攒多了要清，按最旧的先扔。 */
+    private void pruneFontStore() {
+        try {
+            File dir = new File(getFilesDir(), FONT_STORE_DIR);
+            File[] kids = dir.listFiles();
+            if (kids == null || kids.length == 0) {
+                return;
+            }
+            long total = 0L;
+            for (File f : kids) {
+                total += f.length();
+            }
+            if (total <= FONT_STORE_MAX_BYTES) {
+                return;
+            }
+            java.util.Arrays.sort(kids, (a, b) -> Long.compare(a.lastModified(), b.lastModified()));
+            for (File f : kids) {
+                if (total <= FONT_STORE_MAX_BYTES) {
+                    break;
+                }
+                total -= f.length();
+                f.delete();
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     /** 边下边算 SHA256；返回小写 hex，任何失败都回 null。 */
@@ -729,20 +855,37 @@ public class OpenCutActivity extends AppCompatActivity {
         }
 
         /**
-         * 下载一个在线字体到私有目录，成功后回站内路径 {@code /res-fonts/<文件名>}。
+         * 列一个字体包里的文件（服务端 v3：一个标识 = 一个包）。
          *
-         * <p>为什么绕原生层而不是页面直接 fetch：① 清单和直链接口都要 HMAC 签名，密钥只在
+         * <p>为什么绕原生层而不是页面直接 fetch：① 清单和拉包接口都要 HMAC 签名，密钥只在
          * BuildConfig（local.properties 注入），绝不能进 Web 产物；② 对象存储直链的域名不在
-         * WebView 的放行范围内，页面自己拉会被 CORS 和请求拦截双双挡掉。
+         * WebView 的放行范围内，页面自己拉会被 CORS 和请求拦截双双挡掉。</p>
          */
         @JavascriptInterface
-        public void downloadFont(final String slug, final String callback) {
+        public void packFiles(final String slug, final String callback) {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
                     String json;
                     try {
-                        json = fetchFont(slug);
+                        json = OpenCutActivity.this.packFiles(slug);
+                    } catch (Throwable t) {
+                        json = errorJson(friendlyError(t));
+                    }
+                    deliverJson(callback, json);
+                }
+            }).start();
+        }
+
+        /** 取包内某一个文件，成功后回站内路径 {@code /res-fonts/<校验值前缀-文件名>}。 */
+        @JavascriptInterface
+        public void packFile(final String slug, final int seq, final String callback) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    String json;
+                    try {
+                        json = OpenCutActivity.this.packFile(slug, seq);
                     } catch (Throwable t) {
                         json = errorJson(friendlyError(t));
                     }
