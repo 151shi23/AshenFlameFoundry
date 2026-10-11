@@ -96,6 +96,9 @@ public class MainActivity extends AppCompatActivity {
             {"格式转换", "图片 / 音频 / 模型互转；模型支持 .blend → GLB、OBJ、STL 等", "fmtconv", "free local", ""},
             {"Blender 渲染", "手机本地跑完整 Blender：装官方 Linux 版，渲染 .blend 工程出图", "blender", "free local", ""},
             {"莱茵生命终端", "明日方舟莱茵生命终端 3D 复刻，档案阵列与结构查看全离线", "rhinelab", "free local", ""},
+            {"云间列车", "落日云海与穿云列车：WebGL 实时动画，可调速度/云量/染色/曝光", "cloudtrain", "free local", ""},
+            {"视频剪辑", "OpenCut 剪辑器（离线）：多轨时间轴、文字描边阴影、出入场动画、导出 MP4", "opencut", "paid local", ""},
+            {"剪辑标识清除", "抹掉剪映 / 快影 / 必剪 写进视频元数据的标识，不转码、画面音频一个字节不动，用 1 个激活码", "scrub", "limit local", ""},
             {"基岩 → Java 转换", "用 Chunker 把基岩世界转成 Java 版", "tools", "free local", "convert"},
             {"3D 预览", "离线看 OBJ 和 MTL，不用装软件", "preview", "free local", ""},
             {"图片转模型", "像素图转 bbmodel，用 1 个激活码", "png2model", "limit local", ""},
@@ -104,8 +107,10 @@ public class MainActivity extends AppCompatActivity {
             {"Blockbench", "方块建模，网页版打包在本地", "blockbench", "free local", ""},
             {"AI 动画助手", "说一句要什么，出动画、粒子、Molang", "ai", "free local", ""},
             {"离线种子地图", "查群系、结构、要塞、出生点、史莱姆区块，不用联网", "seedmap", "free local", ""},
+            {"像素地图存档", "搜像素地图站的玩家地图，能下的地图包直接存进「下载」", "pixelmap", "free local", ""},
             {"颜色代码", "Java 和基岩的颜色、格式代码，点了就复制", "colorcode", "free local", ""},
             {"GIF 工具", "视频转 GIF、拆帧、合成、旋转、材质动画贴图", "gif", "free local", ""},
+            {"风景增强", "一张风景照自动精修：多尺度分析算出逐块修改计划，去雾、提亮、提饱和、清晰度，全程离线", "landscape", "free local", ""},
             {"串词工具箱", "复制自动换谐音字、一键出表情包，可导入 txt 串词 / 谐音表，用 1 个激活码", "phrase", "limit local", ""},
             {"寂零快跑", "导出等进度时玩的小游戏", "game", "free local", ""},
             {"P3D 工程工具", "Prisma3D 工程包：识别版本、修头、解包、数据报告，用 1 个激活码", "p3d", "limit local", ""},
@@ -114,6 +119,7 @@ public class MainActivity extends AppCompatActivity {
     /** 网页工具分类：{分类 key, 中文名, 一行说明}。 */
     private static final String[][] WEB_CATS = {
             {"w_sinc", "Sincerity 工具箱", "自制工具站 + 素材、字体、音效、模型、壁纸、生成器"},
+            {"w_stock", "视频 / 图片素材", "免版权视频、照片、音效，剪短片时补素材"},
             {"w_skin", "皮肤 / 头像", "皮肤编辑器、皮肤库、头像渲染"},
             {"w_model", "模型 / 粒子 / 3D", "方块建模、粒子、原版资源浏览"},
             {"w_tex", "材质 / 资源包", "材质包生成、资源与模组平台"},
@@ -129,9 +135,8 @@ public class MainActivity extends AppCompatActivity {
      * 网页工具：{标题, 说明, 链接, 标签, 分类}。新增一家 = 加一行，
      * 自动进「全部」「免费」两页并落到对应分类下。
      *
-     * <p>国内链接已实测：手机浏览器直接打开，不需要梯子；说明里带「（外网）」的
-     * 几家（itch.io、Sketchfab、anime.js、Space Type Generator、Pixel Papercraft）
-     * 需要自备网络环境。个别站点对自动化抓取返回 403，但浏览器（含手机版）正常可开。</p>
+     * <p>国内链接已实测：手机浏览器直接打开，不需要梯子；说明里带「（外网）」的是
+     * 境外站点，个别需要自备网络环境。个别站点对自动化抓取返回 403，但浏览器（含手机版）正常可开。</p>
      */
     private static final String[][] WEB_TOOLS = {
             // ── Sincerity 工具箱 / 素材站 ────────────────────────────────
@@ -151,6 +156,16 @@ public class MainActivity extends AppCompatActivity {
             {"MC 壁纸站", "minepix：Minecraft 壁纸下载", "https://www.minepix.app", "free web", "w_sinc"},
             {"MC 头像生成器", "mccag：在线生成 MC 风格头像", "https://mccag.cn", "free web", "w_sinc"},
             {"真实城市地图生成", "arnismc：真实地图一键生成城市存档", "https://arnismc.com/", "free web", "w_sinc"},
+
+            // ── 视频 / 图片素材（剪短片时补素材）──────────────────────────
+            {"Pixabay", "免版权图库 + 视频 + 音效，什么都能兜一点（外网）", "https://pixabay.com/", "free web", "w_stock"},
+            {"Pexels", "免版权高清视频和照片，下载不用注册（外网）", "https://www.pexels.com/", "free web", "w_stock"},
+            {"视频 520 · 模板", "国内视频素材站：短视频模板、背景视频", "https://shipin520.com/shipin-mb/", "free web", "w_stock"},
+            {"Dareful", "4K / HD 免版权实拍素材，可商用（外网）", "https://dareful.com/", "free web", "w_stock"},
+            {"Videezy", "视频素材加 AE 模板，分免费和 Pro（外网）", "https://www.videezy.com/", "free web", "w_stock"},
+            {"Coverr", "实拍空镜视频，片头转场当背景好用（外网）", "https://coverr.co/", "free web", "w_stock"},
+            {"爱给网", "国内综合素材：音效、配乐、视频、3D、图片", "https://aigei.com/", "free web", "w_stock"},
+            {"光厂（VJ 网）", "国内视频素材站：片头、AE 模板、背景视频，部分要付费", "https://guangchang.com/", "free web", "w_stock"},
 
             // ── 皮肤 / 头像 ─────────────────────────────────────────────
             {"Mineskin.org", "皮肤上传，拿到链接能直接贴进启动器", "https://mineskin.org/", "free web", "w_skin"},
@@ -329,6 +344,7 @@ public class MainActivity extends AppCompatActivity {
         WatermarkView.attach(this);
         ActivationStore.flushPending(this);   // 补发上次没发完的 confirm / release（幂等）
         AvatarLoader.init(getCacheDir());     // 社区头像的磁盘缓存目录（cacheDir/avatar）
+        AnnouncementCenter.checkAndShow(this);  // 仓库根目录 ovo.txt 公告：命中条件就弹，没有就算了
         // 启动不再弹任何问答窗：登录改成「关于」页手动登录，白名单只认登录账号
         // 起始目的地由 NavHost 自己落位，栏状态在目的地回调里同步
     }
@@ -475,7 +491,7 @@ public class MainActivity extends AppCompatActivity {
         final boolean unlocked = ProAuth.isAuthorized(this);
         col.addView(sectionTitle("白名单功能", unlocked
                 ? "已解锁：这一页的功能全部开放，直接用"
-                : "用白名单账号登录后解锁（到「关于」页用账号密码登录）"));
+                : "用白名单账号登录后解锁（到「关于」页登录：密码或邮件验证码都行）"));
         List<Tool> paid = byTag("paid", null);
         if (paid.isEmpty()) {
             TextView t = new TextView(this);
@@ -486,6 +502,8 @@ public class MainActivity extends AppCompatActivity {
         } else {
             addSection(col, unlocked ? "已解锁" : "需要白名单账号", paid, null, "paid");
         }
+        // 原来漏了这一行：col 里灌好了标题和卡片，却没挂进 sv，白名单页整页空白
+        sv.addView(col);
         return sv;
     }
 
@@ -642,6 +660,11 @@ public class MainActivity extends AppCompatActivity {
 
         panel.addView(row);
         col.addView(panel);
+
+        addCredits(col);
+        addSiteCredits(col);
+        addThanks(col);
+
         sv.addView(col);
         return sv;
     }
@@ -652,6 +675,202 @@ public class MainActivity extends AppCompatActivity {
         } catch (Throwable t) {
             return "?";
         }
+    }
+
+    // ---------------------------------------------------------------- 鸣谢
+
+    /** 内置的开源组件：{名称, 用在哪, 许可, 上游地址（空则不可点）}。与 THIRD_PARTY.md 同源维护。 */
+    private static final String[][] CREDITS = {
+            {"Mineways", "读存档 / 网格生成 / OBJ·MTL 导出内核（C++）", "见上游", "https://github.com/erich666/Mineways"},
+            {"Chunker", "基岩版存档 → Java 版世界转换", "GPL-3.0", "https://github.com/hivemc/chunker"},
+            {"Arnis v3.2.0", "真实世界地图生成内核（Rust，交叉编译成 libarnis.so）", "Apache-2.0", "https://github.com/louis-e/arnis"},
+            {"OpenCut", "视频剪辑器（网页版整体内置，另加中文与手机横屏适配）", "MIT", "https://opencut.app"},
+            {"Blockbench", "方块建模编辑器（内置网页版）", "MIT", "https://www.blockbench.net"},
+            {"Snowstorm", "粒子编辑器（内置网页版）", "GPL-3.0-or-later", "https://github.com/JannisX11/snowstorm"},
+            {"three.js r134", "模型预览渲染（含 OBJLoader / MTLLoader / OrbitControls）", "MIT", "https://threejs.org"},
+            {"Mine-imator 2.x", "动画引擎与素材（libmineimator.so）", "上游未附许可", "https://www.mine-imator.com/"},
+            {"Qt 5.15.2", "Mine-imator 的 GUI 运行时（动态链接）", "LGPL-3.0 / GPL-2.0+", "https://www.qt.io"},
+            {"Assimp 6.x", "模型格式导入，编入 libfmtconv.so", "BSD-3-Clause", "https://assimp.org"},
+            {"zstd 1.5.x", "压缩解压，编入 libfmtconv.so", "BSD-3-Clause", "https://github.com/facebook/zstd"},
+            {"lodepng", "PNG 读写", "zlib", "https://lodev.org/lodepng/"},
+            {"stb_image", "图片解码", "Public Domain / MIT", "https://github.com/nothings/stb"},
+            {"region.cpp", "Minecraft region 文件读取（Ryan Hitchman, 2011）", "BSD-2-Clause", ""},
+            {"mediabunny", "OpenCut 在浏览器内导出 MP4 / WebM", "MPL-2.0", "https://mediabunny.dev"},
+            {"onnxruntime-web · transformers.js", "OpenCut 的 AI 能力（抠图等）", "MIT · Apache-2.0", "https://onnxruntime.ai/docs/tutorials/web"},
+            {"Shizuku API", "系统级能力调用", "见上游", "https://shizuku.rikka.app"},
+            {"AndroidX · Material Components", "界面基础库", "Apache-2.0", "https://developer.android.com/jetpack/androidx"},
+            {"云间列车", "WebGL2 动画背景（原始 shader 作者 mdb）", "维护者已获授权", "https://github.com/Rice-dog/code-codex"},
+    };
+
+    private void addCredits(LinearLayout col) {
+        col.addView(sectionTitle("开源项目鸣谢",
+                "本应用把下面这些开源项目作为源码或静态资源内置，好让它离线可用。"
+                        + "它们各自的权利归原作者，点击条目可打开上游。再分发（尤其商用）请逐项核对许可。"));
+        LinearLayout panel = card();
+        for (int i = 0; i < CREDITS.length; i++) {
+            divider(panel, i);
+            String[] c = CREDITS[i];
+            panel.addView(creditRow(c[0], c[1], c[2], c[3], null));
+        }
+        col.addView(panel);
+    }
+
+    /** 收录网站清单折起在按钮后面：124 家全列会把关于页拉得过长，点开时才构造这些行。 */
+    private void addSiteCredits(LinearLayout col) {
+        col.addView(sectionTitle("收录网站鸣谢",
+                WEB_TOOLS.length + " 家站点被收进工具箱，内容、服务与许可均由对方提供，点击直接打开原站。"));
+
+        final LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setVisibility(View.GONE);
+
+        final TextView toggle = new TextView(this);
+        toggle.setTextSize(13);
+        toggle.setTypeface(Typeface.DEFAULT_BOLD);
+        toggle.setTextColor(ACCENT);
+        toggle.setGravity(Gravity.CENTER);
+        toggle.setPadding(dp(16), dp(16), dp(16), dp(16));
+        toggle.setBackground(round(PANEL, 14));
+        final String collapsed = "展开收录网站 · " + WEB_TOOLS.length + " 家";
+        toggle.setText(collapsed);
+        toggle.setOnClickListener(v -> {
+            boolean open = body.getVisibility() == View.VISIBLE;
+            if (!open && body.getChildCount() == 0) {
+                buildSiteCredits(body);
+            }
+            body.setVisibility(open ? View.GONE : View.VISIBLE);
+            toggle.setText(open ? collapsed : "收起收录网站");
+        });
+
+        col.addView(toggle, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        blp.topMargin = dp(10);
+        col.addView(body, blp);
+    }
+
+    private void buildSiteCredits(LinearLayout col) {
+        for (String[] cat : WEB_CATS) {
+            LinearLayout panel = card();
+            int n = 0;
+            for (String[] w : WEB_TOOLS) {
+                if (!cat[0].equals(w.length > 4 ? w[4] : "")) {
+                    continue;
+                }
+                divider(panel, n);
+                panel.addView(creditRow(w[0], hostOf(w[2]), null, w[2], w[1]));
+                n++;
+            }
+            if (n == 0) {
+                continue;
+            }
+            col.addView(siteCatTitle(cat[1], n));
+            col.addView(panel);
+        }
+    }
+
+    private void addThanks(LinearLayout col) {
+        col.addView(sectionTitle("其它鸣谢", null));
+        LinearLayout panel = card();
+        panel.setPadding(dp(16), dp(16), dp(16), dp(16));
+        TextView t = new TextView(this);
+        t.setTextSize(12);
+        t.setTextColor(0xFFD6DEE6);
+        t.setLineSpacing(dp(5), 1f);
+        t.setText("· 地图数据：© OpenStreetMap contributors（Overpass / OSM 瓦片）、Overture Maps、AWS Terrain Tiles"
+                + " —— 「真实世界」生成的底图全部来自它们。\n"
+                + "· 皮肤与头像接口：Mojang / 各皮肤站公开 API。\n"
+                + "· 中文社区：MC 圈子里愿意把教程、模型、材质和踩坑记录公开分享的作者们。\n"
+                + "· 你 —— 反馈 bug、提需求、帮忙验证真机效果的所有用户。\n\n"
+                + "本项目不是官方产品，与 Mojang Studios、Microsoft、网易雷火均无隶属或背书关系。");
+        panel.addView(t);
+        col.addView(panel);
+    }
+
+    private LinearLayout card() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(4), dp(4), dp(4), dp(4));
+        panel.setBackground(round(PANEL, 14));
+        return panel;
+    }
+
+    private void divider(LinearLayout panel, int index) {
+        if (index == 0) {
+            return;
+        }
+        View line = new View(this);
+        line.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(1)));
+        line.setBackgroundColor(LINE);
+        panel.addView(line);
+    }
+
+    private LinearLayout siteCatTitle(String name, int count) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.HORIZONTAL);
+        box.setPadding(dp(4), dp(18), dp(4), dp(8));
+        TextView t = new TextView(this);
+        t.setText(name);
+        t.setTextSize(12);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTextColor(TEXT);
+        box.addView(t);
+        TextView n = new TextView(this);
+        n.setText("  " + count + " 家");
+        n.setTextSize(12);
+        n.setTextColor(DIM2);
+        box.addView(n);
+        return box;
+    }
+
+    /** 一行鸣谢：标题 + 右侧徽标（许可或域名）+ 说明；有 url 就可点。 */
+    private View creditRow(String name, String sub, String badge, String url, String note) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(12), dp(12), dp(12), dp(12));
+
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView n = new TextView(this);
+        n.setText(name);
+        n.setTextSize(13);
+        n.setTypeface(Typeface.DEFAULT_BOLD);
+        n.setTextColor(TEXT);
+        head.addView(n, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        if (badge != null && badge.length() > 0) {
+            TextView b = new TextView(this);
+            b.setText(badge);
+            b.setTextSize(10);
+            b.setTextColor(ACCENT);
+            head.addView(b);
+        }
+        row.addView(head);
+
+        TextView s = new TextView(this);
+        s.setText(note != null ? (sub + " —— " + note) : sub);
+        s.setTextSize(11);
+        s.setTextColor(DIM2);
+        s.setPadding(0, dp(4), 0, 0);
+        row.addView(s);
+
+        if (url != null && url.length() > 0) {
+            row.setOnClickListener(v -> openUrl(url));
+        }
+        return row;
+    }
+
+    /** 取站点主机名，用于鸣谢行的副标题。 */
+    private static String hostOf(String url) {
+        String s = url.startsWith("http") ? url.substring(url.indexOf("//") + 2) : url;
+        int slash = s.indexOf('/');
+        return slash > 0 ? s.substring(0, slash) : s;
     }
 
     // ---------------------------------------------------------------- 标签检索
@@ -680,10 +899,14 @@ public class MainActivity extends AppCompatActivity {
                 it = new Intent(this, AiAnimActivity.class);
             } else if ("seedmap".equals(r[2])) {
                 it = new Intent(this, SeedMapActivity.class);
+            } else if ("pixelmap".equals(r[2])) {
+                it = new Intent(this, PixelmapActivity.class);
             } else if ("colorcode".equals(r[2])) {
                 it = new Intent(this, ColorCodeActivity.class);
             } else if ("gif".equals(r[2])) {
                 it = new Intent(this, GifActivity.class);
+            } else if ("landscape".equals(r[2])) {
+                it = new Intent(this, LandscapeEnhanceActivity.class);
             } else if ("game".equals(r[2])) {
                 it = new Intent(this, MiniGameActivity.class);
             } else if ("phrase".equals(r[2])) {
@@ -698,6 +921,12 @@ public class MainActivity extends AppCompatActivity {
                 it = new Intent(this, com.mineways.blender.BlenderActivity.class);
             } else if ("rhinelab".equals(r[2])) {
                 it = new Intent(this, RhineLabActivity.class);
+            } else if ("cloudtrain".equals(r[2])) {
+                it = new Intent(this, CloudTrainActivity.class);
+            } else if ("opencut".equals(r[2])) {
+                it = new Intent(this, OpenCutActivity.class);
+            } else if ("scrub".equals(r[2])) {
+                it = new Intent(this, BrandScrubActivity.class);
             } else if ("mineimator".equals(r[2])) {
                 // 内置引擎（libmineimator.so + Qt5）自绘界面；架构不支持时由该 Activity 自己提示
                 it = new Intent(this, com.mineimator.app.MainActivity.class);
@@ -750,8 +979,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private int iconOf(String key) {
+        if ("opencut".equals(key)) {
+            return R.drawable.ic_opencut;
+        }
+        if ("scrub".equals(key)) {
+            return R.drawable.ic_scrub;
+        }
         if ("rhinelab".equals(key)) {
             return R.drawable.ic_preview;
+        }
+        if ("cloudtrain".equals(key)) {
+            return R.drawable.ic_cloudtrain;
         }
         if ("export".equals(key)) {
             return R.drawable.ic_export;
@@ -786,11 +1024,17 @@ public class MainActivity extends AppCompatActivity {
         if ("seedmap".equals(key)) {
             return R.drawable.ic_world;
         }
+        if ("pixelmap".equals(key)) {
+            return R.drawable.ic_realworld;
+        }
         if ("colorcode".equals(key)) {
             return R.drawable.ic_particle;
         }
         if ("gif".equals(key)) {
             return R.drawable.ic_preview;
+        }
+        if ("landscape".equals(key)) {
+            return R.drawable.ic_landscape;
         }
         if ("game".equals(key)) {
             return R.drawable.ic_game;
@@ -1195,6 +1439,16 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         if (tool.kind == KIND_LIMIT) {
+            // 白名单账号直接放行：卡片角标显示的是「已解锁」，这里不放行就成了假解锁。
+            // 不带 activation_token（目标页对 null token 已兼容，ActivationDialog.finish 会直接忽略）
+            if (ProAuth.isAuthorized(this)) {
+                try {
+                    startActivity(tool.intent);
+                } catch (ActivityNotFoundException e) {
+                    toast("打不开这个功能");
+                }
+                return;
+            }
             // 激活码：每次使用扣 1 次机会
             final String feature = tool.featureKey();
             ActivationDialog.ensureReady(this, tool.title, feature, () ->
@@ -1221,7 +1475,8 @@ public class MainActivity extends AppCompatActivity {
         if (tool.kind == KIND_PAID && !ProAuth.isAuthorized(this)) {
             new androidx.appcompat.app.AlertDialog.Builder(this)
                     .setTitle("需要白名单账号")
-                    .setMessage("这个功能只对白名单开放。到「关于」页用账号密码登录即可解锁。")
+                    .setMessage("这个功能只对白名单开放。到「关于」页登录即可解锁 —— "
+                            + "有密码用密码登录，没设置过密码就用「验证码登录」（邮箱收码）。")
                     .setPositiveButton("知道了", null).show();
             return;
         }
@@ -1325,48 +1580,15 @@ public class MainActivity extends AppCompatActivity {
         return "（未取到用户名）";
     }
 
-    /** 账号密码登录（论坛接口）：登录成功且命中白名单才写入本地凭证。 */
+    /**
+     * 白名单账号登录：弹出双模式登录框（密码 / 邮件验证码）。
+     * 没设置过密码的账号用验证码登录；登录成功且命中白名单才写入本地凭证。
+     */
     private void showAccountLogin() {
-        final android.widget.EditText idBox = new android.widget.EditText(this);
-        final android.widget.EditText pwBox = new android.widget.EditText(this);
-        idBox.setHint("论坛邮箱 / 账号");
-        pwBox.setHint("密码");
-        pwBox.setInputType(android.text.InputType.TYPE_CLASS_TEXT
-                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        final LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        final int p = dp(16);
-        box.setPadding(p, p / 2, p, 0);
-        box.addView(idBox);
-        box.addView(pwBox);
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("账号登录")
-                .setMessage("用论坛账号密码登录。账号在白名单里才会解锁白名单功能。")
-                .setView(box)
-                .setPositiveButton("登录", (d, w) -> {
-                    final String id = idBox.getText().toString().trim();
-                    final String pw = pwBox.getText().toString();
-                    if (id.length() == 0 || pw.length() == 0) {
-                        toast("账号和密码都要填");
-                        return;
-                    }
-                    toast("登录中…");
-                    new Thread(() -> {
-                        final ProAuth.Result r = ProAuth.loginPassword(id, pw);
-                        runOnUiThread(() -> {
-                            if (!r.ok) {
-                                toast(r.message);
-                                return;
-                            }
-                            ProAuth.save(MainActivity.this, r.record);
-                            ProAuth.reverifyInBackground(MainActivity.this);
-                            toast("登录成功，白名单功能已解锁");
-                            recreate();
-                        });
-                    }, "account-login").start();
-                })
-                .setNegativeButton("取消", null)
-                .show();
+        ProLoginDialog.show(this, record -> {
+            toast("登录成功，白名单功能已解锁");
+            recreate();
+        });
     }
 
     // ---------------------------------------------------------------- 小工具

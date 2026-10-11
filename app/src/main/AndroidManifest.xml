@@ -170,6 +170,24 @@
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
             android:theme="@style/Theme.MinewaysMobile" />
 
+        <!-- 云间列车（assets/cloudtrain 下的单文件 WebGL2 动画：落日/云海/穿云列车 + 参数面板）
+             横屏：落日云海是横向构图，竖屏只剩窄窄一条；sensorLandscape 允许左右翻转 -->
+        <activity
+            android:name=".CloudTrainActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- OpenCut 视频剪辑器（assets/opencut 下的 Next.js 静态产物，离线跑在 WebView 里）
+             横屏：桌面式三栏布局（素材/预览/时间轴）要的是横向空间，竖屏挤成一列没法用 -->
+        <activity
+            android:name=".OpenCutActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile.OpenCut" />
+
         <!-- 内置小游戏《寂零快跑》（assets/minigame 下的纯静态 HTML5 跑酷，竖屏触屏操作） -->
         <activity
             android:name=".MiniGameActivity"
@@ -209,6 +227,14 @@
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
             android:theme="@style/Theme.MinewaysMobile" />
 
+        <!-- 像素地图存档（开放平台接口：搜图 → 详情 → 地图包下进「下载/像素地图」） -->
+        <activity
+            android:name=".PixelmapActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
         <!-- App 内一键授权登录（WebView 打开论坛授权页 → 取码 → 立即兑换，不抄码） -->
         <activity
             android:name=".OAuthWebActivity"
@@ -220,6 +246,22 @@
         <!-- GIF 工具（离线：旋转 GIF / 拆帧 / 合成 / 材质包动画贴图） -->
         <activity
             android:name=".GifActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- 风景增强（PureLandscape 纯 Java 引擎：多尺度感知 + 逐块修改计划，完全离线） -->
+        <activity
+            android:name=".LandscapeEnhanceActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- 剪辑标识清除（就地作废剪映 / 快影 / 必剪 写的元数据盒，不转码） -->
+        <activity
+            android:name=".BrandScrubActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
