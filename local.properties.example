@@ -1,0 +1,23 @@
+# 复制成 local.properties 再填值；local.properties 本身已被 .gitignore 忽略，**绝不要提交**。
+# 这个文件只定义键名与含义，全部留空也能编译 —— 相关功能会走"未配置"分支。
+
+# ---- 本机 Android SDK 路径（必填，否则 Gradle 找不到 SDK）----
+sdk.dir=
+
+# ---- 版本号覆盖 ----
+# 缺省值在 app/build.gradle.kts 里；正式包一般由出包脚本/本机覆盖，不要写死进版本库
+AFF_VERSION_CODE=
+AFF_VERSION_NAME=
+
+# ---- 激活码 / 白名单登录后端 ----
+# 后端根地址，例如 https://your-host（不带结尾斜杠）
+AFF_BASE_URL=
+# 服务端 app_clients 表签发的应用凭证：ID 形如 community-app-xxxxxxxx，SECRET 是 64 位 hex
+# ⚠ SECRET 只在本地与构建机上存在，永远不进仓库、不进日志、不进 APK 的字符串资源
+AFF_APP_ID=
+AFF_APP_SECRET=
+
+# ---- OAuth（邮箱验证码登录 / 第三方授权回调）----
+AFF_OAUTH_APP_KEY=
+AFF_OAUTH_APP_SECRET=
+AFF_OAUTH_REDIRECT=

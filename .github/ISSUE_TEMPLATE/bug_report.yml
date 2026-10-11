@@ -1,0 +1,89 @@
+name: 缺陷反馈 / Bug report
+description: 功能不对、崩溃、结果与预期不一致 —— 请尽量带截图与复现步骤
+labels: ["bug"]
+body:
+  - type: markdown
+    value: |
+      这个 App 的缺陷大多**只在真机上才会出现**。没有可复现的现象描述，基本定位不了，
+      也验证不了修复 —— 请照着下面填，能填多少填多少。
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 现象是什么
+      description: 你做了什么 → 期望看到什么 → 实际看到什么。一句话能说清最好。
+      placeholder: |
+        导出「真实世界生成」的存档时，选好了模组文件，但提示"没有找到方块"；
+        期望导出成功并拿到 OBJ。
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 从哪一屏点进来的，按顺序写。能稳定复现吗？大概几次能碰上一次？
+      placeholder: |
+        1. 首页 → 「真实世界生成」
+        2. 选一个城市，缩放拉到 12
+        3. 点「导出」→ 崩溃，回到首页
+        稳定复现：是
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及哪块功能
+      multiple: true
+      options:
+        - 存档导出 / 3D 预览
+        - 网易存档解密
+        - 真实世界生成
+        - 格式转换 / Blender 渲染
+        - 视频剪辑（OpenCut）
+        - 剪辑标识清除
+        - 风景增强
+        - 粒子 / Blockbench / 建模
+        - 种子地图 / 像素地图
+        - 登录 / 激活码 / 云控更新
+        - 界面（导航栏、深色模式、横竖屏）
+        - 其他 / 不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: 设备与版本
+      description: 机型、安卓版本、App 版本（「关于」页最下面那行，形如 `5.12 (522)`）
+      placeholder: 红米 K60 / 安卓 14 / 5.12 (522)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 崩溃报告
+      description: |
+        有就贴，用 ``` 包起来。崩溃请连「崩溃报告」页的内容一起给。
+        **贴之前请检查里面没有 token、密钥、验证码、激活码** —— 这些一旦公开就得作废重发。
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图 / 录屏
+      description: 直接拖进来。**带截图的反馈处理优先级明显更高** —— 很多现象看图就知道是哪一层的问题。
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已经搜过相似 Issue，没有重复
+          required: true
+        - label: 我确认内容里没有密钥、token、激活码、验证码
+          required: true
+        - label: 我附了截图，或者说明了为什么没法截图
+          required: false

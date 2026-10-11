@@ -44,6 +44,9 @@ android-env.sh
 
 # ---- 工具备份与临时文件 ----
 tools/_backup/
+tools/__pycache__/
+__pycache__/
+*.pyc
 *.orig
 *.rej
 
@@ -59,3 +62,30 @@ Thumbs.db
 # ---- 导出、运行期产物 ----
 导出报错/
 预览缓存/
+
+# ============================================================
+#  不随仓库分发的资源树（体积 / 第三方版权原因）
+#  缺这些不影响编译，只影响对应功能页能否用；怎么补见 CONTRIBUTING.md 第 4 节。
+# ============================================================
+
+# 剪辑器（OpenCut）前端构建产物：约 340MB，且含 53MB 单文件模型权重 —— 产物不进版本库
+app/src/main/assets/opencut/
+
+# Mine-imator 引擎自带的资源与着色器（上游未附再分发许可）
+app/src/main/assets/Data/
+app/src/main/assets/Sprites/
+app/src/main/assets/Compiled/
+app/src/main/assets/Particles/
+app/src/main/assets/Schematics/
+app/src/main/assets/shader_*/
+app/src/main/assets/primitive.fsh
+app/src/main/assets/primitive.vsh
+app/src/main/assets/world_*.fsh
+app/src/main/assets/world_*.vsh
+
+# 含第三方版权素材的页面资源
+app/src/main/assets/cloudtrain/
+app/src/main/assets/rhinelab/
+
+# 第三方预编译二进制（.so）
+app/src/main/jniLibs/

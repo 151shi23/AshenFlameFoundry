@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 怎么用这个项目 / 构建跑不起来
+    url: https://github.com/151shi23/AshenFlameFoundry/blob/main/CONTRIBUTING.md
+    about: 环境要求、构建命令、仓库里为什么没有 APK 和某些资源，都写在贡献指南里
+  - name: 安全问题请私密上报
+    url: https://github.com/151shi23/AshenFlameFoundry/blob/main/SECURITY.md
+    about: 不要把密钥、token、激活码或可直接利用的漏洞细节发成公开 Issue
+  - name: 在 App 里反馈
+    url: https://github.com/151shi23/AshenFlameFoundry/discussions
+    about: 讨论区可以问用法、提点子、晒作品；App 内「提交反馈」会带上运行日志，定位更快

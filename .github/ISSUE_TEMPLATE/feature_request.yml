@@ -1,0 +1,51 @@
+name: 功能建议 / Feature request
+description: 想要什么功能、哪一步别扭、希望改成什么样
+labels: ["enhancement"]
+body:
+  - type: markdown
+    value: |
+      功能取舍看的是"多少人真的会被卡住"，不是"听起来酷不酷"。
+      所以请先说**你卡在哪一步**，再说你想要什么 —— 只写"加个 AI"这类建议一般不会有结果。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你现在卡在哪
+      description: 在什么场景下、做什么事的时候发现不顺手？现在只能怎么绕？
+      placeholder: |
+        做短片时要给一段风景照调通透，只能先导出、换 App 调、再导回来。
+    validations:
+      required: true
+
+  - type: textarea
+    id: want
+    attributes:
+      label: 你希望它变成什么样
+      description: 具体到"点哪里、看到什么、结果是什么"。有参考截图/别的 App 的做法更好。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: offline
+    attributes:
+      label: 能离线做吗
+      description: 本项目的底线是**核心功能不依赖联网**；需要上传数据到第三方服务器的功能一般不采纳。
+      options: [能，纯本地就够, 不确定, 需要联网]
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternative
+    attributes:
+      label: 你能接受的折中方案
+      description: 如果完整方案太重，退一步能解决多少问题？
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我搜过相似 Issue，没有重复
+          required: true
+        - label: 我愿意在实现后帮忙在真机上试一版
+          required: false

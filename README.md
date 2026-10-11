@@ -13,6 +13,25 @@
 **安装包走本仓库的 [Releases](https://github.com/151shi23/AshenFlameFoundry/releases)（最新版的正文同时承载云控规则），源码照旧可以自行构建。**
 **Prebuilt APKs live in this repository's [Releases](https://github.com/151shi23/AshenFlameFoundry/releases) (the newest release body also carries the cloud-control rules); you can still build from source — see [构建 / Build](#构建--build).**
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/151shi23/AshenFlameFoundry?label=release)](https://github.com/151shi23/AshenFlameFoundry/releases)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+### 参与贡献 / Contributing
+
+**贡献渠道已开通**：Issues（含缺陷与功能建议两套表单）、Pull Requests、Discussions 讨论区都可以直接提。
+
+| 你想做什么 | 去哪儿 |
+|---|---|
+| 报 bug（**请尽量带截图与复现步骤**） | [New Issue → 缺陷反馈](https://github.com/151shi23/AshenFlameFoundry/issues/new?labels=bug&template=bug_report.yml) |
+| 提功能建议 | [New Issue → 功能建议](https://github.com/151shi23/AshenFlameFoundry/issues/new?labels=enhancement&template=feature_request.yml) |
+| 提 PR / 想知道怎么编译 | [CONTRIBUTING.md](CONTRIBUTING.md)（环境、构建、仓库里为什么没有 APK 和某些资源） |
+| 加进贡献者名单（**不需要先有代码提交**） | [CONTRIBUTORS.md](CONTRIBUTORS.md) |
+| 问用法、晒作品、聊点子 | [Discussions](https://github.com/151shi23/AshenFlameFoundry/discussions) |
+| 安全问题（**别开公开 Issue**） | [SECURITY.md](SECURITY.md) |
+
+讨论只针对代码与现象 —— 见 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
+
 > **特别鸣谢 / Special thanks**
 > **蚩尤** —— 测试：找出多个重大 bug（导出选项失效、3D 预览、导出 0 方块、玻璃等方块漏导、维度错误、选择器三态…），并给出可复现的现象与可靠日志
 > **ZERO寂灵** —— 策划与移植主导（功能取舍、与桌面版行为对齐、安卓端交互），**并参与测试，提供了同样可靠的日志**
