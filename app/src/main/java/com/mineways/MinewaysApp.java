@@ -30,6 +30,39 @@ public class MinewaysApp extends Application {
     public void onCreate() {
         super.onCreate();
 
+        // 每个页面都装"点哪儿冒一行字"的观察器（只观察不消费，见 FloatingWords）。
+        // 在这里统一装，四个分类页、关于页和所有自建功能页才都会生效，不用逐个 Activity 改。
+        registerActivityLifecycleCallbacks(new android.app.Application.ActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityCreated(android.app.Activity activity, android.os.Bundle saved) {
+                FloatingWords.install(activity);
+            }
+
+            @Override
+            public void onActivityStarted(android.app.Activity activity) {
+            }
+
+            @Override
+            public void onActivityResumed(android.app.Activity activity) {
+            }
+
+            @Override
+            public void onActivityPaused(android.app.Activity activity) {
+            }
+
+            @Override
+            public void onActivityStopped(android.app.Activity activity) {
+            }
+
+            @Override
+            public void onActivitySaveInstanceState(android.app.Activity activity, android.os.Bundle out) {
+            }
+
+            @Override
+            public void onActivityDestroyed(android.app.Activity activity) {
+            }
+        });
+
         final Thread.UncaughtExceptionHandler defaultHandler =
                 Thread.getDefaultUncaughtExceptionHandler();
 
