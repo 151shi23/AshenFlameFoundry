@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  主页点按气泡用的文案。
+
+  收录标准：**只收出处明确、在官方文本或教材里常见的句子**。拿不准出处的宁可不收 ——
+  错标作者比不标更糟。要加内容就在下面两个数组里成对加：
+  core_quote_texts 与 core_quote_sources 按序号一一对应，长度必须相等。
+
+  core_values 是 24 字社会主义核心价值观（党的十八大报告提出、中办《关于培育和践行社会主义
+  核心价值观的意见》表述），顺序不能改：前四个是国家层面、中间四个是社会层面、后四个是
+  公民个人层面 —— 分组文案见 MainActivity.VALUE_GROUPS。
+-->
+<resources>
+
+    <string-array name="core_values">
+        <item>富强</item>
+        <item>民主</item>
+        <item>文明</item>
+        <item>和谐</item>
+        <item>自由</item>
+        <item>平等</item>
+        <item>公正</item>
+        <item>法治</item>
+        <item>爱国</item>
+        <item>敬业</item>
+        <item>诚信</item>
+        <item>友善</item>
+    </string-array>
+
+    <string-array name="core_quote_texts">
+        <item>为人民服务</item>
+        <item>没有调查，没有发言权</item>
+        <item>从群众中来，到群众中去</item>
+        <item>科学技术是第一生产力</item>
+        <item>发展才是硬道理</item>
+        <item>实践是检验真理的唯一标准</item>
+        <item>不忘初心，牢记使命</item>
+        <item>绿水青山就是金山银山</item>
+        <item>幸福都是奋斗出来的</item>
+        <item>少年强则国强</item>
+        <item>天下兴亡，匹夫有责</item>
+        <item>艰难困苦，玉汝于成</item>
+    </string-array>
+
+    <string-array name="core_quote_sources">
+        <item>毛泽东《为人民服务》（1944）</item>
+        <item>毛泽东《反对本本主义》（1930）</item>
+        <item>毛泽东《关于领导方法的若干问题》（1943）</item>
+        <item>邓小平（1988）</item>
+        <item>邓小平视察南方谈话（1992）</item>
+        <item>1978 年《光明日报》特约评论员文章标题</item>
+        <item>中国共产党第十九次全国代表大会报告</item>
+        <item>习近平（2005 年在浙江提出）</item>
+        <item>习近平二〇一八年新年贺词</item>
+        <item>梁启超《少年中国说》（1900）</item>
+        <item>语本顾炎武《日知录》，梁启超概括成句</item>
+        <item>宋·张载《西铭》（原文「贫贱忧戚，庸玉汝于成也」）</item>
+    </string-array>
+
+</resources>

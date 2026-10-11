@@ -1615,6 +1615,132 @@ public class MainActivity extends AppCompatActivity {
         return tv;
     }
 
+    // ---------------------------------------------------------------- 主页点按：价值观与名言气泡
+    //
+    // 只观察、不消费：在 dispatchTouchEvent 里看到一次"点"（不是拖动/滚动）就在指尖位置冒个泡，
+    // 事件照常发给下面的列表 —— 点卡片、切页、滚动都不受影响。气泡自己不可点击，FrameLayout
+    // 会认为"这个子 View 没接住"继续往下发，所以它飘在内容上方也不挡手。
+    // 文案全在 res/values/core_values.xml，收录标准写在那份文件的注释里（出处必须明确）。
+
+    /** 24 字按官方顺序每四个一组：0–3 国家、4–7 社会、8–11 公民个人。 */
+    private static final String[] VALUE_GROUPS = {
+            "国家层面的价值目标", "社会层面的价值取向", "公民个人层面的价值准则",
+    };
+
+    private final java.util.Random bubbleRandom = new java.util.Random();
+    private long lastBubbleAt;
+    private float bubbleDownX, bubbleDownY;
+
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent ev) {
+        switch (ev.getActionMasked()) {
+            case android.view.MotionEvent.ACTION_DOWN:
+                bubbleDownX = ev.getRawX();
+                bubbleDownY = ev.getRawY();
+                break;
+            case android.view.MotionEvent.ACTION_UP:
+                float slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop();
+                if (currentTab == 0
+                        && Math.abs(ev.getRawX() - bubbleDownX) <= slop
+                        && Math.abs(ev.getRawY() - bubbleDownY) <= slop) {
+                    showCivicBubble(ev.getRawX(), ev.getRawY());
+                }
+                break;
+            default:
+                break;
+        }
+        return super.dispatchTouchEvent(ev);
+    }
+
+    /** 在指尖上方浮一条价值观或名言；连点、落在玻璃导航栏上、页面还没量出尺寸时都不冒。 */
+    private void showCivicBubble(float rawX, float rawY) {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - lastBubbleAt < 900) {
+            return;
+        }
+        final FrameLayout layer = findViewById(android.R.id.content);
+        if (layer == null || layer.getWidth() == 0) {
+            return;
+        }
+        if (glassNav != null) {
+            int[] nav = new int[2];
+            glassNav.getLocationInWindow(nav);
+            if (rawY >= nav[1] && rawX >= nav[0]) {
+                return;
+            }
+        }
+        int[] loc = new int[2];
+        layer.getLocationInWindow(loc);
+        lastBubbleAt = now;
+
+        CharSequence[] picked = pickCivicText();
+        CharSequence main = picked[0];
+        String sub = picked[1] == null ? "" : picked[1].toString();
+        android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder(main);
+        if (sub.length() > 0) {
+            sb.append('\n').append(sub);
+            int from = main.length() + 1;
+            sb.setSpan(new android.text.style.RelativeSizeSpan(0.78f), from, sb.length(),
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            sb.setSpan(new android.text.style.ForegroundColorSpan(0xFFBFC5CC), from, sb.length(),
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+
+        TextView bubble = new TextView(this);
+        bubble.setText(sb);
+        bubble.setTextSize(15);
+        bubble.setTypeface(Typeface.DEFAULT_BOLD);
+        bubble.setTextColor(0xFFFFFFFF);
+        bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
+        bubble.setLineSpacing(dp(2), 1f);
+        GradientDrawable bg = round(0xF015171A, 16);
+        bg.setStroke(dp(1), ACCENT);
+        bubble.setBackground(bg);
+        bubble.setClickable(false);
+        bubble.setElevation(dp(10));
+
+        int maxW = Math.max(dp(120), layer.getWidth() - dp(32));
+        bubble.measure(View.MeasureSpec.makeMeasureSpec(maxW, View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        int w = bubble.getMeasuredWidth();
+        int h = bubble.getMeasuredHeight();
+        int left = (int) (rawX - loc[0] - w / 2f);
+        left = Math.max(dp(12), Math.min(left, layer.getWidth() - w - dp(12)));
+        int top = (int) (rawY - loc[1] - h - dp(20));
+        if (top < dp(8)) {
+            top = (int) (rawY - loc[1] + dp(28));     // 贴顶时改浮到指尖下方
+        }
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(w, h);
+        lp.leftMargin = left;
+        lp.topMargin = top;
+        layer.addView(bubble, lp);
+        bubble.setAlpha(0f);
+        bubble.setTranslationY(dp(6));
+        final int lift = dp(6);
+        bubble.animate().alpha(1f).translationY(0f).setDuration(140)
+                .withEndAction(() -> bubble.animate().alpha(0f).translationY(-lift)
+                        .setStartDelay(1500).setDuration(300)
+                        .withEndAction(() -> layer.removeView(bubble))
+                        .start())
+                .start();
+    }
+
+    /** 一半概率给 24 字（带所属层面），一半概率给名言（带出处）。 */
+    private CharSequence[] pickCivicText() {
+        String[] quotes = getResources().getStringArray(R.array.core_quote_texts);
+        String[] sources = getResources().getStringArray(R.array.core_quote_sources);
+        String[] values = getResources().getStringArray(R.array.core_values);
+        if (quotes.length > 0 && bubbleRandom.nextBoolean()) {
+            int i = bubbleRandom.nextInt(quotes.length);
+            return new CharSequence[]{quotes[i], i < sources.length ? sources[i] : null};
+        }
+        if (values.length == 0) {
+            return new CharSequence[]{"社会主义核心价值观", null};
+        }
+        int i = bubbleRandom.nextInt(values.length);
+        return new CharSequence[]{values[i], VALUE_GROUPS[Math.min(2, i / 4)]};
+    }
+
     /** 屏幕密度（玻璃 Drawable 按 px 给半径和边光宽度）。 */
     private float density() {
         return getResources().getDisplayMetrics().density;
