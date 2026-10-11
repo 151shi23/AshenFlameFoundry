@@ -17,8 +17,9 @@ static std::string jstringToUtf8(JNIEnv* env, jstring js) {
     return out;
 }
 
+// 符号名按「声明所在类」命名：native 声明在 com.mineways.ExportActivity（以前写成 MainActivity → 运行时找不到）
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mineways_MainActivity_coreInfo(JNIEnv* env, jobject) {
+Java_com_mineways_ExportActivity_coreInfo(JNIEnv* env, jobject) {
     char buf[256];
     snprintf(buf, sizeof(buf),
              "Mineways C++ core OK\n"
@@ -30,7 +31,7 @@ Java_com_mineways_MainActivity_coreInfo(JNIEnv* env, jobject) {
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mineways_MainActivity_probeWorld(JNIEnv* env, jobject, jstring jdir) {
+Java_com_mineways_ExportActivity_probeWorld(JNIEnv* env, jobject, jstring jdir) {
     std::string dir = jstringToUtf8(env, jdir);
 
     // 桌面核心文件接口是宽字符；把 UTF-8 目录转成 UTF-32(wchar_t) 再拼 level.dat

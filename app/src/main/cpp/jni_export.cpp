@@ -13,6 +13,7 @@
 #include "CullingSchemes.h"   // applyCullingScheme / isBlockCulled
 #include "export_setup.h"     // initViewExportData / assembleOptions / setHeightsFromVersionId / callback
 #include "export_diag.h"      // 只读体检：把 files=0/err=512 变成可读、可粘贴的报错
+#include "core/ObjFileManip.h" // mwBuildCustomTerrain（自定义材质 → 合成 terrainExt 图集）
 #include <jni.h>
 #include <cstring>
 #include <cstdio>
@@ -67,6 +68,23 @@ static std::string optRaw(const std::string& opts, const char* key) {
     return std::string();
 }
 
+// 取字符串选项（导出选项串形如 ";tiledir=tex;terrain=/path/x.png"）
+static std::string optStr(const std::string& opts, const char* key, const char* def) {
+    const std::string pat = std::string(";") + key + "=";
+    size_t pos = opts.find(pat);
+    if (pos == std::string::npos) {
+        const std::string head = key + std::string("=");
+        if (opts.compare(0, head.size(), head) == 0) {
+            pos = 0;
+        } else {
+            return std::string(def);
+        }
+    }
+    const size_t start = pos + pat.size();
+    const size_t end = opts.find(';', start);
+    return opts.substr(start, (end == std::string::npos) ? std::string::npos : end - start);
+}
+
 static int optInt(const std::string& opts, const char* key, int def) {
     std::string v = optRaw(opts, key);
     if (v.empty()) return def;
@@ -109,8 +127,36 @@ static int optIntRange(const std::string& opts, const char* key, int def, int lo
     "OK files=N <root0>;"  成功，N=输出文件数
     "ERR <numeric code>:<msg>"  失败
  */
+// 自定义材质：把资源包贴图（texDir 下的 16×16 PNG）合成 terrainExt 图集，写出 outPng。
+// 返回贴入的格子数；-1 参数不对，-2 写文件失败。（对应 ExportActivity.nativeBuildTerrain）
+extern "C" JNIEXPORT jint JNICALL
+Java_com_mineways_ExportActivity_nativeBuildTerrain(JNIEnv* env, jobject,
+                                                    jstring jTexDir, jstring jOutPng)
+{
+    if (jTexDir == NULL || jOutPng == NULL)
+        return -1;
+    const char* texDirUtf8 = env->GetStringUTFChars(jTexDir, NULL);
+    if (texDirUtf8 == NULL)
+        return -1;
+    const char* outUtf8 = env->GetStringUTFChars(jOutPng, NULL);
+    if (outUtf8 == NULL) {
+        env->ReleaseStringUTFChars(jTexDir, texDirUtf8);
+        return -1;
+    }
+    wchar_t wTex[MAX_PATH_AND_FILE] = {0};
+    wchar_t wOut[MAX_PATH_AND_FILE] = {0};
+    MultiByteToWideChar(CP_UTF8, 0, texDirUtf8, -1, wTex, (int) (sizeof(wTex) / sizeof(wchar_t)));
+    MultiByteToWideChar(CP_UTF8, 0, outUtf8, -1, wOut, (int) (sizeof(wOut) / sizeof(wchar_t)));
+    const int rc = mwBuildCustomTerrain(wTex, wOut);
+    env->ReleaseStringUTFChars(jTexDir, texDirUtf8);
+    env->ReleaseStringUTFChars(jOutPng, outUtf8);
+    return (jint) rc;
+}
+
+// 注意：native 声明在 com.mineways.ExportActivity 里，按 JNI 规范符号名必须用「声明类」的名字。
+// 这里以前写成 MainActivity → 运行时 UnsatisfiedLinkError（存档导出整个不可用）。
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mineways_MainActivity_exportWorld(JNIEnv* env, jobject,
+Java_com_mineways_ExportActivity_exportWorld(JNIEnv* env, jobject,
     jstring worldDirUtf8, jstring outBaseUtf8,
     jint fileType, jint minx, jint miny, jint minz,
     jint maxx, jint maxy, jint maxz,
@@ -311,7 +357,9 @@ Java_com_mineways_MainActivity_exportWorld(JNIEnv* env, jobject,
         efd.radioScaleByBlock    = (scale == 2) ? 1 : 0;
         efd.radioScaleByCost     = (scale == 3) ? 1 : 0;
         efd.modelHeightVal = optFloatRange(opts, "modelheight", 5.0f, 0.5f, 1000.0f);          // 厘米
-        efd.blockSizeVal[fileType] = optFloatRange(opts, "blocksize", 2.0f, 0.1f, 10000.0f);   // 每个区块毫米
+        // 兜底值必须和 Java 侧 DEFAULT_BLOCK_MM 一致：1000 毫米 = 1 方块 1 个模型单位。
+        // 以前这里是 2（桌面 3D 打印档），一旦上层没带 blocksize 就会导出小 500 倍的模型。
+        efd.blockSizeVal[fileType] = optFloatRange(opts, "blocksize", 1000.0f, 0.1f, 10000.0f);   // 每个区块毫米
         efd.costVal = optFloatRange(opts, "cost", 25.0f, 1.0f, 1000000.0f);
 
         // 单位与物理材料（值是核心里的枚举：UNITS_METER/CENTIMETER/MILLIMETER/INCHES、PRINT_MATERIAL_*）
@@ -413,10 +461,19 @@ Java_com_mineways_MainActivity_exportWorld(JNIEnv* env, jobject,
         else    wcscpy(outDir, L".");
     }
 
-    // 地形纹理：传一个不存在的、无 .png 后缀的路径 → SaveVolume 内：RGBA 用内置 gTerrainExt fallback，其余类别自动跳过/读同名前缀。
+    // 地形纹理（图集）：
+    //   默认传一个不存在的、无 .png 后缀的路径 → SaveVolume 内 RGBA 用内置 gTerrainExt fallback，
+    //   其余类别自动跳过/读同名前缀；带 terrain=<路径> 时用自定义图集（自定义材质包合成的那张），
+    //   「整幅大图」与「单独纹理」两种模式都会用它。
     wchar_t terrainFileName[MAX_PATH_AND_FILE];
-    wcscpy(terrainFileName, outBase);
-    wcscat(terrainFileName, L"_terrain_placeholder");
+    std::string terrainOpt = optStr(opts, "terrain", "");
+    if (!terrainOpt.empty()) {
+        MultiByteToWideChar(CP_UTF8, 0, terrainOpt.c_str(), -1, terrainFileName,
+                            (int) (sizeof(terrainFileName) / sizeof(wchar_t)));
+    } else {
+        wcscpy(terrainFileName, outBase);
+        wcscat(terrainFileName, L"_terrain_placeholder");
+    }
 
     // cull 方案名：核心只把它写进 OBJ 注释头做记录（writeStatistics → "# Culling scheme: ..."），
     // 不参与实际剔除计算（剔除由上面的 applyCullingScheme 完成）。

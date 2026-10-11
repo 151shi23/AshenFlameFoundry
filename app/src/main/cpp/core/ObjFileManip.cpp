@@ -368,6 +368,74 @@ typedef struct TypeTile {
 } TypeTile;
 
 
+// ---------------------------------------------------------------------------
+// 自定义材质：用资源包贴图合成 terrainExt 图集
+//   以内置 RGBA 图集（gTerrainExt）为底图，把 texDir 下与 gTilesTable[i].filename
+//   同名的 16×16 PNG 贴到第 i 格（行 = i/16，列 = i%16；规则与导出内核一致）。
+//   包里没有的名字保持原版贴图，不影响导出。
+//   返回：贴入的格子数；-1 参数/底图不可用，-2 写 PNG 失败。
+// ---------------------------------------------------------------------------
+int mwBuildCustomTerrain(const wchar_t* texDir, const wchar_t* outPng)
+{
+    if (texDir == NULL || outPng == NULL)
+        return -1;
+    if (gTerrainExtWidth <= 0 || gTerrainExtHeight <= 0)
+        return -1;
+
+    progimage_info atlas;
+    atlas.width = gTerrainExtWidth;
+    atlas.height = gTerrainExtHeight;
+    const size_t bytes = (size_t) gTerrainExtWidth * (size_t) gTerrainExtHeight * 4;
+    atlas.image_data.assign(&gTerrainExt[0], &gTerrainExt[0] + bytes);
+
+    int used = 0;
+    for (int i = 0; i < TOTAL_TILES; i++) {
+        const wchar_t* name = gTilesTable[i].filename;
+        if (name == NULL || name[0] == 0)
+            continue;
+        const int row = i / 16;
+        const int col = i % 16;
+        const int px = col * 16;
+        const int py = row * 16;
+        if (px + 16 > atlas.width || py + 16 > atlas.height)
+            continue;
+
+        // 候选：原名.png → 原名_y.png（顶/底面一体贴图）
+        wchar_t cand[MAX_PATH_AND_FILE];
+        progimage_info tile;
+        swprintf_s(cand, MAX_PATH_AND_FILE, L"%s\\%s.png", texDir, name);
+        int rc = readpng(&tile, cand, LCT_RGBA);
+        if (rc != 0) {
+            swprintf_s(cand, MAX_PATH_AND_FILE, L"%s\\%s_y.png", texDir, name);
+            rc = readpng(&tile, cand, LCT_RGBA);
+        }
+        if (rc != 0)
+            continue;                       // 包里没有 → 保留原版格子
+        if (tile.width != 16 || tile.height != 16) {
+            readpng_cleanup(1, &tile);      // 尺寸不合规（原版方块贴图都是 16×16）
+            continue;
+        }
+
+        for (int y = 0; y < 16; y++) {
+            for (int x = 0; x < 16; x++) {
+                const size_t s = ((size_t) y * 16 + x) * 4;
+                const size_t d = ((size_t) (py + y) * atlas.width + (px + x)) * 4;
+                atlas.image_data[d + 0] = tile.image_data[s + 0];
+                atlas.image_data[d + 1] = tile.image_data[s + 1];
+                atlas.image_data[d + 2] = tile.image_data[s + 2];
+                atlas.image_data[d + 3] = tile.image_data[s + 3];
+            }
+        }
+        readpng_cleanup(1, &tile);
+        used++;
+    }
+
+    const int wrc = writepng(&atlas, 4, (wchar_t*) outPng);
+    writepng_cleanup(&atlas);
+    return (wrc == 0) ? used : -2;
+}
+
+
 // given a face direction and a vertex number 0-3, give the relative vertex location (offset of 0 or 1) for X, Y, Z
 static int gFaceToVertexOffset[6][4][3] =
 {

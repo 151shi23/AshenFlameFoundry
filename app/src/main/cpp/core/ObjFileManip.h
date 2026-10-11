@@ -362,6 +362,11 @@ int SaveVolume(wchar_t* objFileName, int fileType, Options* options, WorldGuide*
 int GetMinimumSelectionHeight(WorldGuide* pWorldGuide, Options* pOptions, int minx, int minz, int maxx, int maxz, int mapMinHeight, int mapMaxHeight, bool expandByOne, bool ignoreTransparent, int maxy);
 
 void WcharToChar(const wchar_t* inWString, char* outString, int maxlength);
+
+// 自定义材质：用资源包贴图（texDir 下的 16×16 PNG）合成 terrainExt 图集，
+// 写出一张 PNG（outPng）。返回贴入的格子数；-1 参数不对，-2 写文件失败。
+// 「整幅大图」与「单独纹理」两种导出模式都会使用这张图集。
+int mwBuildCustomTerrain(const wchar_t* texDir, const wchar_t* outPng);
 void StripLastString(const wchar_t* src, wchar_t* path, wchar_t* piece);
 wchar_t* RemoveGivenPath(wchar_t* src, wchar_t* path);
 void EnsureSuffix(wchar_t* dst, const wchar_t* src, const wchar_t* suffix);
