@@ -13,10 +13,11 @@ import android.text.style.RelativeSizeSpan;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.LinearInterpolator;
-import android.widget.FrameLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.lang.reflect.InvocationTargetException;
@@ -32,14 +33,23 @@ import java.util.Random;
  * <p>挂在窗口回调上<b>只观察不消费</b>：{@code dispatchTouchEvent} 看完抬手事件就原样交回原来的
  * callback，所以列表点按、输入、滑动、WebView 里的点击全都不受影响。</p>
  *
- * <p>按用户提的几条重做：点哪就在哪出（文字中心落在指尖）、每条随机换色、抽干再洗牌的<b>不重复</b>、
- * 可以连着点（只留 200ms 冷却 + 同屏 7 条上限）、<b>滑动时不消失</b>；生效范围是<b>本 App 自己画的
- * 界面</b> —— 由 {@link MinewaysApp} 统一给每个 Activity 装，包括底部四个分类页、关于页和每个自建
- * 功能页。<b>指尖落在 web 表面上时不生效</b>（剪辑器、Blockbench、粒子编辑器、云间列车 WebGL、
- * 网页工具、授权页）：判据是"这一点被哪个 View 接住"，不是"树里有没有 WebView"，也不是记类名 ——
- * bb 转 OBJ 那页就有一个被原生面板盖住的满屏内核 WebView，按树判会误杀它。</p>
+ * <p>几条硬要求，逐条对应实现：</p>
+ * <ul>
+ *   <li><b>跟着页面滚</b>：字挂到 ScrollView 内容层的 {@link View#getOverlay() overlay} 上 ——
+ *       不占布局、不参与排版，但会随内容一起移动；滚出可视区就被裁掉。
+ *       （早先挂在 decor 上，一点屏幕坐标就钉死，列表在它底下滚，看着像粘在玻璃上。）</li>
+ *   <li><b>点哪出哪</b>：文字中心落在指尖。</li>
+ *   <li><b>随机换色</b>：每条从色板里随机取，出处那行固定淡灰。</li>
+ *   <li><b>不重复</b>：抽干再洗牌的 bag，一轮之内不重样。</li>
+ *   <li><b>能连点</b>：200ms 冷却 + 同屏 7 条上限，连点就是连续一串在飘。</li>
+ *   <li><b>只管本 App 自己画的界面</b>：抬手时做命中测试，指尖落在 {@code WebView} 上就不冒
+ *       （剪辑器、Blockbench、粒子、云间列车 WebGL、3D 预览、网页工具、授权页）。
+ *       不判"树里有没有 WebView"：bb 转 OBJ 那页有一个被原生面板盖住的满屏内核 WebView，
+ *       那页界面其实是我们画的，按树判会误杀。</li>
+ * </ul>
  *
- * <p>文案在 {@code res/values/core_values.xml}，收录标准写在那份注释里。</p>
+ * <p>由 {@link MinewaysApp} 统一给每个 Activity 装，所以四个分类页、关于页和每个自建功能页都生效。
+ * 文案在 {@code res/values/core_values.xml}，收录标准写在那份注释里。</p>
  */
 public final class FloatingWords {
 
@@ -125,62 +135,74 @@ public final class FloatingWords {
         View root = decor.getRootView();
         int x = (int) ev.getRawX(), y = (int) ev.getRawY();
         if (root == null || hitWebView(root, x, y)) {
-            return;     // 指尖落在 web 表面上（剪辑器、Blockbench、粒子、WebGL 页…）→ 不冒字
+            return;     // 指尖落在 web 表面上 → 这页的界面不是本 App 画的，不冒字
+        }
+        View hit = hitView(root, x, y);
+        if (hit == null) {
+            return;
         }
         lastSpawnAt = now;
         try {
-            spawn(root, x, y);
+            spawn(hit, x, y);
         } catch (Throwable ignored) {
         }
     }
 
+    // ---------------------------------------------------------------- 挂到"会滚的那一层"
+
     /**
-     * 指尖这一点是不是落在 web 表面上 —— <b>顶层命中优先</b>，不是"树里有没有 WebView"。
-     *
-     * <p>为什么不能只看"树里有没有"：bb 模型转 OBJ 那页把 Blockbench 内核用<b>满屏 WebView</b> 承载
-     * （0 尺寸会让 WebGL 上下文创建失败），但上面盖了一层不透明的原生面板 —— 那页的界面是
-     * 本 App 画的，该冒字。按命中判就自然对了：点在原生面板上算我们的，点在露出来的 web 上不算。</p>
+     * 找这行字该挂在谁身上：往上找第一个 {@code ScrollView} / {@code NestedScrollView}，
+     * 用它的内容层当宿主 —— 内容层会随滚动整体位移，挂在它 overlay 上的字自然跟着走。
+     * 找不到可滚容器（弹窗、固定面板）就退回根视图，至少还能浮着飘完。
      */
-    private static boolean hitWebView(View v, int winX, int winY) {
-        if (v.getVisibility() != View.VISIBLE || !containsPoint(v, winX, winY)) {
-            return false;
-        }
-        if (v instanceof android.webkit.WebView) {
-            return true;
-        }
-        if (v instanceof android.view.ViewGroup) {
-            android.view.ViewGroup group = (android.view.ViewGroup) v;
-            for (int i = group.getChildCount() - 1; i >= 0; i--) {   // 后画的在上层，先判
-                View child = group.getChildAt(i);
-                if (child.getVisibility() == View.VISIBLE && containsPoint(child, winX, winY)) {
-                    return hitWebView(child, winX, winY);
+    private static Anchor anchorFor(View hit, int winX, int winY) {
+        for (View v = hit; v != null; v = v.getParent() instanceof View ? (View) v.getParent() : null) {
+            if (isScrollContainer(v) && ((ViewGroup) v).getChildCount() > 0) {
+                View content = ((ViewGroup) v).getChildAt(0);
+                if (content instanceof ViewGroup) {
+                    int[] loc = new int[2];
+                    content.getLocationInWindow(loc);
+                    return new Anchor((ViewGroup) content, winX - loc[0], winY - loc[1]);
                 }
+                // 内容层不是 ViewGroup（挂不住 overlay）：不再往上找，交给下面的兜底
             }
         }
-        return false;
+        View root = hit.getRootView();
+        if (!(root instanceof ViewGroup)) {
+            return null;
+        }
+        int[] loc = new int[2];
+        root.getLocationInWindow(loc);
+        return new Anchor((ViewGroup) root, winX - loc[0], winY - loc[1]);
     }
 
-    private static boolean containsPoint(View v, int winX, int winY) {
-        int[] loc = new int[2];
-        v.getLocationInWindow(loc);
-        return winX >= loc[0] && winX < loc[0] + v.getWidth()
-                && winY >= loc[1] && winY < loc[1] + v.getHeight();
+    private static boolean isScrollContainer(View v) {
+        return v instanceof ScrollView || v instanceof androidx.core.widget.NestedScrollView;
+    }
+
+    private static final class Anchor {
+        /** 挂 overlay 的宿主。必须是 ViewGroup —— {@code ViewOverlay} 只收 Drawable，
+         *  能收 View 的是 {@code ViewGroupOverlay}。 */
+        final ViewGroup host;
+        final int x;
+        final int y;
+
+        Anchor(ViewGroup host, int x, int y) {
+            this.host = host;
+            this.x = x;
+            this.y = y;
+        }
     }
 
     // ---------------------------------------------------------------- 冒字
 
-    private void spawn(View root, int tapX, int tapY) {
-        if (!(root instanceof FrameLayout)) {
+    private void spawn(View hit, int winX, int winY) {
+        Anchor anchor = anchorFor(hit, winX, winY);
+        if (anchor == null) {
             return;
         }
-        final FrameLayout layer = (FrameLayout) root;
-        int screenW = layer.getWidth();
-        int screenH = layer.getHeight();
-        if (screenW <= 0 || screenH <= 0) {
-            return;
-        }
-
-        Resources res = layer.getResources();
+        final ViewGroup host = anchor.host;
+        Resources res = host.getResources();
         float density = res.getDisplayMetrics().density;
         Entry entry = nextEntry(res);
         boolean word = entry.source == null;
@@ -193,7 +215,7 @@ public final class FloatingWords {
             sb.setSpan(new ForegroundColorSpan(0xB3D8DCE0), from, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
 
-        final TextView line = new TextView(layer.getContext());
+        final TextView line = new TextView(host.getContext());
         line.setText(sb);
         line.setTextSize(TypedValue.COMPLEX_UNIT_SP, word ? 23 : 14.5f);
         line.setTypeface(word ? Typeface.SERIF : Typeface.SANS_SERIF);
@@ -205,26 +227,26 @@ public final class FloatingWords {
         line.setClickable(false);
         line.setFocusable(false);
 
-        int maxW = Math.max(px(density, 140), screenW - px(density, 40));
+        int hostW = Math.max(host.getWidth(), 1);
+        int maxW = Math.max((int) (140 * density), hostW - (int) (40 * density));
         line.measure(View.MeasureSpec.makeMeasureSpec(maxW, View.MeasureSpec.AT_MOST),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
         int w = line.getMeasuredWidth();
         int h = line.getMeasuredHeight();
-        // 点哪就在哪：文字中心落在指尖，再夹回屏内
-        int left = clamp(tapX - w / 2, px(density, 12), screenW - w - px(density, 12));
-        int top = clamp(tapY - h / 2, px(density, 8), screenH - h - px(density, 8));
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(w, h);
-        lp.leftMargin = left;
-        lp.topMargin = top;
-        layer.addView(line, lp);
+        // 点哪就在哪：文字中心落在指尖，再夹回内容里
+        int left = clamp(anchor.x - w / 2, (int) (12 * density), Math.max((int) (12 * density), hostW - w - (int) (12 * density)));
+        int top = clamp(anchor.y - h / 2, (int) (8 * density), Math.max((int) (8 * density), host.getHeight() - h - (int) (8 * density)));
+        // overlay 不参与布局，位置要自己摆
+        line.layout(left, top, left + w, top + h);
+        host.getOverlay().add(line);
         alive++;
 
         long inMs = 220;
         long holdMs = word ? 1250 : 1750;
         long outMs = 1000;
         final long life = inMs + holdMs + outMs;
-        float rise = px(density, word ? 110 : 84);
-        float sway = px(density, 15);
+        float rise = (word ? 110 : 84) * density;
+        float sway = 15 * density;
 
         line.setAlpha(0f);
         android.animation.ObjectAnimator in =
@@ -250,22 +272,58 @@ public final class FloatingWords {
         swayAnim.setInterpolator(new LinearInterpolator());
         swayAnim.start();
 
-        UI.postDelayed(() -> remove(layer, line), life + 80);
-    }
-
-    private void remove(FrameLayout layer, TextView line) {
-        if (line.getParent() == layer) {
-            layer.removeView(line);
+        UI.postDelayed(() -> {
+            host.getOverlay().remove(line);
+            host.invalidate();
             alive = Math.max(0, alive - 1);
-        }
+        }, life + 80);
     }
 
     private static int clamp(int v, int lo, int hi) {
         return hi < lo ? lo : Math.max(lo, Math.min(v, hi));
     }
 
-    private static int px(float density, int dp) {
-        return (int) (dp * density + 0.5f);
+    // ---------------------------------------------------------------- 命中判定
+
+    /**
+     * 指尖这一点是不是落在 web 表面上 —— <b>顶层命中优先</b>，不是"树里有没有 WebView"。
+     *
+     * <p>bb 模型转 OBJ 那页把 Blockbench 内核用满屏 WebView 承载（0 尺寸会让 WebGL 上下文创建失败），
+     * 但上面盖着一层不透明的原生面板：点在面板上算我们自己的界面，点在露出来的 web 上不算。</p>
+     */
+    private static boolean hitWebView(View v, int winX, int winY) {
+        View hit = hitView(v, winX, winY);
+        for (View p = hit; p != null; p = p.getParent() instanceof View ? (View) p.getParent() : null) {
+            if (p instanceof android.webkit.WebView) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 真正接住这一点的、最深的那个 View（后画的在上层，先判；不在屏幕上则返回 null）。 */
+    private static View hitView(View v, int winX, int winY) {
+        if (v.getVisibility() != View.VISIBLE || !containsPoint(v, winX, winY)) {
+            return null;
+        }
+        if (v instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) v;
+            for (int i = group.getChildCount() - 1; i >= 0; i--) {
+                View child = group.getChildAt(i);
+                if (child.getVisibility() == View.VISIBLE && containsPoint(child, winX, winY)) {
+                    View deeper = hitView(child, winX, winY);
+                    return deeper != null ? deeper : child;
+                }
+            }
+        }
+        return v;
+    }
+
+    private static boolean containsPoint(View v, int winX, int winY) {
+        int[] loc = new int[2];
+        v.getLocationInWindow(loc);
+        return winX >= loc[0] && winX < loc[0] + v.getWidth()
+                && winY >= loc[1] && winY < loc[1] + v.getHeight();
     }
 
     // ---------------------------------------------------------------- 取词（抽干再洗牌）
