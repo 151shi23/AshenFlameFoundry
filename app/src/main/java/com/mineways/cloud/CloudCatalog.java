@@ -60,6 +60,10 @@ public final class CloudCatalog {
 	private static final String K_ENABLED = "enabled";
 	private static final String K_CACHE = "cache.txt";
 	private static final String K_SOURCE = "source";
+	private static final String K_VER = "ver";
+	private static final String K_SHA = "sha";
+	private static final String K_OK = "verified";
+	private static final String K_MANIFEST = "index.txt";
 	private static final String K_TIME = "time";
 
 	private static final long TTL_MS = 6L * 60 * 60 * 1000; // 6 小时
@@ -94,23 +98,15 @@ public final class CloudCatalog {
 		}
 	}
 
-	/** 启动时调一次：先用缓存立刻可用，再后台刷新。 */
+	/** 启动时调一次：本地那份先上（它当初核对过就能用），随后后台拉清单核对并看有没有新版。 */
 	public static void init(final Context ctx) {
 		final Context app = ctx.getApplicationContext();
 		if (!isCloudEnabled(app)) {
 			status = "云端配置已关闭（按内置默认运行）";
 			return;
 		}
-		String cached = readCache(app);
-		if (cached != null && cached.length() > 0) {
-			FeatureCatalog.Result r = FeatureCatalog.parse(cached, versionCode(app), deviceId(app), key(), evaluator(app));
-			if (r.accepted) {
-				applyTo(app, r, "缓存", prefs(app).getString(K_TIME, null));
-			}
-		}
-		if (System.currentTimeMillis() - lastGoodAt > TTL_MS) {
-			refresh(app);
-		}
+		loadLocal(app);
+		refresh(app);
 	}
 
 	/** 强制拉一次（设置页"立即刷新"用）。 */
@@ -123,42 +119,195 @@ public final class CloudCatalog {
 			@Override
 			public void run() {
 				try {
-					String text = null;
+					// 1. 拉清单（四路镜像依次试）——每次启动都拉
+					String manifest = null;
 					String from = null;
-					for (String url : SOURCES) {
-						String body = httpGet(url);
+					for (int m = 0; m < mirrorRoots().length && manifest == null; m++) {
+						String body = httpGet(urlOf(MANIFEST, m));
 						if (body != null && body.trim().length() > 0) {
-							text = body;
-							from = hostOf(url);
-							break;
+							manifest = body;
+							from = mirrorRoots()[m];
 						}
 					}
-					if (text == null) {
-						status = "拉取失败：四个镜像都没拿到"
-								+ (lastGoodText != null ? "（继续用上次有效配置）" : "（按内置默认运行）");
+					if (manifest == null) {
+						status = "清单拉取失败（四个镜像都没拿到）"
+								+ (hasLocal(ctx) ? "，继续用上次已核对的配置" : "，按内置默认运行");
 						return;
 					}
-					FeatureCatalog.Result r = FeatureCatalog.parse(text, versionCode(ctx), deviceId(ctx), key(), evaluator(ctx));
-					if (!r.accepted) {
-						status = "配置被拒绝（" + r.rejectReason + "）"
-								+ (lastGoodText != null ? "，继续用上次有效配置" : "，按内置默认运行");
+					writeFile(ctx, K_MANIFEST, manifest);
+					java.util.Map<String, String> index = parseManifest(manifest);
+					if (index.isEmpty()) {
+						status = "清单里一条有效记录都没有，忽略这份清单";
 						return;
 					}
-					writeCache(ctx, text);
-					prefs(ctx).edit()
-							.putString(K_SOURCE, from)
-							.putString(K_TIME, now())
-							.apply();
-					applyTo(ctx, r, from, now());
+
+					// 2. 本地那份必须"哈希 = 清单里对应行"，否则禁止生效
+					String localVer = prefs(ctx).getString(K_VER, "");
+					if (localVer.length() > 0 && !verifyLocal(ctx, index, localVer)) {
+						deleteLocal(ctx);
+						localVer = "";
+					}
+
+					// 3. 有更新的就下载 + 比对 + 验签 + 生效
+					String best = maxVersion(index.keySet());
+					if (localVer.length() == 0 || compareVersion(best, localVer) > 0) {
+						String text = null;
+						for (int m = 0; m < mirrorRoots().length && text == null; m++) {
+							String body = httpGet(urlOf(best + ".txt", m));
+							if (body != null && body.trim().length() > 0) {
+								text = body;
+							}
+						}
+						if (text == null) {
+							status = "新版 " + best + " 拉取失败"
+									+ (localVer.length() > 0 ? "，继续用已核对的 " + localVer : "，按内置默认运行");
+							return;
+						}
+						String sha = sha256(text);
+						if (!sha.equalsIgnoreCase(index.get(best))) {
+							status = "新版 " + best + " 的哈希与清单不符 → 拒绝（可能镜像被动过）";
+							return;
+						}
+						FeatureCatalog.Result r = FeatureCatalog.parse(text, versionCode(ctx), deviceId(ctx), key(), evaluator(ctx));
+						if (!r.accepted) {
+							status = "新版 " + best + " 被拒绝（" + r.rejectReason + "）"
+									+ (localVer.length() > 0 ? "，继续用已核对的 " + localVer : "，按内置默认运行");
+							return;
+						}
+						writeFile(ctx, best + ".txt", text);
+						prefs(ctx).edit()
+								.putString(K_VER, best)
+								.putString(K_SHA, sha)
+								.putString(K_SOURCE, from)
+								.putString(K_TIME, now())
+								.putBoolean(K_OK, true)
+								.apply();
+						lastGoodAt = System.currentTimeMillis();
+						applyTo(ctx, r, from, now());
+						return;
+					}
+
+					// 4. 本地就是最新的：核对已通过，按它运行
+					String text = readFile(ctx, localVer + ".txt");
+					if (text != null && text.length() > 0) {
+						FeatureCatalog.Result r = FeatureCatalog.parse(text, versionCode(ctx), deviceId(ctx), key(), evaluator(ctx));
+						if (r.accepted) {
+							prefs(ctx).edit().putString(K_SOURCE, from).putString(K_TIME, now()).putBoolean(K_OK, true).apply();
+							applyTo(ctx, r, from, now() + "（已核对）");
+							return;
+						}
+					}
+					status = "本地那份读不出来，按内置默认运行（清单 " + best + "）";
 				} catch (Throwable t) {
 					Log.w(TAG, "refresh failed", t);
 					status = "拉取异常：" + t.getClass().getSimpleName()
-							+ (lastGoodText != null ? "（继续用上次有效配置）" : "（按内置默认运行）");
+							+ (hasLocal(ctx) ? "（继续用上次已核对的配置）" : "（按内置默认运行）");
 				} finally {
 					fetching = false;
 				}
 			}
 		}, "cloud-catalog").start();
+	}
+
+	/** 启动时先把本地那份挂上：只有"上次核对通过"的才肯用（防本地被改后仍生效）。 */
+	private static void loadLocal(Context c) {
+		if (!prefs(c).getBoolean(K_OK, false)) {
+			return;
+		}
+		String ver = prefs(c).getString(K_VER, "");
+		if (ver.length() == 0) {
+			return;
+		}
+		String text = readFile(c, ver + ".txt");
+		if (text == null || text.length() == 0) {
+			return;
+		}
+		FeatureCatalog.Result r = FeatureCatalog.parse(text, versionCode(c), deviceId(c), key(), evaluator(c));
+		if (r.accepted) {
+			applyTo(c, r, prefs(c).getString(K_SOURCE, "本地"), prefs(c).getString(K_TIME, "") + "（启动用）");
+		}
+	}
+
+	/** 本地那份的 sha256 是否等于清单里对应版本的行；不相等就禁止生效。 */
+	private static boolean verifyLocal(Context c, java.util.Map<String, String> index, String ver) {
+		String want = index.get(ver);
+		if (want == null) {
+			return false; // 清单里没有这个版本了 = 该版本已被撤下
+		}
+		String text = readFile(c, ver + ".txt");
+		if (text == null) {
+			return false;
+		}
+		String got = sha256(text);
+		if (!got.equalsIgnoreCase(want)) {
+			status = "本地 " + ver + " 的哈希与清单不符 → 已禁用这份配置（可能被改过）";
+			return false;
+		}
+		return true;
+	}
+
+	/** 清单：每行「版本号 <空白> sha256」，# 注释。 */
+	private static java.util.Map<String, String> parseManifest(String text) {
+		java.util.Map<String, String> out = new java.util.HashMap<>();
+		if (text == null) {
+			return out;
+		}
+		for (String line : text.replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
+			String s = line.trim();
+			if (s.length() == 0 || s.charAt(0) == '#') {
+				continue;
+			}
+			String[] parts = s.split("\\s+");
+			if (parts.length >= 2 && parts[0].matches("[0-9]+(\\.[0-9]+)*") && parts[1].matches("[0-9a-fA-F]{64}")) {
+				out.put(parts[0], parts[1]);
+			}
+		}
+		return out;
+	}
+
+	/** 版本号比较：按数字段比，别用字符串比（"10.0.0" 比 "9.0.0" 字符串上是小的）。 */
+	private static int compareVersion(String a, String b) {
+		String[] x = a.split("\\.");
+		String[] y = b.split("\\.");
+		int n = Math.max(x.length, y.length);
+		for (int i = 0; i < n; i++) {
+			int xi = i < x.length ? parseIntSafe(x[i]) : 0;
+			int yi = i < y.length ? parseIntSafe(y[i]) : 0;
+			if (xi != yi) {
+				return xi < yi ? -1 : 1;
+			}
+		}
+		return 0;
+	}
+
+	private static int parseIntSafe(String s) {
+		try {
+			return Integer.parseInt(s.trim());
+		} catch (Throwable t) {
+			return 0;
+		}
+	}
+
+	private static String maxVersion(java.util.Set<String> versions) {
+		String best = null;
+		for (String v : versions) {
+			if (best == null || compareVersion(v, best) > 0) {
+				best = v;
+			}
+		}
+		return best == null ? "0" : best;
+	}
+
+	private static boolean hasLocal(Context c) {
+		return prefs(c).getBoolean(K_OK, false) && prefs(c).getString(K_VER, "").length() > 0;
+	}
+
+	private static void deleteLocal(Context c) {
+		String ver = prefs(c).getString(K_VER, "");
+		if (ver.length() > 0) {
+			new File(c.getFilesDir(), ver + ".txt").delete();
+		}
+		prefs(c).edit().remove(K_VER).remove(K_SHA).putBoolean(K_OK, false).apply();
 	}
 
 	private static void applyTo(Context c, FeatureCatalog.Result r, String from, String at) {
@@ -206,6 +355,46 @@ public final class CloudCatalog {
 	}
 
 	// ============================================================ 基础设施
+
+	private static String sha256(String text) {
+		try {
+			byte[] d = java.security.MessageDigest.getInstance("SHA-256")
+					.digest(text.getBytes(Charset.forName("UTF-8")));
+			StringBuilder sb = new StringBuilder();
+			for (byte b : d) {
+				sb.append(String.format(Locale.ROOT, "%02x", b));
+			}
+			return sb.toString();
+		} catch (Throwable t) {
+			return "";
+		}
+	}
+
+	private static String readFile(Context c, String name) {
+		File f = new File(c.getFilesDir(), name);
+		if (!f.exists()) {
+			return null;
+		}
+		try {
+			byte[] b = new byte[(int) f.length()];
+			java.io.FileInputStream in = new java.io.FileInputStream(f);
+			int n = in.read(b);
+			in.close();
+			return n > 0 ? new String(b, 0, n, Charset.forName("UTF-8")) : "";
+		} catch (Throwable t) {
+			return null;
+		}
+	}
+
+	private static void writeFile(Context c, String name, String text) {
+		try {
+			FileOutputStream out = new FileOutputStream(new File(c.getFilesDir(), name));
+			out.write(text.getBytes(Charset.forName("UTF-8")));
+			out.close();
+		} catch (Throwable t) {
+			Log.w(TAG, "write " + name + " failed", t);
+		}
+	}
 
 	private static byte[] key() {
 		int n = KEY_HEX.length() / 2;
