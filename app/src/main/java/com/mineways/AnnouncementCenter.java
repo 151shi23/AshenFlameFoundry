@@ -687,7 +687,25 @@ public final class AnnouncementCenter {
     // ---------------------------------------------------------------- 变量
 
     /** 组装表达式与占位符能用的变量表。 */
-    static Map<String, String> vars(Context c) {
+    /** 某个公告 id 是否已经弹过（功能目录的组合条件用它表达"弹过某条公告才…"）。 */
+    public static boolean isSeen(Context c, String id) {
+        return id != null && id.length() > 0 && prefs(c).getLong(K_SEEN + id, 0L) > 0L;
+    }
+
+    /** 已弹过的公告 id 集合：功能目录求值时注入成 seen_&lt;id&gt; 变量。 */
+    public static java.util.Set<String> seenIds(Context c) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (Map.Entry<String, ?> e : prefs(c).getAll().entrySet()) {
+            String k = e.getKey();
+            Object v = e.getValue();
+            if (k != null && k.startsWith(K_SEEN) && v instanceof Long && ((Long) v) > 0L) {
+                out.add(k.substring(K_SEEN.length()));
+            }
+        }
+        return out;
+    }
+
+    public static Map<String, String> vars(Context c) {
         Map<String, String> v = new HashMap<>();
         SharedPreferences p = prefs(c);
         long now = System.currentTimeMillis();

@@ -30,15 +30,23 @@ public final class CloudCatalog {
 	private static final String TAG = "CloudCatalog";
 	private static final String REPO = "151shi23/AshenFlameFoundry";
 	private static final String BRANCH = "main";
-	private static final String FILE = "features.txt";
+	/** 配置目录：里面是一份 index.txt 清单 + 各版本配置文件（文件名就是版本号，如 2.1.0.txt）。 */
+	private static final String DIR = "config";
+	private static final String MANIFEST = "index.txt";
 
-	/** 四路镜像，与 ovo.txt 同一条链（国内可达性实测过）。 */
-	private static final String[] SOURCES = {
-			"https://raw.githubusercontent.com/" + REPO + "/" + BRANCH + "/" + FILE,
-			"https://ghproxy.net/https://raw.githubusercontent.com/" + REPO + "/" + BRANCH + "/" + FILE,
-			"https://raw.gitmirror.com/" + REPO + "/" + BRANCH + "/" + FILE,
-			"https://cdn.jsdelivr.net/gh/" + REPO + "@" + BRANCH + "/" + FILE,
-	};
+	/** 四路镜像（与 ovo.txt 同一条链），加【镜像序号】就能拼出目录里任意文件的地址。 */
+	private static String[] mirrorRoots() {
+		return new String[]{
+				"https://raw.githubusercontent.com/" + REPO + "/" + BRANCH + "/",
+				"https://ghproxy.net/https://raw.githubusercontent.com/" + REPO + "/" + BRANCH + "/",
+				"https://raw.gitmirror.com/" + REPO + "/" + BRANCH + "/",
+				"https://cdn.jsdelivr.net/gh/" + REPO + "@" + BRANCH + "/",
+		};
+	}
+
+	private static String urlOf(String relPath, int mirror) {
+		return mirrorRoots()[mirror] + DIR + "/" + relPath;
+	}
 
 	/**
 	 * 作者密钥（HMAC-SHA256）。
@@ -95,7 +103,7 @@ public final class CloudCatalog {
 		}
 		String cached = readCache(app);
 		if (cached != null && cached.length() > 0) {
-			FeatureCatalog.Result r = FeatureCatalog.parse(cached, versionCode(app), deviceId(app), key());
+			FeatureCatalog.Result r = FeatureCatalog.parse(cached, versionCode(app), deviceId(app), key(), evaluator(app));
 			if (r.accepted) {
 				applyTo(app, r, "缓存", prefs(app).getString(K_TIME, null));
 			}
@@ -130,7 +138,7 @@ public final class CloudCatalog {
 								+ (lastGoodText != null ? "（继续用上次有效配置）" : "（按内置默认运行）");
 						return;
 					}
-					FeatureCatalog.Result r = FeatureCatalog.parse(text, versionCode(ctx), deviceId(ctx), key());
+					FeatureCatalog.Result r = FeatureCatalog.parse(text, versionCode(ctx), deviceId(ctx), key(), evaluator(ctx));
 					if (!r.accepted) {
 						status = "配置被拒绝（" + r.rejectReason + "）"
 								+ (lastGoodText != null ? "，继续用上次有效配置" : "，按内置默认运行");
@@ -173,6 +181,28 @@ public final class CloudCatalog {
 			}
 			status = sb.toString();
 		}
+	}
+
+	/**
+	 * 组合条件的真求值器：复用公告中心的变量表与表达式引擎
+	 * （{@code Expr.test}，支持 且/或/非、比较、包含、在…里、函数），
+	 * 额外注入 {@code seen_<公告id>=1}，于是"弹过某条公告"也能当条件：
+	 * <pre>
+	 *   FEAT hide id=文件修复 override=builtin if="version_code >= 520 &amp;&amp; authorized &amp;&amp; seen_ov2026"
+	 * </pre>
+	 */
+	private static FeatureCatalog.CondEval evaluator(final Context ctx) {
+		return new FeatureCatalog.CondEval() {
+			@Override
+			public boolean test(String expr) {
+				java.util.Map<String, String> vars =
+						new java.util.HashMap<>(com.mineways.AnnouncementCenter.vars(ctx));
+				for (String id : com.mineways.AnnouncementCenter.seenIds(ctx)) {
+					vars.put("seen_" + id, "1");
+				}
+				return com.mineways.Expr.test(expr, vars);
+			}
+		};
 	}
 
 	// ============================================================ 基础设施

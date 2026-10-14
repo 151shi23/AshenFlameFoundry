@@ -101,7 +101,7 @@ public final class FeatureCatalog {
 
 	public static final class Result {
 		public boolean accepted;
-		/** 拒绝原因：TAMPERED / PROTOCOL / EMPTY / STRICT / PARSE / null。 */
+		/** 拒绝原因：TAMPERED / PROTOCOL / EMPTY / STRICT / VERSION / null。 */
 		public String rejectReason;
 		public int protocolVersion;
 		public int rollout = 100;
@@ -134,6 +134,18 @@ public final class FeatureCatalog {
 		}
 	}
 
+	/**
+	 * 组合条件的求值接口。真空实现放在安卓侧（复用公告中心那套 {@code Expr} 与变量表），
+	 * 于是配置文件与 ovo.txt 用的是同一套条件语法：{@code version_code >= 520 && authorized}
+	 * 这种直接可写，维护只需要学一次。
+	 *
+	 * <p>刻意做成接口：内核不依赖安卓，断言里可以喂一个假求值器，
+	 * 把"条件为假就跳过""没有求值器时带条件的指令一律不执行"这两条路径真的测到。
+	 */
+	public interface CondEval {
+		boolean test(String expr);
+	}
+
 	private FeatureCatalog() {
 	}
 
@@ -148,6 +160,16 @@ public final class FeatureCatalog {
 	 * @param hmacKey    作者密钥；null 表示不启用签名校验（仅限开发期）
 	 */
 	public static Result parse(String text, int versionCode, String deviceId, byte[] hmacKey) {
+		return parse(text, versionCode, deviceId, hmacKey, null);
+	}
+
+	/**
+	 * 解析配置正文（带组合条件求值器）。
+	 *
+	 * @param condEval 组合条件求值器；为 null 时带 {@code if=} 的指令一律不执行（安全侧默认）
+	 */
+	public static Result parse(String text, int versionCode, String deviceId, byte[] hmacKey,
+			CondEval condEval) {
 		Result r = new Result();
 		r.versionCode = versionCode;
 		r.bucket = bucketOf(deviceId);
@@ -270,6 +292,31 @@ public final class FeatureCatalog {
 			} else if (!MODES.contains(mode)) {
 				bad(r, strict, lineNo, "BAD mode=" + mode, line);
 				continue;
+			}
+
+			/*
+			 * 组合条件：和 ovo.txt 同一套语法（公告中心那个 Expr 引擎），
+			 * 因为条件里带空格与符号，写的时候要用双引号包起来：
+			 *   FEAT hide id=文件修复 if="version_code >= 520 && authorized"
+			 */
+			String cond = firstVal(f, "if", "when");
+			if (cond.length() > 0) {
+				if (condEval == null) {
+					bad(r, strict, lineNo, "COND 本端没有求值器，带条件的指令不执行", line);
+					continue;
+				}
+				boolean hit;
+				try {
+					hit = condEval.test(cond);
+				} catch (Throwable t) {
+					bad(r, strict, lineNo, "COND 求值异常：" + t.getClass().getSimpleName(), line);
+					continue;
+				}
+				if (!hit) {
+					r.skipped++;
+					r.issues.add(new Issue(lineNo, "COND 不满足：" + cond, line));
+					continue;
+				}
 			}
 
 			String err = apply(r, verb, f, mode, lineNo, line,
