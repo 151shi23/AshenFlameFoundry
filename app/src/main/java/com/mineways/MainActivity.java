@@ -345,6 +345,8 @@ public class MainActivity extends AppCompatActivity {
         ActivationStore.flushPending(this);   // 补发上次没发完的 confirm / release（幂等）
         AvatarLoader.init(getCacheDir());     // 社区头像的磁盘缓存目录（cacheDir/avatar）
         AnnouncementCenter.checkAndShow(this);  // 仓库根目录 ovo.txt 公告：命中条件就弹，没有就算了
+        // 云端功能目录：先用上次有效缓存立刻生效，再后台拉 features.txt 刷新
+        com.mineways.cloud.CloudCatalog.init(this);
         // 启动不再弹任何问答窗：登录改成「关于」页手动登录，白名单只认登录账号
         // 起始目的地由 NavHost 自己落位，栏状态在目的地回调里同步
     }
@@ -933,11 +935,26 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 it = exportPage(r.length > 4 ? r[4] : "");
             }
-            all.add(new Tool(r[0], r[1], icon, paid ? KIND_PAID : (limited ? KIND_LIMIT : KIND_FREE), it, r[3], "local"));
+            com.mineways.cloud.FeatureGate gate = com.mineways.cloud.CloudCatalog.gate();
+            if (gate.isHidden(r[0], null)) {
+                continue; // 云端把入口藏了或被整类下架
+            }
+            int builtinKind = paid ? KIND_PAID : (limited ? KIND_LIMIT : KIND_FREE);
+            all.add(new Tool(r[0], r[1], icon, gate.kindOf(r[0], builtinKind), it, r[3], "local"));
         }
         for (String[] r : WEB_TOOLS) {
             String cat = r.length > 4 ? r[4] : "";
-            all.add(new Tool(r[0], r[1], R.drawable.ic_preview, KIND_FREE, web(r[0], r[2]), r[3], cat));
+            com.mineways.cloud.FeatureGate gate = com.mineways.cloud.CloudCatalog.gate();
+            if (gate.isHidden(r[0], cat)) {
+                continue; // 单条下架 / 整类下架都由这里生效
+            }
+            all.add(new Tool(r[0], r[1], R.drawable.ic_preview, gate.kindOf(r[0], KIND_FREE), web(r[0], r[2]), r[3], cat));
+        }
+        // 云端新上架的站点：直接并进同一张表，走同一套渲染与门控
+        for (com.mineways.cloud.FeatureCatalog.Site s : com.mineways.cloud.CloudCatalog.gate().extraSites()) {
+            String cat = s.category == null || s.category.length() == 0 ? "online" : s.category;
+            int kind = "whitelist".equals(s.mode) ? KIND_PAID : KIND_FREE;
+            all.add(new Tool(s.name, s.desc, R.drawable.ic_preview, kind, web(s.name, s.url), "cloud web", cat));
         }
         return all;
     }
@@ -1470,6 +1487,15 @@ public class MainActivity extends AppCompatActivity {
                         public void onDenied() {
                         }
                     }));
+            return;
+        }
+        com.mineways.cloud.FeatureGate cloudGate = com.mineways.cloud.CloudCatalog.gate();
+        if (cloudGate.isDisabled(tool.title)) {
+            String why = cloudGate.notice(tool.title);
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("这个功能暂时不可用")
+                    .setMessage(why.length() > 0 ? why : "云端已把它停用了，稍后再试。")
+                    .setPositiveButton("知道了", null).show();
             return;
         }
         if (tool.kind == KIND_PAID && !ProAuth.isAuthorized(this)) {

@@ -120,6 +120,10 @@ public final class FeatureCatalog {
 		public final Map<String, String> delivery = new HashMap<>();
 		public final Set<String> whitelistAdds = new HashSet<>();
 		public final Set<String> whitelistDrops = new HashSet<>();
+		/** 显式写了 {@code override=builtin} 的键：只有这些才允许云端改动内置项。 */
+		public final Set<String> overrideKeys = new HashSet<>();
+		/** 键 -> 提示语（隐藏/停用时给用户看的原因）。 */
+		public final Map<String, String> notices = new HashMap<>();
 		public final List<Issue> issues = new ArrayList<>();
 		public int applied;
 		public int skipped;
@@ -378,6 +382,13 @@ public final class FeatureCatalog {
 		if ("feat".equals(verb)) {
 			if (id.length() == 0) {
 				return "FEAT 缺 id";
+			}
+			if ("builtin".equals(lower(firstVal(f, "override")))) {
+				r.overrideKeys.add(id);
+			}
+			String notice = firstVal(f, "notice", "提示");
+			if (notice.length() > 0) {
+				r.notices.put(id, notice);
 			}
 			if ("tier".equals(action)) {
 				String to = lower(firstVal(f, "to"));

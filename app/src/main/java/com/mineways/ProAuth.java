@@ -116,8 +116,31 @@ public final class ProAuth {
 
     // ============================================================ 判定
 
-    /** 名单命中？（username / id / email 任一匹配，忽略大小写与首尾空格） */
+    /**
+     * 名单命中？（username / id / email 任一匹配，忽略大小写与首尾空格）
+     *
+     * <p>内置名单（{@link #WHITELIST}）之外，云端功能目录可以用
+     * {@code WL user add/drop} 增删授权账号：<b>踢出优先</b> —— 显式 drop 的账号
+     * 即使在内置名单里也一律不放行，这样"把白名单功能移出白名单"才真的说话算数。
+     */
     public static boolean whitelistHit(Record r) {
+        boolean builtin = builtinWhitelistHit(r);
+        com.mineways.cloud.FeatureGate cloud = com.mineways.cloud.CloudCatalog.gate();
+        if (!cloud.active()) {
+            return builtin;
+        }
+        if (cloud.userDropped(r.username) || cloud.userDropped(r.email)
+                || (r.id > 0 && cloud.userDropped(String.valueOf(r.id)))) {
+            return false;
+        }
+        return builtin
+                || cloud.userAllowed(r.username, false)
+                || cloud.userAllowed(r.email, false)
+                || (r.id > 0 && cloud.userAllowed(String.valueOf(r.id), false));
+    }
+
+    /** 只看 APK 里写死的那份名单。 */
+    public static boolean builtinWhitelistHit(Record r) {
         if (WHITELIST == null || WHITELIST.length == 0) {
             return EMPTY_MEANS_ALLOW;
         }
