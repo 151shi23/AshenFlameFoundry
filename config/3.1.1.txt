@@ -1,0 +1,48 @@
+# 云端功能配置 —— 3.1.1（2026-10-15）
+# 本版作用域 replace：整条链作废，只吃这一份。目的是把 3.1.0 演示的三处效果改回去
+# （视频剪辑置顶、P3D 工程工具停用、Sincerity 板块改名），其余效果原样保留。
+# 为什么不用 inherit + 反写：手机上这个包的解析器还没有 unpin / order=none，
+# inherit 下"取消置顶"没有可写的语法，只有整版重放能干净地撤掉。
+@file-version=3.1.1
+@ver=1
+@scope=replace
+@default=apply
+@hmac=base64:l/3beynZ19hf3i8nMvZeIiTJYfzs82pKW30VXwYuaPE=
+
+# ① 六个限制功能解禁（3.0 起保留至今）
+FEAT tier id=Mine-imator 动画 to=free override=builtin
+FEAT tier id=文件修复          to=free override=builtin
+FEAT tier id=剪辑标识清除      to=free override=builtin
+FEAT tier id=图片转模型        to=free override=builtin
+FEAT tier id=串词工具箱        to=free override=builtin
+FEAT tier id=P3D 工程工具      to=free override=builtin
+
+# ② MC 壁纸站下架，保留
+SITE drop id=MC 壁纸站 override=builtin
+
+# ③ 十家新增站点，保留
+SITE add id=totem    name="图腾 / 旗帜编辑器" cat=w_build url=https://mc-tools.net              desc="在线画图腾与旗帜图案，做完直接导进游戏" order=11
+SITE add id=mcskins  name="动作 / 姿势库"     cat=w_skin  url=https://mcskins.top               desc="皮肤动作与姿势参考，做短片摆位用" order=12
+SITE add id=mcscst   name="官方背景图 Studio"  cat=w_skin  url=https://mcskincreator.app/studio desc="官方皮肤创作工作台：画皮肤 + 导出展示图" order=13
+SITE add id=mcscapp  name="换装小游戏"        cat=w_skin  url=https://mcskincreator.app         desc="把皮肤穿到角色上玩换装，出图好看" order=14
+SITE add id=honghe   name="物品素材库"        cat=w_tex   url=https://honghemc.cn                desc="红禾：物品图标与素材下载" order=15
+SITE add id=mcgif    name="MC 动图"          cat=w_art   url=https://mcgif.cn                  desc="在线做 MC 动图，聊天和封面都能用" order=16
+SITE add id=chibiko  name="表情包"           cat=w_art   url=https://dot-chibiko.chabo.tokyo/    desc="Q 版表情包生成，群里发这个" order=17
+SITE add id=chibi2   name="Q版立绘"          cat=w_art   url=https://sss.1m3.jp/                desc="Q 版立绘站，做头像和封面" order=18
+SITE add id=panzoid  name="片头 / 动效制作"    cat=w_stock url=https://panzoid.com/             desc="在线做 3D 片头与动效，剪短片开场用" order=19
+SITE add id=mcblock  name="建筑素材"         cat=w_build url=https://mcblock.top/             desc="建筑用方块与结构素材" order=20
+
+# ④ 两个云端开关，保留
+FLAG key=new_panels to=1
+FLAG key=hide_music to=0
+
+# ⑤ 「格式转换」的说明与排序，保留
+FEAT id=格式转换 tier=free order=3 desc=图片 / 音频 / 模型互转，含 .blend → GLB override=builtin
+
+# ⑥ 登录白名单账号后把「剪辑标识清除」挪回白名单页，保留
+FEAT tier id=剪辑标识清除 to=whitelist if="authorized" override=builtin
+
+# —— 以下三条是 3.1.0 有、本版故意不写的：不写就等于恢复原样 ——
+# FEAT id=视频剪辑 pin order=1            → 视频剪辑回到本地工具里的原始位置
+# FEAT disable id=P3D 工程工具 notice=…    → P3D 工程工具恢复可用（仍是免费档）
+# CAT add id=w_sinc name=Sincerity 素材台  → 板块名回到包里的「Sincerity 工具箱」
