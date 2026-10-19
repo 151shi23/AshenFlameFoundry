@@ -11,7 +11,19 @@
 # 新增可关项：ai_tools_off=pick 关掉选文件；ai_list=short|ask 管功能清单进提示词的档位
 #   （整段 system 有 4000 字上限，工具越多清单越挤：short 压掉空格省约三成，ask 干脆不塞、
 #    让模型用 list_tools 现查；不写就按剩余额度自动降级，不会把名字从中间砍断）。
-# 其余与 3.9.24 完全一致：AI 全员开放、一律走正式环境、ops 三个作业、产物只写 Download 不覆盖。
+# ③ 功能页顶栏与右上角那两颗「问 AI」已经删掉（用户判定：挡空间又没用）。
+#    AI 的入口就是首页右上角三个点；ai_entries_off 现在只剩 card / search 两个名字，page 写了不起作用。
+# ④ 机型认两个身份：内部型号（Build.MODEL，小米常是 24016PADG 这种代号）+ 设置里显示的名字
+#    （K90 Ultra / Redmi K70 这种，读 ro.product.marketname 等系统属性）。
+#    条件变量表新增 model_market / brand_model / model_list / model_from，
+#    名单与条件一律「任意命中即生效」：if="'K70*' 在 model_list" 就够，不用自己拼或条件。
+# ⑤ 液态玻璃可以按机型单独处理（先匹配到的生效；只写机型=关闭；动作写错=什么都不做）：
+#    FLAG key=ui_glass_models to=K70*:low,K60*:off,K80*:ask
+#      low  强制降低玻璃参数（ui_glass_low_tier 决定降到哪档，默认 balanced，顺带关动效）
+#      off  强制关闭液态玻璃，退回平面重写
+#      ask  弹窗问用户「降低 / 保持 / 关闭」，一次进程只问一次，答案落盘；规则改了会重新问
+#    命中与生效结果写在「关于 → 云端配置」的「本机机型」「玻璃机型策略」两行里，判错当场可见。
+# 其余与 3.9.24 一致：AI 全员开放、一律走正式环境、ops 三个作业、产物只写 Download 不覆盖。
 # 现在能一句话关掉的（默认全开，写下来才生效，口径见 云端配置书写规则.md §3.5.1）：
 #   FLAG key=ai_tools_off to=ops                 一刀废掉整个干活层（只能开页面让用户自己点）
 #   FLAG key=ai_ops_off to=gif                   只废掉某一个作业：pack / gif / expr
@@ -40,7 +52,7 @@
 @scope=inherit
 @default=apply
 @snapshot=full
-@hmac=base64:WHOsZFGG6X6sK5V7mMK2JFjC9oXs14I4BfJQ+3w8UbU=
+@hmac=base64:0bn2/mmRiBzwPFfvGteZvfbAgjMm8IBusklBT6Emeps=
 
 FEAT tier id=Mine-imator 动画 to=free override=builtin
 FEAT tier id=文件修复          to=free override=builtin
