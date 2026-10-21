@@ -1,8 +1,12 @@
-# 公告：启动器在线功能说明（全员 · 每天最多一次）
+# 公告：启动器在线功能说明（全员 · 每次打开都弹）
 # 发布方式：直接覆盖仓库根目录 ovo.txt，无需签名 / 无需改 index
-id: launcher-online-2026-10
+# 2026-10-21：内容与标题沿用上一版，只改两处 ——
+#   ① id 换成 -10b（已读标记按 id 记，换 id = 老用户立刻重新弹一次）
+#   ② once 从 day 改成 always：每次打开软件都弹，不再一天只弹一次。
+#      always 的"每次"是一次进程启动一条：同一进程内 Activity 重建不会重复弹，不会轰炸。
+id: launcher-online-2026-10b
 level: info
-once: day
+once: always
 title: 公告：关于近期启动器在线功能的一点说明
 body: 各位好：
 body:
