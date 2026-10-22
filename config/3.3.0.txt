@@ -1,0 +1,389 @@
+# 云端功能配置 —— 3.3.0（2026-10-15）
+# 本版新增「就地汉化」词表：App 里不含任何译文库，全部由这里下发。
+# host=* 是全站通用词条；host=具体域名 只在这个站生效，并且盖过通用词条。
+# 词条按"原文整句优先、长短优先"匹配（App 会把表按长度降序排），所以整句不会被短词抢掉。
+# 刻意没翻的东西：Minecraft / Java / Windows / GitHub / Discord / npm 等品牌与专名，
+# 以及 give / execute / target selector 这类命令原词 —— 翻了反而找不到命令怎么写。
+@file-version=3.3.0
+@ver=1
+@scope=inherit
+@default=apply
+@hmac=base64:iM+3ZNUuLT/NTBxExzujSYIptprDUuqtVX8J/K9nNqU=
+
+# ── 保留 3.2.0 的全部效果 ────────────────────────────────────────────
+FEAT tier id=Mine-imator 动画 to=free override=builtin
+FEAT tier id=文件修复          to=free override=builtin
+FEAT tier id=剪辑标识清除      to=free override=builtin
+FEAT tier id=图片转模型        to=free override=builtin
+FEAT tier id=串词工具箱        to=free override=builtin
+FEAT tier id=P3D 工程工具      to=free override=builtin
+SITE drop id=MC 壁纸站 override=builtin
+SITE add id=totem    name="图腾 / 旗帜编辑器" cat=w_build url=https://mc-tools.net              desc="在线画图腾与旗帜图案，做完直接导进游戏" order=11
+SITE add id=mcskins  name="动作 / 姿势库"     cat=w_skin  url=https://mcskins.top               desc="皮肤动作与姿势参考，做短片摆位用" order=12
+SITE add id=mcscst   name="官方背景图 Studio"  cat=w_skin  url=https://mcskincreator.app/studio desc="官方皮肤创作工作台：画皮肤 + 导出展示图" order=13
+SITE add id=mcscapp  name="换装小游戏"        cat=w_skin  url=https://mcskincreator.app         desc="把皮肤穿到角色上玩换装，出图好看" order=14
+SITE add id=honghe   name="物品素材库"        cat=w_tex   url=https://honghemc.cn                desc="红禾：物品图标与素材下载" order=15
+SITE add id=mcgif    name="MC 动图"          cat=w_art   url=https://mcgif.cn                  desc="在线做 MC 动图，聊天和封面都能用" order=16
+SITE add id=chibiko  name="表情包"           cat=w_art   url=https://dot-chibiko.chabo.tokyo/    desc="Q 版表情包生成，群里发这个" order=17
+SITE add id=chibi2   name="Q版立绘"          cat=w_art   url=https://sss.1m3.jp                desc="Q 版立绘站，做头像和封面" order=18
+SITE add id=panzoid  name="片头 / 动效制作"    cat=w_stock url=https://panzoid.com              desc="在线做 3D 片头与动效，剪短片开场用" order=19
+SITE add id=mcblock  name="建筑素材"         cat=w_build url=https://mcblock.top                desc="建筑用方块与结构素材" order=20
+SITE add id=cbcreator     name="命令方块生成器"   cat=w_cmd url=https://www.mcmod.cn/tools/cbcreator/ desc="MC 中文 Wiki 的指令生成器：填参数就出 give / effect / summon" order=21
+SITE add id=cmdtutorial   name="指令教程速查"     cat=w_cmd url=https://commandtutorials.neocities.org desc="按版本列命令写法与示例，写数据包时照着抄" order=22
+SITE add id=mc163dev      name="网易 ModAPI 文档" cat=w_cmd url=https://mc.163.com                desc="网易开发文档：接口、特效、方块与实体参数全表" order=23
+SITE add id=umce          name="跨版本存档编辑"   cat=w_cmd url=https://www.universalminecrafteditor.com desc="Universal Minecraft Editor：Java / 基岩 / 网易存档都能改" order=24
+SITE add id=worldpainter  name="WorldPainter"    cat=w_build url=https://www.worldpainter.net    desc="外部地形绘制工具，画完导入存档做超大场景" order=25
+SITE add id=cubik         name="Cubik 建模"      cat=w_model url=https://cubik.studio            desc="网页版方块建模器，做建筑模型与展示图" order=26
+SITE add id=mcnav         name="MC 网址导航"     cat=w_comm  url=https://www.mcnav.net           desc="收录了几十家中文 MC 站，找新站从这里进" order=27
+SITE add id=mcsuggest     name="官方反馈与投票"   cat=w_comm  url=https://feedback.minecraft.net  desc="Mojang 官方反馈站：提建议、给提案投票、看进度" order=28
+SITE add id=iconfont      name="阿里图标库"       cat=w_sinc  url=https://www.iconfont.cn         desc="矢量图标下载与在线改色，做封面角标和 UI 用" order=29
+SITE add id=zhaozi        name="找字网"          cat=w_sinc  url=https://www.zhaozi.cn           desc="中文字体下载站，封面标题字来源之一" order=30
+SITE add id=zcool         name="站酷"            cat=w_sinc  url=https://www.zcool.com.cn        desc="国内设计作品社区，找封面与配色参考" order=31
+SITE add id=haowall       name="高清壁纸站"       cat=w_sinc  url=https://haowallpaper.com        desc="壁纸下载，做背景和头像底图" order=32
+SITE add id=mixkit        name="Mixkit 音效素材"  cat=w_stock url=https://mixkit.co               desc="免版权音效、视频与音乐素材，剪短片补素材" order=33
+FLAG key=new_panels to=1
+FLAG key=hide_music to=0
+FEAT id=格式转换 tier=free order=3 desc=图片 / 音频 / 模型互转，含 .blend → GLB override=builtin
+
+# ── 全站通用词条：几乎所有英文站都会出现的界面词 ──────────────────────
+TR add host=* en="Search" zh="搜索"
+TR add host=* en="Clear" zh="清除"
+TR add host=* en="Close" zh="关闭"
+TR add host=* en="Menu" zh="菜单"
+TR add host=* en="Open menu" zh="打开菜单"
+TR add host=* en="Close Menu" zh="关闭菜单"
+TR add host=* en="Home" zh="首页"
+TR add host=* en="Back" zh="返回"
+TR add host=* en="Next" zh="下一页"
+TR add host=* en="Previous" zh="上一页"
+TR add host=* en="Loading..." zh="加载中…"
+TR add host=* en="Download" zh="下载"
+TR add host=* en="Downloads" zh="下载"
+TR add host=* en="Upload" zh="上传"
+TR add host=* en="Save" zh="保存"
+TR add host=* en="Edit" zh="编辑"
+TR add host=* en="Share" zh="分享"
+TR add host=* en="Copy" zh="复制"
+TR add host=* en="Submit" zh="提交"
+TR add host=* en="Send" zh="发送"
+TR add host=* en="Cancel" zh="取消"
+TR add host=* en="Confirm" zh="确认"
+TR add host=* en="Apply" zh="应用"
+TR add host=* en="Settings" zh="设置"
+TR add host=* en="Options" zh="选项"
+TR add host=* en="Help" zh="帮助"
+TR add host=* en="FAQ" zh="常见问题"
+TR add host=* en="About" zh="关于"
+TR add host=* en="Contact" zh="联系我们"
+TR add host=* en="Sign In" zh="登录"
+TR add host=* en="Sign in" zh="登录"
+TR add host=* en="Log in" zh="登录"
+TR add host=* en="Login" zh="登录"
+TR add host=* en="Log out" zh="退出登录"
+TR add host=* en="Sign up" zh="注册"
+TR add host=* en="Create Account" zh="创建账号"
+TR add host=* en="Account" zh="账号"
+TR add host=* en="Profile" zh="个人资料"
+TR add host=* en="Pricing" zh="价格"
+TR add host=* en="Features" zh="功能介绍"
+TR add host=* en="Documentation" zh="文档"
+TR add host=* en="Docs" zh="文档"
+TR add host=* en="Guides" zh="教程"
+TR add host=* en="Support" zh="支持"
+TR add host=* en="Blog" zh="博客"
+TR add host=* en="News" zh="动态"
+TR add host=* en="Gallery" zh="作品展示"
+TR add host=* en="Categories" zh="分类"
+TR add host=* en="Category" zh="分类"
+TR add host=* en="Tags" zh="标签"
+TR add host=* en="Popular" zh="热门"
+TR add host=* en="Trending" zh="热门趋势"
+TR add host=* en="Newest" zh="最新"
+TR add host=* en="Free" zh="免费"
+TR add host=* en="Pro" zh="专业版"
+TR add host=* en="Buy" zh="购买"
+TR add host=* en="Subscribe" zh="订阅"
+TR add host=* en="Follow" zh="关注"
+TR add host=* en="Following" zh="已关注"
+TR add host=* en="Like" zh="点赞"
+TR add host=* en="Comments" zh="评论"
+TR add host=* en="View All" zh="查看全部"
+TR add host=* en="See all" zh="查看全部"
+TR add host=* en="Show more" zh="展开更多"
+TR add host=* en="Show less" zh="收起"
+TR add host=* en="Learn more" zh="了解更多"
+TR add host=* en="Try For Free" zh="免费试用"
+TR add host=* en="Get started" zh="开始使用"
+TR add host=* en="Search…" zh="搜索…"
+TR add host=* en="Enter Search Text" zh="输入搜索内容"
+TR add host=* en="Clear search" zh="清空搜索"
+TR add host=* en="Skip to main content" zh="跳到正文"
+TR add host=* en="Privacy Policy" zh="隐私政策"
+TR add host=* en="Terms of use" zh="使用条款"
+TR add host=* en="Terms" zh="条款"
+TR add host=* en="Cookies" zh="Cookie 说明"
+TR add host=* en="Accept" zh="同意"
+TR add host=* en="Reject" zh="拒绝"
+TR add host=* en="No results" zh="没有结果"
+TR add host=* en="Not found" zh="未找到"
+TR add host=* en="Page not found" zh="页面不存在"
+TR add host=* en="Copyright" zh="版权"
+TR add host=* en="Made with" zh="使用以下工具制作："
+TR add host=* en="Version" zh="版本"
+TR add host=* en="Color Mode: Light" zh="配色：浅色"
+TR add host=* en="Color Mode: Dark" zh="配色：深色"
+
+# ── Mixkit（音效 / 视频素材）────────────────────────────────────────
+TR add host=mixkit.co en="Free assets for your next video project" zh="给你的下一支视频免费用素材"
+TR add host=mixkit.co en="Sound Effects" zh="音效"
+TR add host=mixkit.co en="Music" zh="音乐"
+TR add host=mixkit.co en="Videos" zh="视频"
+TR add host=mixkit.co en="Video" zh="视频"
+TR add host=mixkit.co en="Templates" zh="模板"
+TR add host=mixkit.co en="Icons" zh="图标"
+TR add host=mixkit.co en="Video Templates" zh="视频模板"
+TR add host=mixkit.co en="View all Video Templates" zh="查看全部视频模板"
+TR add host=mixkit.co en="View all Music" zh="查看全部音乐"
+TR add host=mixkit.co en="View all Sound Effects" zh="查看全部音效"
+TR add host=mixkit.co en="View Fullscreen" zh="全屏查看"
+TR add host=mixkit.co en="Popular search term: Transitions" zh="热门搜索：转场"
+TR add host=mixkit.co en="Popular search term: Background Videos" zh="热门搜索：背景视频"
+TR add host=mixkit.co en="Popular search term: Football" zh="热门搜索：足球"
+TR add host=mixkit.co en="Popular search term: Flags" zh="热门搜索：旗帜"
+TR add host=mixkit.co en="Popular search term: Ambient" zh="热门搜索：氛围音"
+TR add host=mixkit.co en="Popular search term: Happy" zh="热门搜索：欢快"
+TR add host=mixkit.co en="Popular search term: Hip Hop" zh="热门搜索：嘻哈"
+TR add host=mixkit.co en="Popular search term: Holiday Season" zh="热门搜索：节日"
+TR add host=mixkit.co en="Popular search term: Click" zh="热门搜索：点击声"
+TR add host=mixkit.co en="Popular search term: Beep" zh="热门搜索：提示音"
+TR add host=mixkit.co en="Popular search term: Notification" zh="热门搜索：通知音"
+TR add host=mixkit.co en="Popular search term: Bells" zh="热门搜索：铃铛"
+TR add host=mixkit.co en="Popular search term: Transition" zh="热门搜索：转场"
+TR add host=mixkit.co en="Popular search term: Titles" zh="热门搜索：标题字"
+TR add host=mixkit.co en="Popular search term: Openers" zh="热门搜索：片头"
+TR add host=mixkit.co en="Popular search term: Logo" zh="热门搜索：标志动画"
+TR add host=mixkit.co en="Unlimited creative stock assets, all in one place." zh="海量创意素材，一站取用。"
+TR add host=mixkit.co en="Go unlimited!" zh="升级不限量！"
+TR add host=mixkit.co en="Subscribe to Envato." zh="订阅 Envato"
+TR add host=mixkit.co en="Let's go!" zh="去看看"
+TR add host=mixkit.co en="Royalty-free" zh="免版税"
+TR add host=mixkit.co en="No attribution required" zh="无需署名"
+TR add host=mixkit.co en="Download Free" zh="免费下载"
+
+# ── Sketchfab（3D 模型库）───────────────────────────────────────────
+TR add host=sketchfab.com en="Search 3D models" zh="搜索 3D 模型"
+TR add host=sketchfab.com en="Popular 3D models" zh="热门 3D 模型"
+TR add host=sketchfab.com en="Staff picks 3D models" zh="编辑推荐 3D 模型"
+TR add host=sketchfab.com en="Downloadable 3D models" zh="可下载 3D 模型"
+TR add host=sketchfab.com en="Collections 3D models" zh="3D 模型合集"
+TR add host=sketchfab.com en="Human Created 3D Models" zh="人工制作的 3D 模型"
+TR add host=sketchfab.com en="AI Generated 3D models" zh="AI 生成的 3D 模型"
+TR add host=sketchfab.com en="Community Blog" zh="社区博客"
+TR add host=sketchfab.com en="Community Members" zh="社区成员"
+TR add host=sketchfab.com en="Animals & Pets 3D models" zh="动物与宠物模型"
+TR add host=sketchfab.com en="Architecture 3D models" zh="建筑模型"
+TR add host=sketchfab.com en="Art & Abstract 3D models" zh="艺术与抽象模型"
+TR add host=sketchfab.com en="Cars & Vehicles 3D models" zh="汽车与载具模型"
+TR add host=sketchfab.com en="Characters & Creatures 3D models" zh="角色与生物模型"
+TR add host=sketchfab.com en="Cultural Heritage & History 3D models" zh="历史人文模型"
+TR add host=sketchfab.com en="Electronics & Gadgets 3D models" zh="电子与数码设备模型"
+TR add host=sketchfab.com en="Fashion & Style 3D models" zh="时尚造型模型"
+TR add host=sketchfab.com en="Food & Drink 3D models" zh="餐饮模型"
+TR add host=sketchfab.com en="Furniture & Home 3D models" zh="家居模型"
+TR add host=sketchfab.com en="Music 3D models" zh="音乐主题模型"
+TR add host=sketchfab.com en="Nature & Plants 3D models" zh="自然与植物模型"
+TR add host=sketchfab.com en="People 3D models" zh="人物模型"
+TR add host=sketchfab.com en="Places & Travel 3D models" zh="地点与旅行模型"
+TR add host=sketchfab.com en="Science & Technology 3D models" zh="科技模型"
+TR add host=sketchfab.com en="Sports & Fitness 3D models" zh="运动健身模型"
+TR add host=sketchfab.com en="Weapons & Military 3D models" zh="武器与军事模型"
+TR add host=sketchfab.com en="Augmented Reality" zh="增强现实"
+TR add host=sketchfab.com en="3D Viewer" zh="3D 查看器"
+TR add host=sketchfab.com en="3D eCommerce" zh="3D 电商展示"
+TR add host=sketchfab.com en="3D Configurators" zh="3D 配置器"
+TR add host=sketchfab.com en="Find a Partner" zh="寻找合作伙伴"
+TR add host=sketchfab.com en="Customer Stories" zh="客户案例"
+TR add host=sketchfab.com en="Go to the mainpage" zh="回到首页"
+TR add host=sketchfab.com en="Follow us on Twitter" zh="在 Twitter 上关注我们"
+TR add host=sketchfab.com en="Follow us on Instagram" zh="在 Instagram 上关注我们"
+TR add host=sketchfab.com en="Follow us on Facebook" zh="在 Facebook 上关注我们"
+
+# ── Blockbench（建模官网，内置也有离线版）────────────────────────────
+TR add host=blockbench.net en="A low-poly 3D model editor" zh="低多边形 3D 模型编辑器"
+TR add host=blockbench.net en="Open Web App" zh="打开网页版"
+TR add host=blockbench.net en="Quickstart" zh="快速上手"
+TR add host=blockbench.net en="Contests" zh="建模比赛"
+TR add host=blockbench.net en="Plugins" zh="插件"
+TR add host=blockbench.net en="Wiki" zh="百科"
+TR add host=blockbench.net en="Low-poly Modeling" zh="低多边形建模"
+TR add host=blockbench.net en="Texturing Tools" zh="贴图工具"
+TR add host=blockbench.net en="Animations" zh="动画"
+TR add host=blockbench.net en="View Blockbench animations..." zh="查看 Blockbench 动画示例…"
+TR add host=blockbench.net en="Customize Blockbench with the built-in plugin store." zh="用内置插件商店给 Blockbench 加功能。"
+TR add host=blockbench.net en="Browse Blockbench plugins..." zh="浏览 Blockbench 插件…"
+TR add host=blockbench.net en="Free & Open Source" zh="免费且开源"
+TR add host=blockbench.net en="The project is open source under the GPL license." zh="本项目以 GPL 协议开源。"
+TR add host=blockbench.net en="View the source code..." zh="查看源代码…"
+TR add host=blockbench.net en="Made in Blockbench!" zh="这些作品出自 Blockbench！"
+TR add host=blockbench.net en="View awesome Blockbench models in 3D!" zh="在线 3D 查看这些 Blockbench 模型！"
+TR add host=blockbench.net en="Who's using Blockbench" zh="谁在用 Blockbench"
+TR add host=blockbench.net en="...and many more!" zh="……还有很多！"
+TR add host=blockbench.net en="Accept and View Models" zh="同意并查看模型"
+TR add host=blockbench.net en="Sketchfab Privacy Policy" zh="Sketchfab 隐私政策"
+
+# ── Universal Minecraft Editor（存档编辑 / 转换 / 裁剪）───────────────
+TR add host=universalminecrafteditor.com en="UNIVERSAL MINECRAFT TOOL" zh="通吃各版的 MC 工具箱"
+TR add host=universalminecrafteditor.com en="NBT Editor" zh="NBT 编辑器"
+TR add host=universalminecrafteditor.com en="Converter" zh="转换器"
+TR add host=universalminecrafteditor.com en="Pruner" zh="体积裁剪工具"
+TR add host=universalminecrafteditor.com en="Convert" zh="转换"
+TR add host=universalminecrafteditor.com en="Prune" zh="裁剪"
+TR add host=universalminecrafteditor.com en="Minecraft Worlds" zh="Minecraft 存档"
+TR add host=universalminecrafteditor.com en="and" zh="与"
+TR add host=universalminecrafteditor.com en="Explore Features" zh="看看有哪些功能"
+TR add host=universalminecrafteditor.com en="Updated For 26.2" zh="已适配 26.2"
+TR add host=universalminecrafteditor.com en="Supports the latest world formats." zh="支持最新的存档格式。"
+TR add host=universalminecrafteditor.com en="No Size Limits" zh="不限存档大小"
+TR add host=universalminecrafteditor.com en="Tested on worlds over 200GB." zh="超过 200GB 的存档也实测过。"
+TR add host=universalminecrafteditor.com en="Guaranteed to Work" zh="保证可用"
+TR add host=universalminecrafteditor.com en="Works on any valid world." zh="只要是有效存档就能处理。"
+TR add host=universalminecrafteditor.com en="Direct Support" zh="直接找开发者"
+TR add host=universalminecrafteditor.com en="Get help directly from the devs." zh="开发者亲自答疑，不绕客服。"
+TR add host=universalminecrafteditor.com en="Our Policy" zh="我们的政策"
+TR add host=universalminecrafteditor.com en="Suite of Must-Have Apps" zh="一套必备工具"
+TR add host=universalminecrafteditor.com en="The" zh="版本支持"
+TR add host=universalminecrafteditor.com en="King" zh="最全面的"
+TR add host=universalminecrafteditor.com en="of Version Support" zh="版本支持"
+TR add host=universalminecrafteditor.com en="Platforms:" zh="平台："
+TR add host=universalminecrafteditor.com en="From the creator of the" zh="出自"
+TR add host=universalminecrafteditor.com en="first ever" zh="史上第一个"
+TR add host=universalminecrafteditor.com en="world converter and multi-platform NBT editor, the Pryze Software" zh="存档转换器与跨平台 NBT 编辑器之作者 Pryze Software"
+TR add host=universalminecrafteditor.com en="With Realms Transfer:" zh="支持 Realms 转移："
+TR add host=universalminecrafteditor.com en="Downloads" zh="下载"
+
+# ── WorldPainter（下载页全是架构 / 安装包字样）───────────────────────
+TR add host=worldpainter.net en="WorldPainter is an interactive map generator for" zh="WorldPainter 是一款可视化地图生成器，用于"
+TR add host=worldpainter.net en="Download the program here:" zh="在这里下载程序："
+TR add host=worldpainter.net en="Download installer (.exe)" zh="下载安装包（.exe）"
+TR add host=worldpainter.net en="Download installer (.dmg)" zh="下载安装包（.dmg）"
+TR add host=worldpainter.net en="Download installer (.sh)" zh="下载安装包（.sh）"
+TR add host=worldpainter.net en="Download DEB package" zh="下载 DEB 包"
+TR add host=worldpainter.net en="Download RPM package" zh="下载 RPM 包"
+TR add host=worldpainter.net en="Architecture" zh="系统架构"
+TR add host=worldpainter.net en="64-bit" zh="64 位"
+TR add host=worldpainter.net en="32-bit" zh="32 位"
+TR add host=worldpainter.net en="64-bit Windows" zh="64 位 Windows"
+TR add host=worldpainter.net en="32-bit Windows" zh="32 位 Windows"
+TR add host=worldpainter.net en="64-bit Java 21 LTS" zh="64 位 Java 21 LTS"
+TR add host=worldpainter.net en="32-bit Java 17" zh="32 位 Java 17"
+TR add host=worldpainter.net en="Intel Java 21 LTS" zh="Intel 芯片 Java 21 LTS"
+TR add host=worldpainter.net en="Arm (M1-M4)" zh="苹果芯片（M1-M4）"
+TR add host=worldpainter.net en="Arm Java 21 LTS" zh="苹果芯片 Java 21 LTS"
+TR add host=worldpainter.net en="Linux/UNIX" zh="Linux / UNIX"
+TR add host=worldpainter.net en="UNIX/Linux" zh="UNIX / Linux"
+TR add host=worldpainter.net en="(or Ubuntu, etc.)" zh="（或 Ubuntu 等）"
+TR add host=worldpainter.net en="(or Fedora, etc.)" zh="（或 Fedora 等）"
+TR add host=worldpainter.net en="Other" zh="其他"
+TR add host=worldpainter.net en="NOTE:" zh="注意："
+TR add host=worldpainter.net en="You can check the change log" zh="更新日志可以在"
+TR add host=worldpainter.net en="here" zh="这里"
+TR add host=worldpainter.net en="and SHA256 checksums" zh="查到，SHA256 校验值也在"
+TR add host=worldpainter.net en="Having said that, the documentation, such as it is (including a" zh="另外，文档（内容不多，含一份"
+TR add host=worldpainter.net en="), can be found" zh="）可以在以下地址找到："
+TR add host=worldpainter.net en="There is an" zh="另有一个"
+TR add host=worldpainter.net en="official YouTube channel" zh="官方 YouTube 频道"
+TR add host=worldpainter.net en="which may one day contain tutorials but is currently empty." zh="也许哪天会有教程，目前还是空的。"
+TR add host=worldpainter.net en="does" zh="并"
+TR add host=worldpainter.net en="not" zh="不"
+TR add host=worldpainter.net en=". Note that these are not recommended and unsupported!" zh="。注意这两种方式不推荐、也不提供支援！"
+
+# ── 官方反馈站（feedback.minecraft.net）─────────────────────────────
+TR add host=feedback.minecraft.net en="Primary Site Navigation" zh="主站导航"
+TR add host=feedback.minecraft.net en="View categories menu" zh="查看分类菜单"
+TR add host=feedback.minecraft.net en="View All" zh="查看全部"
+TR add host=feedback.minecraft.net en="View knowledge base menu" zh="查看知识库菜单"
+TR add host=feedback.minecraft.net en="Knowledge Base" zh="知识库"
+TR add host=feedback.minecraft.net en="Categories menu" zh="分类菜单"
+TR add host=feedback.minecraft.net en="Knowledge Base menu" zh="知识库菜单"
+TR add host=feedback.minecraft.net en="Account & Search" zh="账号与搜索"
+TR add host=feedback.minecraft.net en="Search menu" zh="搜索菜单"
+TR add host=feedback.minecraft.net en="Feedback Account" zh="反馈账号"
+TR add host=feedback.minecraft.net en="Account menu" zh="账号菜单"
+TR add host=feedback.minecraft.net en="Back to Account menu" zh="返回账号菜单"
+TR add host=feedback.minecraft.net en="View Feedback Account menu" zh="查看反馈账号菜单"
+TR add host=feedback.minecraft.net en="Clear search input value" zh="清空搜索框"
+TR add host=feedback.minecraft.net en="Suggestions available" zh="有可选建议"
+TR add host=feedback.minecraft.net en="Activities" zh="我的活动"
+TR add host=feedback.minecraft.net en="Add additional comments" zh="补充评论"
+TR add host=feedback.minecraft.net en="Follow Minecraft on social media" zh="在社交平台上关注 Minecraft"
+TR add host=feedback.minecraft.net en="Footer Navigation" zh="页脚导航"
+TR add host=feedback.minecraft.net en="Minecraft Usage Guidelines" zh="Minecraft 使用规范"
+TR add host=feedback.minecraft.net en="Opens a dialog" zh="会打开一个对话框"
+TR add host=feedback.minecraft.net en="Primary" zh="主要"
+
+# ── anime.js（动效引擎）─────────────────────────────────────────────
+TR add host=animejs.com en="All-in-one" zh="一体化"
+TR add host=animejs.com en="animation" zh="动效"
+TR add host=animejs.com en="engine" zh="引擎"
+TR add host=animejs.com en="A fast and flexible JavaScript" zh="一套快速而灵活的 JavaScript"
+TR add host=animejs.com en="library to animate" zh="动效库，用来给"
+TR add host=animejs.com en="the web" zh="网页做动画"
+TR add host=animejs.com en="Learn" zh="学习"
+TR add host=animejs.com en="Easings" zh="缓动曲线"
+TR add host=animejs.com en="Examples" zh="示例"
+TR add host=animejs.com en="Sponsor" zh="赞助"
+TR add host=animejs.com en="Become a sponsor" zh="成为赞助者"
+TR add host=animejs.com en="Enter your email" zh="输入你的邮箱"
+TR add host=animejs.com en="Toggle site menu" zh="展开/收起站点菜单"
+TR add host=animejs.com en="The complete" zh="完整的"
+TR add host=animejs.com en="animator's toolbox" zh="动效师工具箱"
+TR add host=animejs.com en="Intuitive API" zh="直觉化的 API"
+TR add host=animejs.com en="Animate faster with an easy-to-use, yet powerful animation API." zh="接口好上手又够强，做动画更快。"
+TR add host=animejs.com en="Per property parameters" zh="按属性分别配参数"
+TR add host=animejs.com en="Flexible keyframes system" zh="灵活的关键帧系统"
+TR add host=animejs.com en="Built-in easings" zh="内置缓动"
+TR add host=animejs.com en="Enhanced transforms" zh="增强的变换"
+TR add host=animejs.com en="Function based values" zh="函数式取值"
+TR add host=animejs.com en="Blend composition" zh="混合模式"
+TR add host=animejs.com en="Scroll Observer" zh="滚动观察器"
+TR add host=animejs.com en="Multiple synchronisation modes" zh="多种同步模式"
+TR add host=animejs.com en="Advanced thresholds" zh="高级触发阈值"
+TR add host=animejs.com en="Complete set of callbacks" zh="完整的回调"
+TR add host=animejs.com en="Advanced staggering" zh="高级错峰动画"
+TR add host=animejs.com en="Time staggering" zh="时间错峰"
+TR add host=animejs.com en="Values staggering" zh="数值错峰"
+TR add host=animejs.com en="SVG toolset" zh="SVG 工具集"
+TR add host=animejs.com en="Shape morphing" zh="形状变形"
+TR add host=animejs.com en="Line drawing" zh="线条描绘"
+TR add host=animejs.com en="Motion path" zh="运动路径"
+TR add host=animejs.com en="Springs and draggable" zh="弹簧与可拖拽"
+TR add host=animejs.com en="Sponsored by" zh="赞助方"
+
+# ── Cubik 前面的人机验证页 ──────────────────────────────────────────
+TR add host=cubik.studio en="Making sure you're not a bot!" zh="正在确认你不是机器人…"
+TR add host=cubik.studio en="Protected by" zh="防护由"
+TR add host=cubik.studio en="This website is running Anubis version" zh="本站运行 Anubis，版本"
+TR add host=cubik.studio en="Mascot design by" zh="吉祥物设计："
+
+# ── 指令教程站：只翻界面词，命令原词一律保留 ─────────────────────────
+TR add host=commandtutorials.neocities.org en="command block" zh="命令方块"
+TR add host=commandtutorials.neocities.org en="NBT explorer" zh="NBT 查看器"
+TR add host=commandtutorials.neocities.org en="target selector" zh="目标选择器"
+TR add host=commandtutorials.neocities.org en="Loot table" zh="战利品表"
+TR add host=commandtutorials.neocities.org en="MC wiki" zh="MC 维基"
+TR add host=commandtutorials.neocities.org en="hitbox" zh="碰撞箱"
+TR add host=commandtutorials.neocities.org en="custom" zh="自定义"
+
+# ── 给这些站点打开自动汉化（内置站点用卡片标题当键 + override=builtin；──
+# ── 云端新增的站点用它的 id 当键。没提到的站点走 auto：有专属词表才自动开。──
+FEAT id=mixkit i18n=on
+FEAT id=Sketchfab 3D 模型 i18n=on override=builtin
+FEAT id=Sketchfab 手绘模型 i18n=on override=builtin
+FEAT id=Blockbench i18n=on override=builtin
+FEAT id=umce i18n=on
+FEAT id=worldpainter i18n=on
+FEAT id=mcsuggest i18n=on
+FEAT id=anime.js 动效 i18n=on override=builtin
+FEAT id=cubik i18n=on
+FEAT id=cmdtutorial i18n=on
+FLAG key=i18n_hint to=1

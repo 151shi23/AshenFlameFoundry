@@ -1,0 +1,54 @@
+# 云端功能配置 —— 3.1.0（2026-10-15）
+# 这一版是「在 3.0 基础上」的完整快照：3.0.0 的六项解禁、MC 壁纸站下架、十家新增站点全部原样保留，
+# 再往上加本版的新规则。为什么写全而不是只写增量 —— 还留在旧解析器上的包不会链式合并，
+# 它们只取最高版本那一份文件，缺哪条就少哪条效果。
+@file-version=3.1.0
+@ver=1
+@scope=inherit
+@default=apply
+@hmac=base64:+YYnrZjeRJlmRyxhfb2QPuWbZ8K+4r8ZIRGFyBXTMOQ=
+
+# ① 3.0 的六项限制功能解禁，原样保留
+FEAT tier id=Mine-imator 动画 to=free override=builtin
+FEAT tier id=文件修复          to=free override=builtin
+FEAT tier id=剪辑标识清除      to=free override=builtin
+FEAT tier id=图片转模型        to=free override=builtin
+FEAT tier id=串词工具箱        to=free override=builtin
+FEAT tier id=P3D 工程工具      to=free override=builtin
+
+# ② 3.0 的下架，原样保留
+SITE drop id=MC 壁纸站 override=builtin
+
+# ③ 3.0 的十家新增站点，原样保留
+SITE add id=totem    name="图腾 / 旗帜编辑器" cat=w_build url=https://mc-tools.net              desc="在线画图腾与旗帜图案，做完直接导进游戏" order=11
+SITE add id=mcskins  name="动作 / 姿势库"     cat=w_skin  url=https://mcskins.top               desc="皮肤动作与姿势参考，做短片摆位用" order=12
+SITE add id=mcscst   name="官方背景图 Studio"  cat=w_skin  url=https://mcskincreator.app/studio desc="官方皮肤创作工作台：画皮肤 + 导出展示图" order=13
+SITE add id=mcscapp  name="换装小游戏"        cat=w_skin  url=https://mcskincreator.app         desc="把皮肤穿到角色上玩换装，出图好看" order=14
+SITE add id=honghe   name="物品素材库"        cat=w_tex   url=https://honghemc.cn                desc="红禾：物品图标与素材下载" order=15
+SITE add id=mcgif    name="MC 动图"          cat=w_art   url=https://mcgif.cn                  desc="在线做 MC 动图，聊天和封面都能用" order=16
+SITE add id=chibiko  name="表情包"           cat=w_art   url=https://dot-chibiko.chabo.tokyo/    desc="Q 版表情包生成，群里发这个" order=17
+SITE add id=chibi2   name="Q版立绘"          cat=w_art   url=https://sss.1m3.jp/                desc="Q 版立绘站，做头像和封面" order=18
+SITE add id=panzoid  name="片头 / 动效制作"    cat=w_stock url=https://panzoid.com/             desc="在线做 3D 片头与动效，剪短片开场用" order=19
+SITE add id=mcblock  name="建筑素材"         cat=w_build url=https://mcblock.top/             desc="建筑用方块与结构素材" order=20
+
+# ④ 本版新增：云端小开关。条件里写作 flag_xxx，同一份文件里写在它后面的指令就能读它
+FLAG key=new_panels to=1
+
+# ⑤ 本版新增：板块改名（CAT add 写同一个 id 就是改，不发版就能换首页栏目名）
+CAT add id=w_sinc name=Sincerity 素材台 order=10
+
+# ⑥ 本版新增：一行连写多个动作 —— 改档 + 排序 + 换说明（次序固定：文案→改档→放行→停用→隐藏）
+FEAT id=格式转换 tier=free order=3 desc=图片 / 音频 / 模型互转，含 .blend → GLB override=builtin
+
+# ⑦ 本版新增：把一张卡置顶
+FEAT id=视频剪辑 pin order=1 override=builtin
+
+# ⑧ 本版新增：停用但保留入口 —— 卡片上标「已停用」，点开设定好的提示语
+FEAT disable id=P3D 工程工具 notice=正在适配新版工程格式，先用「文件修复」那一个 override=builtin
+
+# ⑨ 本版新增：选择器 + 开关 + 条件 —— 整块板块可以一键收起来（开关现在是 0，所以不动）
+FLAG key=hide_music to=0
+FEAT hide sel=cat:w_music if="flag_hide_music == 1" override=builtin
+
+# ⑩ 本版新增：只对已登录白名单账号生效的档位改动，没登录的人保持上面的 free 不变
+FEAT tier id=剪辑标识清除 to=whitelist if="authorized" override=builtin
