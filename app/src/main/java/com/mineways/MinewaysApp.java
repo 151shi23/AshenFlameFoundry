@@ -30,6 +30,57 @@ public class MinewaysApp extends Application {
     public void onCreate() {
         super.onCreate();
 
+        /*
+         * 先把功能清单登记进门面，再启动云端配置。顺序反过来的话，解析器面对一张空清单，
+         * 每一条 id= 都会报「找不到功能」，那些假错误会留在关于页面板上，看起来像配置写坏了。
+         */
+        com.mineways.home.HomeIndex.register(MainActivity.rows(), MainActivity.catRows());
+
+        /*
+         * 云端功能目录在这里启动：Application 先于所有 Activity，任何入口（更新门槛页、
+         * 云控门槛页、工具箱）都绕不过它。之前挂在 MainActivity.onCreate 上，
+         * 出现过"提示和效果都没有"的真机现象，挪到这里最稳。
+         */
+        com.mineways.cloud.CloudCatalog.init(this);
+
+        /*
+         * 统一视觉内核挂在 Application 的生命周期上，而不是每个 Activity 里各调一次：
+         * 二十多个工具页各自手搓样式，逐个接线一定会漏，漏掉的页面就还是「一眼安卓」。
+         * 必须在 CloudCatalog.init 之后注册——重写要读云控的 ui_* 参数。
+         */
+        com.mineways.ui.MwChrome.install(this);
+
+        registerActivityLifecycleCallbacks(new android.app.Application.ActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityResumed(android.app.Activity activity) {
+                com.mineways.cloud.CloudCatalog.setUi(activity);
+            }
+
+            @Override
+            public void onActivityCreated(android.app.Activity activity, android.os.Bundle saved) {
+            }
+
+            @Override
+            public void onActivityStarted(android.app.Activity activity) {
+            }
+
+            @Override
+            public void onActivityPaused(android.app.Activity activity) {
+            }
+
+            @Override
+            public void onActivityStopped(android.app.Activity activity) {
+            }
+
+            @Override
+            public void onActivitySaveInstanceState(android.app.Activity activity, android.os.Bundle out) {
+            }
+
+            @Override
+            public void onActivityDestroyed(android.app.Activity activity) {
+            }
+        });
+
         final Thread.UncaughtExceptionHandler defaultHandler =
                 Thread.getDefaultUncaughtExceptionHandler();
 

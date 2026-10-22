@@ -205,13 +205,8 @@ public class BrandScrubActivity extends Activity {
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(dp(12), dp(12), dp(14), dp(6));
 
-        final TextView back = new TextView(this);
-        back.setText("←");
-        back.setTextColor(DIM);
-        back.setTextSize(20f);
-        back.setPadding(dp(6), 0, dp(12), 0);
-        back.setOnClickListener(v -> finish());
-        bar.addView(back);
+        // 顶栏原来还有一枚单独的「←」（点了就 finish）：系统返回键在手，它只是白占一格又容易误触，
+        // 已经去掉，顶栏直接从标题开始。
 
         final TextView title = new TextView(this);
         title.setText("剪辑标识清除");

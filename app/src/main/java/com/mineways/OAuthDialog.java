@@ -36,7 +36,7 @@ public final class OAuthDialog {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setCancelable(true);
 
-        final int BG = 0xFF15171A, LINE = 0x1FFFFFFF, TEXT = 0xFFEDEDED, DIM = 0xFF8A9099, ACCENT = 0xFFD9603A;
+        final int BG = 0xFF15171A, LINE = 0x1FFFFFFF, TEXT = 0xFFEDEDED, DIM = 0xFF8A9099, ACCENT = 0xFFFFFFFF;
         int pad = dp(activity, 20);
 
         LinearLayout root = new LinearLayout(activity);

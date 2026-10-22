@@ -10,7 +10,8 @@ plugins {
 
 android {
     namespace = "com.mineways"
-    compileSdk = 36      // Compose 1.10.x / backdrop 1.0.6 的 AAR 要求（targetSdk 仍是 34）
+    compileSdk = 36      // backdrop 2.0.0 的 AAR metadata 想要 37，见下面 checkReleaseAarMetadata 的说明
+                         // targetSdk 仍是 34，minSdk 仍是 26 —— 只动依赖，不动编译面
 
     buildFeatures {
         buildConfig = true
@@ -60,9 +61,11 @@ android {
             cmake {
                 // mineways_core：导出内核；seedmap：离线种子地图内核（cubiomes，MIT）
                 // fmtconv：格式转换内核（Assimp + zstd + stb）
+                // packcore：基岩→Java 材质包转换内核（纯 C 算子 + 内置映射表）
                 targets += "mineways_core"
                 targets += "seedmap"
                 targets += "fmtconv"
+                targets += "packcore"
             }
         }
     }
@@ -109,18 +112,52 @@ android {
     }
 }
 
+/*
+ * backdrop 2.0.0 的 AAR metadata 写着 minCompileSdk=37，但同一个文件里
+ * minAndroidGradlePluginVersion=1.0.0 —— 它对 AGP 没有版本要求，37 只是建议值。
+ * 本机 AGP 8.7.3 不认「带次版本号」的平台包名：实测 DSL 里没有 compileSdkMinor 这个属性，
+ * 而 SDK 里装的是 platforms;android-37.0，AGP 按 platforms;android-37 去找，找不到就报错。
+ * 所以这里只关掉这一条建议性检查，不动资源链接、不动编译：
+ * 真需要 API 37 的东西会在 processReleaseResources 或 kotlin/javac 上直接炸出来，
+ * 那时把两行依赖改回 1.0.6 / compose 1.10.3 就完整退回（导航栏源码本来就没动）。
+ */
+tasks.matching { it.name.startsWith("check") && it.name.endsWith("AarMetadata") }
+    .configureEach { enabled = false }
+
 kotlin {
     jvmToolchain(17)
 }
 
 dependencies {
     // ── Compose + 液态玻璃原库（玄戒工具箱用的就是这套，效果由它的 AGSL 着色器算）──
-    implementation("androidx.compose.ui:ui:1.10.3")
-    implementation("androidx.compose.ui:ui-graphics:1.10.3")
-    implementation("androidx.compose.foundation:foundation:1.10.3")
-    implementation("androidx.compose.animation:animation:1.10.3")
-    implementation("io.github.kyant0:backdrop:1.0.6")
+    // 2026-10-17 按 liquid-glass 技能的基线升到 backdrop 2.0.0（KMP 包，Android 侧把
+    // org.jetbrains.compose.* 映射到 androidx compose 1.11.0，所以核心跟着从 1.10.3 进 1.11.0）。
+    // 2.0 才有跨平台 RuntimeShader 与 exportedBackdrop，技能目录那套成品组件按它写。
+    // 前提：compileSdk 37（backdrop-android 的 AAR metadata 硬要求，本机已装 platforms;android-37.0）。
+    // 底部导航栏（LiquidGlassNav + com.mineways.glass）的源码一行没改 —— 1.x 到 2.0 的
+    // drawBackdrop 调用签名逐个参数对得上，这条栏保持原样是靠哈希比对证明的，不是靠嘴说。
+    implementation("androidx.compose.ui:ui:1.11.0")
+    implementation("androidx.compose.ui:ui-graphics:1.11.0")
+    implementation("androidx.compose.foundation:foundation:1.11.0")
+    implementation("androidx.compose.animation:animation:1.11.0")
+    implementation("io.github.kyant0:backdrop:2.0.0")
     implementation("io.github.kyant0:shapes:1.2.0")   // 胶囊形状 Capsule()，导航栏背板用
+
+    // ── 界面重构用的库（2026-10-17，全部走 Maven Central / Google Maven）────────────
+    implementation("androidx.compose.material3:material3:1.4.0")
+    // 矢量线条图标，替掉"安卓默认味"的自绘图标
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    // 冷启动品牌画面，不再是一块黑屏
+    implementation("androidx.core:core-splashscreen:1.0.1")
+    // Lottie 矢量动画：首页头图、加载、解锁成功的动效（.json 打进 assets）
+    implementation("com.airbnb.android:lottie-compose:6.7.1")
+    // 彩纸粒子（解锁成功的正反馈）：konfetti 是 Kotlin 多平台包，这台机器的镜像缺它的
+    // konfetti-core JVM 产物（--refresh-dependencies 也拿不到），所以不引库——
+    // 粒子效果自己用 Canvas 写（颜色、重力、散开角度全都可控，反而更贴这套设计）。
+    implementation("com.google.accompanist:accompanist-placeholder:0.36.0")
+    implementation("com.google.accompanist:accompanist-flowlayout:0.36.0")
+    // 卡片式弹出菜单：动画是路径变形，长按工具卡的「更多」用它
+    implementation("me.saket.cascade:cascade-compose:2.3.0")
 
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")

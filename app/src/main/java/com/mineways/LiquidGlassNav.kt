@@ -309,7 +309,9 @@ class LiquidGlassNav(context: Context) : FrameLayout(context) {
                 bitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888)
                 backdropBitmap = bitmap
             }
-            bitmap.eraseColor(0)
+            // 先铺场景最底色再画内容：源视图某处没画到（透明）时，玻璃采到的是深蓝黑，
+            // 不是 alpha=0 的死黑 —— 那正是"导航栏周围一圈黑框"的另一半原因。
+            bitmap.eraseColor(0xFF07080D.toInt())
             val canvas = Canvas(bitmap)
             canvas.scale(SNAPSHOT_SCALE, SNAPSHOT_SCALE)
             canvas.translate(
@@ -325,8 +327,11 @@ class LiquidGlassNav(context: Context) : FrameLayout(context) {
     }
 
     private companion object {
-        /** 快照缩放：0.5 倍够用（后面还要模糊），CPU 省一半。 */
-        const val SNAPSHOT_SCALE = 0.5f
+        /**
+         * 快照缩放：0.75。折射要靠采样画面里的高频细节（文字边缘），
+         * 0.5 倍时细节太糊，lens 折出来的错位看不出来 —— 用户实测"纯透明没折射"。
+         */
+        const val SNAPSHOT_SCALE = 0.75f
 
         /** 快照向外多取一圈，给折射/模糊留采样余量（dp）。 */
         const val PADDING_DP = 48f

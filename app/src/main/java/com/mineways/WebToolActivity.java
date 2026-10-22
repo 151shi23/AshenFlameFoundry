@@ -28,6 +28,18 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.mineways.cloud.CloudCatalog;
+import com.mineways.cloud.FeatureCatalog;
+import com.mineways.cloud.FeatureGate;
+
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * 网页工具容器（兼容层）：
  * <ul>
@@ -35,6 +47,8 @@ import androidx.appcompat.app.AppCompatActivity;
  *   <li>皮肤/图片上传走系统文件选择器（onShowFileChooser）</li>
  *   <li>Cookie / localStorage 保留登录态；注入深色偏好（prefers-color-scheme: dark）</li>
  *   <li>返回键 = 页内后退，到底再退出；标题栏可一键用外部浏览器打开</li>
+ *   <li><b>就地汉化</b>：按云端下发的 {@code TR} 词条把页面上的英文换成中文（顶栏「汉化」按钮切换，
+ *       按站点记忆）。词表全部来自配置文件，包里没有预置任何译文，也没有第三方翻译接口</li>
  * </ul>
  */
 public class WebToolActivity extends AppCompatActivity {
@@ -55,6 +69,15 @@ public class WebToolActivity extends AppCompatActivity {
     private String homeUrl;
     private String toolTitle;
 
+    // ---- 就地汉化 ----
+    private TextView i18nButton;
+    private String host = "";
+    private boolean i18nOn;
+    private int i18nReplaced;
+    private int i18nMissed;
+    /** 注入脚本全文，进程内读一次就够（同一份给所有站点用）。 */
+    private static volatile String i18nScript;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -65,7 +88,28 @@ public class WebToolActivity extends AppCompatActivity {
             return;
         }
         setContentView(buildUi());
+        host = FeatureCatalog.hostOf(homeUrl);
+        i18nOn = i18nWanted();
         web.loadUrl(homeUrl);
+    }
+
+    /**
+     * 这个站点该不该开汉化：用户手动切过就听他的（按站点记），没切过就问云端 ——
+     * {@code SITE add … i18n=on|off|auto} 或 {@code FEAT id=… i18n=on}，都没写就是 auto（不开，
+     * 因为这个特性靠词表，没词表的站开了也没东西可换）。
+     */
+    private boolean i18nWanted() {
+        String saved = getSharedPreferences("web_i18n", MODE_PRIVATE).getString(host, null);
+        if (saved != null) {
+            return "on".equals(saved);
+        }
+        FeatureGate gate = CloudCatalog.gate();
+        String mode = gate.i18nMode(null, host);
+        // auto：只在这个站的专属词表**够厚**时才自动开 —— 只翻了三五个按钮的页面
+        // 半中半英比整页英文更难看，词表没铺满之前先让顶栏按钮手动开。
+        return FeatureCatalog.I18N_ON.equals(mode)
+                || (FeatureCatalog.I18N_AUTO.equals(mode)
+                && gate.siteEntryCount(host) >= FeatureCatalog.I18N_AUTO_MIN_ENTRIES);
     }
 
     private View buildUi() {
@@ -89,8 +133,24 @@ public class WebToolActivity extends AppCompatActivity {
         titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
         bar.addView(titleView, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
+        i18nButton = barButton("汉化");
+        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        ilp.rightMargin = dp(14);
+        i18nButton.setLayoutParams(ilp);
+        i18nButton.setOnClickListener(v -> {
+            i18nOn = !i18nOn;
+            getSharedPreferences("web_i18n", MODE_PRIVATE).edit()
+                    .putString(host, i18nOn ? "on" : "off").apply();
+            applyI18n(true);
+        });
+        bar.addView(i18nButton);
+
         TextView reload = barButton("刷新");
-        reload.setOnClickListener(v -> web.reload());
+        reload.setOnClickListener(v -> {
+            web.reload();
+            applyI18n(true);
+        });
         bar.addView(reload);
 
         TextView open = barButton("浏览器打开");
@@ -130,6 +190,8 @@ public class WebToolActivity extends AppCompatActivity {
         s.setUserAgentString(s.getUserAgentString() + " AshenFlameFoundry/1.0");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
+        // 只回传"换了几处"这种统计数字，页面里没有任何东西能靠它调本机能力
+        web.addJavascriptInterface(new I18nBridge(), "AFF_I18N");
 
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -140,6 +202,7 @@ public class WebToolActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 injectDarkHint(view);
+                applyI18n(false);
             }
         });
 
@@ -214,6 +277,122 @@ public class WebToolActivity extends AppCompatActivity {
                             + "document.head.appendChild(s);"
                             + "document.documentElement.style.colorScheme='dark light';}catch(e){}})();", null);
         } catch (Throwable ignored) {
+        }
+    }
+
+    // ---------------------------------------------------------------- 就地汉化
+
+    /**
+     * 开或关汉化。词表从云端门面取，包里没有预置译文；脚本只注入一次，
+     * 之后靠 {@code feed} / {@code stop} 切换，避免同一页注入两遍。
+     */
+    private void applyI18n(boolean force) {
+        if (web == null) {
+            return;
+        }
+        Map<String, String> table = CloudCatalog.gate().translationsFor(host);
+        if (!i18nOn) {
+            evaluate("try{window.__affI18n&&__affI18n.stop();}catch(e){}");
+            renderI18nButton(table.size(), false);
+            return;
+        }
+        if (table.isEmpty()) {
+            renderI18nButton(0, false);
+            if (force) {
+                toast("这个站还没有译文库：" + host + "\n在云端配置里加 TR add host=" + host
+                        + " en=\"…\" zh=\"…\" 就能生效");
+            }
+            return;
+        }
+        String script = loadI18nScript();
+        if (script == null) {
+            renderI18nButton(0, false);
+            if (force) {
+                toast("汉化脚本读不出来，重新装包或到「关于」页刷新云端配置再试");
+            }
+            return;
+        }
+        evaluate("try{window.__affI18n&&__affI18n.stop();}catch(e){}");
+        evaluate(script);
+        // 整站逐句翻译会有几千上万条，一次 evaluateJavascript 既塞不下也不该塞：分块喂，
+        // 首块重建表，后续块只并表不扫页面，最后一块喂完再 restart() 统一开跑。
+        final int chunkSize = 400;
+        java.util.Iterator<Map.Entry<String, String>> it = table.entrySet().iterator();
+        int sent = 0;
+        while (it.hasNext()) {
+            StringBuilder sb = new StringBuilder(8192);
+            for (int i = 0; i < chunkSize && it.hasNext(); i++) {
+                Map.Entry<String, String> e = it.next();
+                if (sb.length() > 0) {
+                    sb.append(',');
+                }
+                sb.append(JSONObject.quote(e.getKey())).append(':').append(JSONObject.quote(e.getValue()));
+            }
+            evaluate("try{__affI18n&&__affI18n.feed({" + sb + "}," + (sent == 0 ? "false" : "true") + ");}catch(e){}");
+            sent++;
+        }
+        evaluate("try{__affI18n&&__affI18n.restart();}catch(e){}");
+        renderI18nButton(table.size(), true);
+    }
+
+    private void evaluate(String js) {
+        try {
+            web.evaluateJavascript(js, null);
+        } catch (Throwable ignored) {
+            // 页面正在跳转时 evaluate 会失败，下一轮 onPageFinished 会再来一次
+        }
+    }
+
+    /** 按钮上写清这次能换多少处；一个词都没有时不要装作可用。 */
+    private void renderI18nButton(int tableSize, boolean on) {
+        if (i18nButton == null) {
+            return;
+        }
+        String text;
+        if (tableSize == 0) {
+            text = "无词库";
+        } else if (on && i18nReplaced > 0) {
+            text = "已换 " + i18nReplaced + " 处";
+        } else {
+            text = on ? "原文" : "汉化";
+        }
+        i18nButton.setText(text);
+        i18nButton.setTextColor(on || tableSize > 0 ? 0xFFD9603A : 0xFF5C6268);
+    }
+
+    private String loadI18nScript() {
+        String cached = i18nScript;
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            InputStream in = getAssets().open("i18n/site-i18n.js");
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                bos.write(buf, 0, n);
+            }
+            in.close();
+            cached = new String(bos.toByteArray(), Charset.forName("UTF-8"));
+            i18nScript = cached;
+            return cached;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** 页面 → App 的唯一一条通道：只回传统计数字。 */
+    private class I18nBridge {
+
+        @android.webkit.JavascriptInterface
+        public void stats(final int replaced, final int missed) {
+            i18nReplaced = replaced;
+            i18nMissed = missed;
+            try {
+                runOnUiThread(() -> renderI18nButton(replaced > 0 ? i18nReplaced : 0, i18nOn));
+            } catch (Throwable ignored) {
+            }
         }
     }
 

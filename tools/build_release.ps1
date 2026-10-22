@@ -22,6 +22,7 @@ param(
     [string]$StorePass = 'Mineways2026',
     [string]$Alias = 'mineways',
     [string]$Sandbox = 'C:\mmbuild',
+    [switch]$ReleaseOnly,
     [switch]$SkipSign,
     [switch]$Offline
 )
@@ -86,7 +87,8 @@ $env:ANDROID_SDK_ROOT = $sdk
 $log = Join-Path $Sandbox 'build.log'
 $offlineArg = if ($Offline) { '--offline' } else { '' }
 Push-Location $Sandbox
-cmd /c "gradle $offlineArg :app:assembleDebug :app:assembleRelease > `"$log`" 2>&1"
+$buildTasks = if ($ReleaseOnly) { ':app:assembleRelease' } else { ':app:assembleDebug :app:assembleRelease' }
+cmd /c "gradle $offlineArg $buildTasks > `"$log`" 2>&1"
 $code = $LASTEXITCODE
 Pop-Location
 Get-Content $log -Encoding Default | Where-Object { $_ -match 'BUILD SUCCESSFUL|BUILD FAILED|error:|^e: ' } | ForEach-Object { '  ' + $_ }
@@ -247,7 +249,7 @@ if ($jniBad.Count) {
 # ---------------------------------------------------------------- 6/6. 分发
 Write-Host '== 5/6 分发到工作区 ==' -ForegroundColor Cyan
 Copy-Item $release (Join-Path $ws 'MinewaysMobile-release.apk') -Force
-Copy-Item $debugApk (Join-Path $ws 'MinewaysMobile-debug.apk') -Force
+if (-not $ReleaseOnly) { Copy-Item $debugApk (Join-Path $ws 'MinewaysMobile-debug.apk') -Force }
 $prodDir = Join-Path $ws '产物'
 if (Test-Path $prodDir) { Copy-Item $release (Join-Path $prodDir 'MinewaysMobile-release.apk') -Force }
 Get-ChildItem $ws -Filter '*.apk' | ForEach-Object { Write-Host ("  {0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB)) -ForegroundColor Green }

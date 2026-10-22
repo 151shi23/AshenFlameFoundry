@@ -2,6 +2,8 @@ package com.mineways;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -147,12 +149,28 @@ public final class AnnouncementCenter {
         }
         checkedThisProcess = true;
         final Context app = activity.getApplicationContext();
-        bumpLaunch(app);
+        bumpLaunch(app);            // 统计照记：不发公告也不能让 launches 漏计
         final boolean cacheFresh = System.currentTimeMillis() - prefs(app).getLong(K_AT, 0L) < CACHE_TTL_MS;
 
         new Thread(new Runnable() {
             @Override
             public void run() {
+                /*
+                 * 云控开关一律在这条后台线程里读：flag() 首次会触发整份配置的规则重放
+                 * （2.5MB 的链，几十到几百毫秒），放主线程就是启动卡顿。
+                 */
+                com.mineways.cloud.FeatureGate gate = com.mineways.cloud.CloudCatalog.gate();
+                if ("1".equals(gate.flag("notice_off", ""))) {
+                    return;                    // 总闸：整层公告停发
+                }
+                final String onlyIds = gate.flag("notice_ids", "");
+                final String muteIds = gate.flag("notice_mute", "");
+                int mx = (int) safeNum(gate.flag("notice_max", ""), MAX_PER_LAUNCH);
+                if (mx < 1 || mx > MAX_PER_LAUNCH) {
+                    mx = MAX_PER_LAUNCH;       // 只能往小调，不给你放大到轰炸
+                }
+                final int max = mx;
+
                 final String text = cacheFresh ? prefs(app).getString(K_TEXT, "") : fetch(app);
                 final List<Notice> list = parse(text);
                 if (list.isEmpty()) {
@@ -164,19 +182,34 @@ public final class AnnouncementCenter {
                         if (activity.isFinishing() || activity.isDestroyed()) {
                             return;
                         }
-                        showFirstMatch(activity, list);
+                        showFirstMatch(activity, list, onlyIds, muteIds, max);
                     }
                 });
             }
         }, "notice-check").start();
     }
 
-    private static void showFirstMatch(final Activity activity, List<Notice> list) {
+    private static void showFirstMatch(final Activity activity, List<Notice> list,
+                                       String onlyIds, String muteIds, int max) {
         final Map<String, String> vars = vars(activity);
+        /*
+         * 云控 → 公告：把 FLAG 注进变量表，公告的 when= 与正文里的 {{flag_xxx}} 才读得到。
+         *
+         * 只在这里合，**不要**挪进 vars()：配置求值时 CloudCatalog 会反过来调 vars()，
+         * 那边一旦再走 condVars() → ensureResolved()，而 ensureResolved 没有重入保护，
+         * 会当场递归到栈溢出。公告这条路是从 UI 线程单独进来的，不存在这个环。
+         *
+         * 开关本身已在 notice-check 线程里读过，ensureResolved 早完成，这里只剩一次 map 拷贝。
+         */
+        vars.putAll(com.mineways.cloud.CloudCatalog.gate().condVars(vars));
+
         final List<Notice> hits = new ArrayList<>();
         for (final Notice n : list) {
             if (seen(activity, n)) {
                 continue;
+            }
+            if (noticeBlocked(n, onlyIds, muteIds)) {
+                continue;                        // 云端点了名：这条不发
             }
             boolean hit;
             try {
@@ -190,12 +223,40 @@ public final class AnnouncementCenter {
             }
             if (hit) {
                 hits.add(n);
-                if (hits.size() >= MAX_PER_LAUNCH) {
-                    break;       // 一次最多弹 3 条，不轰炸
+                if (hits.size() >= max) {
+                    break;       // 一次最多弹几条，不轰炸
                 }
             }
         }
         showNext(activity, hits, vars, 0);
+    }
+
+    /**
+     * 云端对单条公告的点名。{@code only} 非空 = 白名单（只发名单里的），
+     * {@code mute} 命中 = 直接不发，两者都写时黑名单优先。
+     *
+     * <p>键取 {@link Notice#key()}：写了 {@code id} 就是 id，没写就是「标题+正文」的哈希。
+     * 所以白名单模式下**没写 id 的公告一律不放行** —— 想定向就别省 id。
+     */
+    private static boolean noticeBlocked(Notice n, String only, String mute) {
+        String key = n.key();
+        if (hitList(mute, key)) {
+            return true;
+        }
+        return only.trim().length() > 0 && !hitList(only, key);
+    }
+
+    /** 逗号 / 中文逗号 / 空白分隔的名单，逐项精确比对。 */
+    private static boolean hitList(String spec, String key) {
+        if (spec == null || spec.trim().length() == 0 || key.length() == 0) {
+            return false;
+        }
+        for (String s : spec.split("[,，\\s]+")) {
+            if (s.length() > 0 && s.equals(key)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 命中的公告排队弹：关掉一条自动弹下一条（常驻公告不会挡住后面新增的）。 */
@@ -282,6 +343,7 @@ public final class AnnouncementCenter {
         String title = "";
         String url = "";
         String copy = "";
+        String video = "";
         double percent = -1;
         long from;
         long until;
@@ -352,6 +414,8 @@ public final class AnnouncementCenter {
                 cur.url = val;
             } else if ("copy".equals(key) || "复制".equals(key)) {
                 cur.copy = val;
+            } else if ("video".equals(key) || "视频".equals(key)) {
+                cur.video = val;
             } else if ("percent".equals(key) || "roll".equals(key) || "灰度".equals(key)) {
                 cur.percent = safeNum(val, -1);
             } else if ("from".equals(key) || "start".equals(key)) {
@@ -775,6 +839,16 @@ public final class AnnouncementCenter {
         v.put("manufacturer", Build.MANUFACTURER == null ? "" : Build.MANUFACTURER);
         v.put("device", Build.DEVICE == null ? "" : Build.DEVICE);
         v.put("hardware", Build.HARDWARE == null ? "" : Build.HARDWARE);
+        /*
+         * 机型的两个身份都进表：`model` 是系统内部型号（Redmi 常是 24016PADG 这种代号），
+         * `model_market` 是用户在「设置 → 我的设备」里看到的那个名字（K90 Ultra / Redmi K70）。
+         * 群里反馈和公告条件用的都是后者，所以再给一个 `model_list` —— 写规则的人只要
+         * `if="'K70*' 在 model_list"` 就是"两个身份任意命中即生效"，不用自己拼或条件。
+         */
+        v.put("model_market", com.mineways.DeviceId.marketing());
+        v.put("model_from", com.mineways.DeviceId.marketingSource());
+        v.put("brand_model", com.mineways.DeviceId.internal());
+        v.put("model_list", String.join(",", com.mineways.DeviceId.names()));
         v.put("abi", abi);
         v.put("locale", loc.toString());
         v.put("lang", loc.getLanguage());
@@ -803,6 +877,16 @@ public final class AnnouncementCenter {
         v.put("last_at", last > 0 ? new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(last)) : "");
         v.put("days_since_notice", lastNotice > 0 ? String.valueOf((now - lastNotice) / 86400000L) : "-1");
         v.put("is_first_run", launches <= 1 ? "true" : "false");
+
+        /*
+         * ---- 更新闸门的状态回传
+         * 闸门是 LAUNCHER，比这里早跑，结论落在 UpdateState 里；这里只读回来。
+         * 取值 off / force / notify / none，读不到一律 none（fail-open）。
+         * 只读 SharedPreferences，不碰 CloudCatalog —— vars() 会被配置求值反调，
+         * 任何往 CloudCatalog 走的调用都可能绕回 ensureResolved() 造成递归。
+         */
+        v.put("update_state", UpdateState.state(c));
+        v.put("update_target", UpdateState.target(c));
 
         String deviceHash = deviceHash(c);
         v.put("device_hash", deviceHash);
@@ -884,18 +968,15 @@ public final class AnnouncementCenter {
         d.requestWindowFeature(Window.FEATURE_NO_TITLE);
         d.setCancelable(true);
 
-        final int BG = 0xFF15171A, LINE = 0x1FFFFFFF, TEXT = 0xFFEDEDED, DIM = 0xFFC7D2DE, ACCENT = 0xFFD9603A;
+        final int BG = 0xFF15171A, LINE = 0x1FFFFFFF, TEXT = 0xFFEDEDED, DIM = 0xFFC7D2DE, ACCENT = 0xFFFFFFFF;
         int pad = dp(act, 20);
         int levelColor = levelColor(n.level, TEXT, ACCENT);
 
         LinearLayout root = new LinearLayout(act);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(pad, pad, pad, pad);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(BG);
-        bg.setCornerRadius(dp(act, 16));
-        bg.setStroke(dp(act, 1), LINE);
-        root.setBackground(bg);
+                root.setBackground(com.mineways.ui.MwViews.glass(
+                act, com.mineways.ui.MwViews.style(act), 18, 0xFF141821, root));    
 
         String title = expand(n.title, vars).trim();
         if (title.length() == 0) {
@@ -936,6 +1017,25 @@ public final class AnnouncementCenter {
         sv.setVerticalScrollBarEnabled(false);
         sv.addView(body);
         root.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        // 公告内嵌视频：video: 行贴 B 站/抖音官方嵌入代码或分享链接，自动解析成播放页
+        if (n.video != null && n.video.trim().length() > 0) {
+            String[] pv = VideoEmbed.parse(n.video);
+            if (pv != null && VideoEmbed.isAllowedPlayerUrl(pv[1])) {
+                WebView wv = new WebView(act);
+                WebSettings ws = wv.getSettings();
+                ws.setJavaScriptEnabled(true);
+                ws.setMediaPlaybackRequiresUserGesture(true);
+                ws.setAllowFileAccess(false);
+                ws.setDomStorageEnabled(true);
+                wv.setBackgroundColor(Color.TRANSPARENT);
+                wv.loadUrl(pv[1]);
+                LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, dp(act, 210));
+                vlp.topMargin = dp(act, 12);
+                root.addView(wv, vlp);
+            }
+        }
 
         List<String[]> btns = new ArrayList<>(n.buttons);
         if (n.copy != null && n.copy.trim().length() > 0) {           // copy: 文本  → 自动加复制按钮

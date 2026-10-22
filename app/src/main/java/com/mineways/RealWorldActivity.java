@@ -155,12 +155,14 @@ public class RealWorldActivity extends Activity {
         etTilesUrl = lastField;
         cbOverture = check(advancedBody, "叠加 Overture 建筑数据（中国大陆更全，走 AWS）", true);
         cbAwsOnly = check(advancedBody, "高程只走 AWS 地形瓦片（加速器不稳时用）", false);
-        cbLegacy = check(advancedBody, "兼容旧版（Minecraft 1.21.4 以下 / 地图查看器）", false);
-        addHint(advancedBody, "默认模式（One World）为了能不断拼新区域，会把整个世界放在「扩展建筑高度」里"
-                + "（内容在 Y≈-1550），只有 Java 1.21.4+ 才看得见。\n"
-                + "勾上兼容旧版：改用普通世界，地形落在 Y≈-62 原版高度，"
-                + "任何版本、任何地图工具都能看见；代价是不同区域不能拼进同一个世界，"
-                + "且每次都写进「世界名」那个文件夹（同名会覆盖旧内容）。");
+        cbLegacy = check(advancedBody, "兼容旧版 · 任何版本都能打开（推荐，已默认勾选）", true);
+        addHint(advancedBody, "勾上兼容旧版（默认）：地形落在原版高度（Y≈-62），任何 Minecraft 版本、"
+                + "任何地图工具都能看见；代价是不同区域不能拼进同一个世界，"
+                + "且每次都写进「世界名」那个文件夹（同名会覆盖旧内容）。\n"
+                + "不勾（One World 拼世界模式）：建筑放进「扩展建筑高度」（内容在 Y≈-1550），"
+                + "只有 Java 1.21.4+ 才看得见；加载时弹的「数据包」提示是存档自带的拼世界数据包，"
+                + "属正常现象；用不匹配的旧版本打开、或对存档做版本转换，都会看到大片虚空"
+                + "（内容在世界范围外，不是生成坏了）。");
 
         root.addView(scroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -508,6 +510,18 @@ public class RealWorldActivity extends Activity {
                     if (exit == 0) {
                         tvStatus.setText("完成 → 下载/真实世界地图/" + name);
                         appendLog(verdict);
+                        if (legacy) {
+                            // 兼容模式收尾：level.dat 版本声明对齐区块（模板自带 1.21.4，区块是 1.21.1）
+                            alignLevelDatVersion(new File(outDir, "level.dat"));
+                            appendLog("✓ 兼容模式：任何 Java 版本、任何地图工具都能打开，"
+                                    + "首次加载不会要求数据包。");
+                        } else {
+                            appendLog("⚠ One World 模式：这个存档必须用 Java 1.21.4 及以上打开。");
+                            appendLog("⚠ 加载时弹的「数据包」提示是拼世界自带的数据包，允许即可。");
+                            appendLog("⚠ 用不匹配的旧版本打开、或对存档做版本转换，会看到大片虚空"
+                                    + " —— 内容在扩展高度，不是生成坏了。");
+                            appendLog("⚠ 想要任何版本都能看：勾上「兼容旧版」重新生成一次。");
+                        }
                         appendLog("把整个文件夹丢进 .minecraft/saves 就能进游戏");
                     } else {
                         tvStatus.setText("失败（退出码 " + exit + "），日志见下");
@@ -524,6 +538,98 @@ public class RealWorldActivity extends Activity {
                 });
             }
         }, "arnis-run").start();
+    }
+
+    /**
+     * 兼容模式收尾：把 level.dat 的版本声明从模板自带的 1.21.4（DataVersion 4189）改写到
+     * 1.21.1（3955），与内核写区块用的 DATA_VERSION 一致 —— 否则 1.21.1~1.21.3 的游戏会
+     * 报「由新版本创建」。「1.21.4」→「1.21.1」同为 6 字节、int 就地改写，全程零位移。
+     * 只在兼容模式跑：One World 锁 1.21.4+，level.dat 与它的数据包（pack_format 61）同源，
+     * 改了反而让 1.21.4+ 多出一次升级提示。失败只记日志，不影响存档可用。
+     */
+    private void alignLevelDatVersion(File level) {
+        if (level == null || !level.isFile()) {
+            return;
+        }
+        try {
+            java.io.ByteArrayOutputStream plain = new java.io.ByteArrayOutputStream();
+            try (java.io.InputStream in = new java.util.zip.GZIPInputStream(
+                    new java.io.FileInputStream(level))) {
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    plain.write(buf, 0, n);
+                }
+            }
+            byte[] raw = plain.toByteArray();
+            boolean changed = false;
+            // 所有名为 DataVersion 的 TAG_Int：4189 → 3955（模板里有两处，全对齐）
+            int i = 0;
+            while ((i = indexOf(raw, TAG_DATAVERSION, i)) >= 0) {
+                if (readInt(raw, i + TAG_DATAVERSION.length) == 4189) {
+                    putInt(raw, i + TAG_DATAVERSION.length, 3955);
+                    changed = true;
+                }
+                i += TAG_DATAVERSION.length;
+            }
+            // Version.Id：4189 → 3955
+            int j = indexOf(raw, TAG_VERSION_ID, 0);
+            if (j >= 0 && readInt(raw, j + TAG_VERSION_ID.length) == 4189) {
+                putInt(raw, j + TAG_VERSION_ID.length, 3955);
+                changed = true;
+            }
+            // Version.Name："1.21.4" → "1.21.1"（等长 6 字节，只动末位）
+            int k = indexOf(raw, TAG_VERSION_NAME_1214, 0);
+            if (k >= 0) {
+                raw[k + TAG_VERSION_NAME_1214.length - 1] = '1';
+                changed = true;
+            }
+            if (!changed) {
+                appendLog("level.dat 版本声明已是 1.21.1，无需对齐");
+                return;
+            }
+            java.io.ByteArrayOutputStream gz = new java.io.ByteArrayOutputStream();
+            try (java.util.zip.GZIPOutputStream g = new java.util.zip.GZIPOutputStream(gz)) {
+                g.write(raw);
+            }
+            try (java.io.FileOutputStream f = new java.io.FileOutputStream(level)) {
+                f.write(gz.toByteArray());
+            }
+            appendLog("✓ level.dat 版本声明对齐到 1.21.1（与区块一致，旧版本不再报警）");
+        } catch (Throwable t) {
+            appendLog("level.dat 版本对齐跳过（不影响使用）：" + t.getClass().getSimpleName());
+        }
+    }
+
+    private static final byte[] TAG_DATAVERSION = {0x03, 0x00, 0x0B,
+            'D', 'a', 't', 'a', 'V', 'e', 'r', 's', 'i', 'o', 'n'};
+    private static final byte[] TAG_VERSION_ID = {0x03, 0x00, 0x02, 'I', 'd'};
+    private static final byte[] TAG_VERSION_NAME_1214 = {0x08, 0x00, 0x04,
+            'N', 'a', 'm', 'e', 0x00, 0x06, '1', '.', '2', '1', '.', '4'};
+
+    private static int indexOf(byte[] hay, byte[] needle, int from) {
+        outer:
+        for (int i = Math.max(0, from); i <= hay.length - needle.length; i++) {
+            for (int j = 0; j < needle.length; j++) {
+                if (hay[i + j] != needle[j]) {
+                    continue outer;
+                }
+            }
+            return i;
+        }
+        return -1;
+    }
+
+    private static int readInt(byte[] b, int off) {
+        return ((b[off] & 0xFF) << 24) | ((b[off + 1] & 0xFF) << 16)
+                | ((b[off + 2] & 0xFF) << 8) | (b[off + 3] & 0xFF);
+    }
+
+    private static void putInt(byte[] b, int off, int v) {
+        b[off] = (byte) (v >>> 24);
+        b[off + 1] = (byte) (v >>> 16);
+        b[off + 2] = (byte) (v >>> 8);
+        b[off + 3] = (byte) v;
     }
 
     /** 系统页大小（KB）。16KB 页机型上，按 4KB 页链接的可执行文件没法启动。 */

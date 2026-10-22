@@ -101,6 +101,7 @@
             android:name=".MainActivity"
             android:exported="false"
             android:theme="@style/Theme.MinewaysMobile.Toolbox"
+            android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|uiMode" />
 
         <!-- 原主界面（导出 / 网易 / 转换 / 工具页）迁出为独立 Activity，由工具箱卡片进入 -->
@@ -243,6 +244,40 @@
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
             android:theme="@style/Theme.MinewaysMobile" />
 
+        <!-- Google / 微软登录的兜底授权页：只有「一个浏览器都拉不起来」的设备才会进到这里 -->
+        <activity
+            android:name=".SocialWebActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- 浏览器授权后的回跳落点。只写 scheme 不写 host：Google 那类把回调登记成
+             mineways:/oauth2redirect 的形态也要能落进来（host 写死了就会漏）。 -->
+        <activity
+            android:name=".SocialRedirectActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|uiMode"
+            android:theme="@style/Theme.MinewaysMobile">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="mineways" />
+            </intent-filter>
+            <!-- Google 的 Android 类型客户端把回调固定成「反向 Client ID:/oauth2redirect」，
+                 而 intent-filter 的 scheme 不支持前缀通配 —— 换了 Client ID 就必须同步改这一行。
+                 现值对应 login_google_client_id=918156218278-8kd70tc5rdr5b7rgj2tk24qgt254v6r7。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.googleusercontent.apps.918156218278-8kd70tc5rdr5b7rgj2tk24qgt254v6r7" />
+            </intent-filter>
+        </activity>
+
         <!-- GIF 工具（离线：旋转 GIF / 拆帧 / 合成 / 材质包动画贴图） -->
         <activity
             android:name=".GifActivity"
@@ -278,6 +313,14 @@
         <!-- P3D 工程工具（Prisma3D 工程包：识别版本 / 修头 / 解包 / 数据报告） -->
         <activity
             android:name=".P3DConvertActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- 基岩材质包转 Java：内核是 libpackcore.so（纯 C 算子 + 内置命名映射表），全程离线 -->
+        <activity
+            android:name=".PackConvertActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"

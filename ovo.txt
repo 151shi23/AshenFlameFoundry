@@ -1,46 +1,26 @@
-# 5.12 发布公告（全员 · 每次启动显示 · 不强制更新）
-id: release-5.12
-level: success
-title: 公告：AshenFlame Foundry 5.12 现已发布
-body: 各位用户：
+# 公告：启动器在线功能说明（全员 · 每次打开都弹）
+# 发布方式：直接覆盖仓库根目录 ovo.txt，无需签名 / 无需改 index
+# 2026-10-21：内容与标题沿用上一版，只改两处 ——
+#   ① id 换成 -10b（已读标记按 id 记，换 id = 老用户立刻重新弹一次）
+#   ② once 从 day 改成 always：每次打开软件都弹，不再一天只弹一次。
+#      always 的"每次"是一次进程启动一条：同一进程内 Activity 重建不会重复弹，不会轰炸。
+id: launcher-online-2026-10b
+level: info
+once: always
+title: 公告：关于近期启动器在线功能的一点说明
+body: 各位好：
 body:
-body: 现将 5.12 版本更新内容公布如下。
-body: 一、新增「剪辑标识清除」。剪映、快影、必剪导出的视频，可将元数据内的软件署名、压制器版本号、平台转码参数原地清除；不转码，画面与音频数据不作任何改动，处理后直接写入相册，原件保持不变。支持 .mp4 与 .mov，可一次选择多个文件，逐项勾选处理。
-body: 二、该功能列为「限制」类，每次使用消耗 1 个激活码；白名单账号免码进入。
-body: 三、修复「白名单功能」页整页空白、视频剪辑入口不显示的问题。
-body: 四、格式转换新增 .blend 转 GLB / OBJ / STL；Blender 渲染保持全离线。
+body: 最近 PCL、FCL、HMCL 这几款启动器，在部分网络环境下用起来可能会有点别扭——在线列表刷不出来、相关入口点了没动静。这不是你网络的问题，也不是装错了版本。
+body: 针对这几种情况，我们各自整理了一份对应的小文件，放在群文件里，需要的自取。
 body:
-body: 新版本请通过下方按钮下载，覆盖安装不丢失数据。本版为提示更新，不强制更新，继续使用旧版本不受影响。
+body: 获取方式
+body: 打开任意一款启动器的「关于」页面 → 找到群号 → 进群 → 群文件 → 按启动器名字取对应文件
 body:
-body: 特此公告。
-url: https://github.com/151shi23/AshenFlameFoundry/releases/tag/v5.12
-copy: 复制 5.12 下载地址|https://github.com/151shi23/AshenFlameFoundry/releases/download/v5.12/AshenFlameFoundry-5.12.apk
-button: 前往下载 5.12|url|https://github.com/151shi23/AshenFlameFoundry/releases/tag/v5.12
-button: 去签到领码|checkin
-button: 知道了|close
-
----
-
-# 测试招募公告（稳定灰度 40% · 每次启动显示）
-id: testcall-5.12
-level: warn
-percent: 40
-title: 公告：5.12 测试招募
-body: 各位用户：
-body:
-body: 本公告为测试邀请，仅向部分用户展示。
-body: 请下载 5.12 版本参与测试，重点验证以下三处：剪辑标识清除、白名单功能页、格式转换。
-body:
-body: 测试要求如下：
-body: 一、发现缺陷（闪退、无响应、结果不对、界面错位、按钮点不动等）均视为有效反馈。
-body: 二、希望新增的功能一并提出，说明用途即可，不限数量。
-body: 三、反馈时请截取本弹窗的截图，连同问题描述与期望说明，发送给「天雨」，由其统一汇总。无本弹窗截图的反馈不予受理。
-body:
-body: 参与测试者优先进入后续版本名单。
-body:
-body: 特此公告。
-url: https://github.com/151shi23/AshenFlameFoundry/releases/tag/v5.12
-copy: 复制 5.12 下载地址|https://github.com/151shi23/AshenFlameFoundry/releases/download/v5.12/AshenFlameFoundry-5.12.apk
-button: 前往下载 5.12|url|https://github.com/151shi23/AshenFlameFoundry/releases/tag/v5.12
-button: 去签到领码|checkin
+body: 几点提醒
+body: 只从群里取，不要在其他地方下载来源不明的文件。
+body: 使用前先备份原文件，想退回去时也方便。
+body: 启动器更新之后可能需要重新处理一次，属正常现象。
+body: 这些文件由社区整理，与三款启动器的官方无关，请继续支持原作者。
+body: 仅供个人学习交流使用，请勿二次分发或用于商业用途。
+body: 有问题群里问，看到会回复。
 button: 知道了|close

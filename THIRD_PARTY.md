@@ -27,6 +27,7 @@ the one shipped in the upstream project and/or in the file headers listed below.
 | zstd（Zstandard）1.5.x | 构建期拉取（CMake FetchContent），仅用解压 | facebook/zstd | **BSD-3-Clause** / GPL-2.0 双许可（此处按 BSD 使用） |
 | stb_image / stb_image_write | `app/src/main/cpp/third_party/stb/`（原文件未改） | nothings/stb | **公有领域（Public Domain）** / MIT 双许可 |
 | 云间列车（单文件 WebGL2 动画 + 参数面板） | `app/src/main/assets/cloudtrain/**` | Rice-dog/code-codex（MIT）之「Cloud Train Background」插件的提取改编版 `incarnation-gem/sunset-cloud-train`；原始 shader 作者 **mdb** | ⚠ 上游提取版**无 LICENSE 文件**且注明「未提供再分发许可」；本仓库内置系**维护者确认已获授权**，文件头出处注释原样保留 |
+| 界面背景照片（星空雪山） | `app/src/main/res/drawable-nodpi/mw_bg.jpg` | Unsplash，photo id `photo-1519681393784-d120267933ba` | **Unsplash License**（免费商用、无需署名；保留来源记录） |
 | OpenCut（视频编辑器，Next.js 静态导出后整体内置） | `app/src/main/assets/opencut/**` | OpenCut-app/OpenCut | **MIT**（本项目另加：默认中文注入词典、手机强制横屏样式、21 个 canvas2d 特效、出入场动画可叠加与时长可调） |
 | mediabunny（WebCodecs 封装，OpenCut 的 MP4/WebM 导出） | 打进 `assets/opencut/**` 的 JS bundle | vanruesc/mediabunny | **MPL-2.0**（仅以库形式链接使用；改动其源码需按 MPL 开放该文件） |
 | onnxruntime-web（`.jsep.wasm` 20.6MB）+ transformers.js | `assets/opencut/_next/static/media/ort-wasm-*.wasm` | Microsoft/onnxruntime-web · huggingface/transformers.js | **MIT** · **Apache-2.0** |

@@ -108,12 +108,13 @@ fun GlassBottomBar(
     if (tabsCount == 0 || iconRes.size != tabsCount) {
         return
     }
-    // 库的模糊要 API 31+、折射要 33+；更低的机器上改用接近不透明的底色兜底
+    // 库的模糊要 API 31+、折射要 33+；更低的机器上改用接近不透明的底色兜底。
+    // 白纱 10%：栏是玻璃，透出的是黑底 + 流光，不再叠黑色再压一档亮度
     val containerColor =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Color(0xFF121212).copy(alpha = 0.45f)
+            Color.White.copy(alpha = 0.10f)
         } else {
-            Color(0xFF141414).copy(alpha = 0.94f)
+            Color(0xFF1A1A1A).copy(alpha = 0.94f)
         }
     val animationScope = rememberCoroutineScope()
     val currentOnSelect by rememberUpdatedState(onSelect)
@@ -224,17 +225,20 @@ fun GlassBottomBar(
                     backdrop = backdrop,
                     shape = { Capsule() },
                     effects = {
+                        // 原始折射链（他确认原版效果是对的，此后不再动这里）：
+                        // 先折射再糊 —— blur 的半径会把采样层向外撑开（scope.padding），
+                        // 折射才采得到形状之外的真实画面
                         vibrancy()
                         colorControls(brightness = 0.02f, contrast = 1.08f, saturation = 1.25f)
-                        // 先折射再糊：blur 的半径会把采样层向外撑开（scope.padding），
-                        // 折射才采得到形状之外的真实画面；反过来写 padding 会被 lens 吃掉
                         lens(
                             28f.dp.toPx(),
                             38f.dp.toPx(),
                             depthEffect = true,
                             chromaticAberration = true
                         )
-                        blur(14f.dp.toPx())
+                        // 折射链原样；只把糊的半径 14 → 6：14dp 的糊把文字折射出来的错位抹掉了，
+                        // 6dp 保留"模糊光感"的同时，文字边缘的折光能看见
+                        blur(6f.dp.toPx())
                     },
                     highlight = {
                         Highlight(

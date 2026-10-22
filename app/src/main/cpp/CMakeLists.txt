@@ -66,6 +66,25 @@ target_include_directories(seedmap PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cubiomes)
 target_link_libraries(seedmap PRIVATE log m)
 
 # ---------------------------------------------------------------------------
+# 材质包转换内核 packcore（新工具「基岩材质包转 Java」用）
+#   源码 = pack_converter_COMPLETE.zip 的 java_core/packcore.c + name_data.h（138KB 映射表编译期内置，
+#   无外部资源文件）；JNI 导出名已改成 Java_com_mineways_pack_PackCore_* 以对齐 com.mineways.pack.PackCore
+#   C 只做像素/字符串算子（四级解析链、flipbook 拆帧、lang→JSON、pack.mcmeta），
+#   PNG 编解码不在这里 —— 由 Java 侧 ImageAdapter 用 android.graphics.Bitmap 负责
+# ---------------------------------------------------------------------------
+add_library(packcore SHARED
+    packcore/packcore.c
+)
+
+target_include_directories(packcore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/packcore)
+target_link_libraries(packcore PRIVATE log)
+
+if(ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "x86_64")
+    target_link_options(packcore PRIVATE
+        "-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384")
+endif()
+
+# ---------------------------------------------------------------------------
 # 格式转换内核 fmtconv（新工具「格式转换」用）
 #   模型：Assimp（BSD-3-Clause）—— FetchContent 拉取；只编需要的导入/导出器控体积
 #   .blend：zstd（BSD-3-Clause）解压 + NDK 自带 zlib（兼容老版 gzip 压缩）

@@ -118,13 +118,7 @@ public class PhraseToolboxActivity extends Activity {
         LinearLayout head = new LinearLayout(this);
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        TextView back = new TextView(this);
-        back.setText("‹ 返回");
-        back.setTextColor(DIM);
-        back.setTextSize(13);
-        back.setPadding(0, dp(4), dp(14), dp(4));
-        back.setOnClickListener(v -> finish());
-        head.addView(back);
+        // 页头那枚「‹ 返回」（点了就 finish）已经去掉：系统返回键在手，它只是占第一行又容易误触
         TextView title = new TextView(this);
         title.setText("串词工具箱");
         title.setTextColor(TEXT);

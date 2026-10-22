@@ -106,13 +106,8 @@ public class P3DConvertActivity extends Activity {
         LinearLayout head = new LinearLayout(this);
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        TextView back = new TextView(this);
-        back.setText("‹ 返回");
-        back.setTextColor(DIM);
-        back.setTextSize(13);
-        back.setPadding(0, dp(4), dp(14), dp(4));
-        back.setOnClickListener(v -> finish());
-        head.addView(back);
+        // 页头原来有一枚「‹ 返回」（点了就 finish），系统本来就有返回键/返回手势，它在第一行
+        // 既占位置又容易误触 —— 已去掉，标题直接开头。
         TextView title = new TextView(this);
         title.setText("P3D 工程工具");
         title.setTextColor(TEXT);

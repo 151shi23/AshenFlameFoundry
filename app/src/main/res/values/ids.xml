@@ -4,4 +4,6 @@
     <item name="watermark_tag" type="id" />
     <!-- NavHost 容器用固定 id：进程被杀后恢复时能找回同一个 NavHostFragment，不会建出第二个 NavController -->
     <item name="nav_host" type="id" />
+    <!-- 全局视觉层（玻璃返回盘 + 顶部渐隐）的挂载标记：只在工具页挂一次，onResume 重复回调时不再叠 -->
+    <item name="mw_overlay" type="id" />
 </resources>

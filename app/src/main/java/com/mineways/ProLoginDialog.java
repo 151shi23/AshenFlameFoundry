@@ -49,7 +49,7 @@ public final class ProLoginDialog {
     private static final int LINE = 0x1FFFFFFF;
     private static final int TEXT = 0xFFEDEDED;
     private static final int DIM = 0xFF8A9099;
-    private static final int ACCENT = 0xFFD9603A;
+    private static final int ACCENT = 0xFFFFFFFF;
     private static final int OK_GREEN = 0xFF7DE08A;
     private static final int ERR_RED = 0xFFFF8A80;
 
@@ -67,11 +67,8 @@ public final class ProLoginDialog {
         LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(pad, pad, pad, pad);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(BG);
-        bg.setCornerRadius(dp(activity, 16));
-        bg.setStroke(dp(activity, 1), LINE);
-        root.setBackground(bg);
+                root.setBackground(com.mineways.ui.MwViews.glass(
+                activity, com.mineways.ui.MwViews.style(activity), 18, 0xFF141821, root));    
 
         TextView head = new TextView(activity);
         head.setText("白名单账号登录");

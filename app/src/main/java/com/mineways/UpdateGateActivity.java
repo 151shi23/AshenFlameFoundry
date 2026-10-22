@@ -40,8 +40,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -108,10 +110,16 @@ public class UpdateGateActivity extends Activity {
             "(?im)^\\s*(安卓|ANDROID)\\s*(强制|FORCE|跳过|SKIP|提示|NOTIFY|日志|CHANGELOG|最低|MIN)"
                     + "\\s+(ALL|全部|EXCEPT\\s+[^\\n]+|排除\\s+[^\\n]+|[0-9][0-9.,\\s\\-]*)");
 
+    /**
+     * 单条规则自己的条件：同一行里写 {@code when="…"} / {@code if="…"} / {@code 条件: …}。
+     * 引号可省，但表达式里有空格时建议用双引号包住。
+     */
+    private static final Pattern RE_WHEN = Pattern.compile(
+            "(?i)(?:when|if|条件)\\s*[=:：]\\s*(?:\"([^\"]*)\"|'([^']*)'|(.+))");
+
     /** 离线策略：离线 放行 / 离线 拦截。 */
     private static final Pattern RE_OFFLINE = Pattern.compile(
-            "(?im)^\\s*(离线|OFFLINE)\\s*(放行|PASS|拦截|BLOCK)");
-    /** 缓存天数。 */
+            "(?im)^\\s*(离线|OFFLINE)\\s*(放行|PASS|拦截|BLOCK)");    /** 缓存天数。 */
     private static final Pattern RE_CACHE = Pattern.compile("(?im)^\\s*(缓存|CACHE)\\s+(\\d{1,3})");
     /** 重试次数 / 超时秒数。 */
     private static final Pattern RE_RETRY = Pattern.compile("(?im)^\\s*(重试|RETRY)\\s+(\\d{1,2})");
@@ -167,6 +175,34 @@ public class UpdateGateActivity extends Activity {
 
     private Decision decision;
     private int countdownLeft;
+    /** 已经放过行：防止看门狗 / 倒计时 / 按钮重复拉起 MainActivity。 */
+    private boolean passed;
+
+    /** 云控 update_off=1：整层闸门关闭。读不到 / 读错一律 false（fail-open）。 */
+    private volatile boolean cloudOff;
+    /** 云控 update_force_off=1：强更降级为提示，仍然给下载入口。 */
+    private volatile boolean cloudForceOff;
+    /** 云控 update_quiet=1：静音，只算状态不弹窗不拦人。 */
+    private volatile boolean cloudQuiet;
+    /** 云控 update_block：这些版本不当作更新目标（发了坏包时先别推它）。 */
+    private volatile String cloudBlock = "";
+    /** 云控 update_hold：当前版本命中这些版本就拦住，引导降级（回收坏版本）。 */
+    private volatile String cloudHold = "";
+    /** 云控 update_hold_to：降级到哪个版本。 */
+    private volatile String cloudHoldTo = "";
+    /** 云控 update_hold_url：降级包的下载页。 */
+    private volatile String cloudHoldUrl = "";
+    /** 云控 update_hold_notice：拦住时给用户看的话。 */
+    private volatile String cloudHoldNotice = "";
+    /** 云控 update_max_wait：检查更新最多等几秒，超时直接放行（0 = 不设限）。 */
+    private volatile int cloudMaxWait;
+    /** 超时看门狗：只在"还没算出结论"时才放行，绝不影响已经判定的强更。 */
+    private android.os.Handler watchdog;
+    /**
+     * 条件变量表（与公告 / 功能目录同一套，另把云控 FLAG 合进来）。
+     * 在后台线程算好，UI 线程只读 —— 里面要读登录态、设备名、共享偏好，不适合放主线程。
+     */
+    private volatile Map<String, String> condVars = Collections.emptyMap();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -175,6 +211,8 @@ public class UpdateGateActivity extends Activity {
         currentVersion = versionName();
         currentApi = Build.VERSION.SDK_INT;
         currentMajor = androidMajorOf(currentApi, Build.VERSION.RELEASE);
+        // 先归零：这次没算完就退出，也别把上一次的旧状态留给公告 / 功能目录
+        UpdateState.save(this, "none", "");
         loadCache();
         buildUi();
         check(0);
@@ -351,8 +389,263 @@ public class UpdateGateActivity extends Activity {
     }
 
     private void pass() {
+        // 看门狗、自动倒计时、按钮三条路都可能调到，别把 MainActivity 拉起两次
+        if (passed) {
+            return;
+        }
+        passed = true;
+        if (watchdog != null) {
+            watchdog.removeCallbacksAndMessages(null);
+        }
         startActivity(new Intent(this, MainActivity.class));
         finish();
+    }
+
+    // ---------------------------------------------------------------- 云控联动
+
+    /**
+     * 读云控的两个<b>放宽</b>开关。
+     *
+     * <p>这里刻意只读"能让闸门更宽松"的开关，不读任何"能从云端新增拦截"的开关 ——
+     * 闸门是唯一入口，一个写错的 FLAG 就能让所有人打不开 App，这个扳机不该存在。
+     * 任何异常都按 false 处理（fail-open），云控没配也等于 false。
+     */
+    private void readCloudSwitches() {
+        try {
+            com.mineways.cloud.FeatureGate g = com.mineways.cloud.CloudCatalog.gate();
+            cloudOff = "1".equals(g.flag("update_off", ""));
+            cloudForceOff = "1".equals(g.flag("update_force_off", ""));
+            cloudQuiet = "1".equals(g.flag("update_quiet", ""));
+            cloudBlock = g.flag("update_block", "");
+            cloudHold = g.flag("update_hold", "");
+            cloudHoldTo = g.flag("update_hold_to", "");
+            cloudHoldUrl = g.flag("update_hold_url", "");
+            cloudHoldNotice = g.flag("update_hold_notice", "");
+            int w = intOf(g.flag("update_max_wait", ""), 0);
+            // 越界（0 或离谱的数）当没配：宁可慢，也不能因为一个写错的数字把人挡在门外
+            cloudMaxWait = (w >= 3 && w <= 60) ? w : 0;
+        } catch (Throwable t) {
+            cloudOff = false;
+            cloudForceOff = false;
+            cloudQuiet = false;
+            cloudBlock = "";
+            cloudHold = "";
+            cloudHoldTo = "";
+            cloudHoldUrl = "";
+            cloudHoldNotice = "";
+            cloudMaxWait = 0;
+        }
+    }
+
+    /**
+     * 条件变量表：与公告 / 功能目录<b>同一套</b>（{@link AnnouncementCenter#vars}），
+     * 另外把云控 FLAG 合进来，于是 {@code when="flag_xxx == 1"} 也能写。
+     *
+     * <p>只允许在后台线程调用：里面要读登录态、设备名、共享偏好，全是磁盘活。
+     */
+    private Map<String, String> buildCondVars() {
+        try {
+            Map<String, String> v = new HashMap<>(AnnouncementCenter.vars(this));
+            v.putAll(com.mineways.cloud.CloudCatalog.gate().condVars(v));
+            return v;
+        } catch (Throwable t) {
+            return Collections.emptyMap();
+        }
+    }
+
+    /**
+     * 灰度分桶：优先用配置 / 公告那套 {@code roll}（deviceHash + uid），
+     * 这样「看到新功能的人」和「收到新版本的人」才是同一批，A/B 才对得上。
+     * 取不到才退回旧的 ANDROID_ID 哈希（老逻辑保留，避免异常时把灰度算成 0）。
+     */
+    private int bucketNow() {
+        try {
+            String r = condVars.get("roll");
+            if (r != null) {
+                int b = Integer.parseInt(r.trim());
+                if (b >= 0 && b <= 99) {
+                    return b;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return rolloutBucket(this);
+    }
+
+    /**
+     * 把云控结论盖在本地判定之上，并把结果回传给公告 / 功能目录（{@link UpdateState}）。
+     *
+     * <p>优先级：<b>急停 → 回收坏版本 → 屏蔽坏版本 → 静音 → 强更降级</b>。
+     * 前三条里只有「回收坏版本」会拦人，其余全是"放人进去"；而且它只认精确版本号，
+     * 写错的爆炸半径限定在"装了那个具体版本的人"。
+     */
+    private void applyCloud(Decision d) {
+        if (d == null) {
+            return;
+        }
+
+        // ① 急停：整层关掉，连强更都不算
+        if (cloudOff) {
+            d.forced = false;
+            d.target = null;                      // 放行：render 末尾会直接 pass()
+            d.rule = joinRule(d.rule, "云控 update_off");
+            UpdateState.save(this, UpdateState.OFF, "");
+            return;
+        }
+
+        // ② 回收坏版本：当前版本在名单里 → 拦住，指到上一版
+        if (holdHit()) {
+            Rel to = holdTarget();
+            d.forced = true;
+            d.target = to;
+            d.title = "该版本已停止使用";
+            d.desc = holdNotice();
+            d.button = "前往下载";
+            d.urgent = true;
+            d.countdown = 0;
+            d.link = to.page;                     // 不能再用坏版本那个下载地址
+            d.backupLink = null;
+            d.code = null;
+            d.rule = joinRule(d.rule, "云控 update_hold " + currentVersion);
+            UpdateState.save(this, UpdateState.HOLD, to.tag);
+            return;
+        }
+
+        // ③ 屏蔽坏版本：不把它当目标 —— 宁可先放人进去，也不推一个有问题的包
+        if (d.target != null && blockHit(d.target)) {
+            d.rule = joinRule(d.rule, "云控 update_block " + d.target.tag);
+            d.forced = false;
+            d.target = null;
+        }
+
+        // ④ 静音：状态照算，但不弹窗不拦人（用来"先静音、看状态、再决定"）
+        if (cloudQuiet) {
+            UpdateState.save(this, UpdateState.QUIET, d.target == null ? "" : d.target.tag);
+            d.forced = false;
+            d.target = null;
+            return;
+        }
+
+        // ⑤ 强更降级为提示：target 保留，下载入口还在
+        if (cloudForceOff && d.forced) {
+            d.forced = false;
+            d.rule = joinRule(d.rule, "云控 update_force_off");
+        }
+
+        UpdateState.save(this,
+                d.forced ? UpdateState.FORCE
+                        : (d.target != null ? UpdateState.NOTIFY : UpdateState.NONE),
+                d.target == null ? "" : d.target.tag);
+    }
+
+    /**
+     * 当前版本是否在 update_hold 名单里。
+     *
+     * <p>这里刻意用<b>版本名字符串逐字比对</b>（去掉前缀 v），不用 {@link #code}：
+     * code 会把 5.13 和 5.13.1 归成同一个值，而这个开关是唯一会拦人的一条，
+     * 差一个补丁号就误伤一批用户，代价太大。
+     */
+    private boolean holdHit() {
+        String cur = normVer(currentVersion);
+        if (cur.length() == 0) {
+            return false;
+        }
+        for (String s : splitList(cloudHold)) {
+            if (normVer(s).equals(cur)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String normVer(String v) {
+        if (v == null) {
+            return "";
+        }
+        String s = v.trim().toLowerCase(Locale.ROOT);
+        return s.startsWith("v") ? s.substring(1) : s;
+    }
+
+    /** 目标版本是否在 update_block 名单里。 */
+    private boolean blockHit(Rel t) {
+        int v = t.ver > 0 ? t.ver : code(t.tag);
+        if (v <= 0) {
+            return false;
+        }
+        for (String s : splitList(cloudBlock)) {
+            if (code(s) == v) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 造一个"降到上一版"的目标：页面优先用 update_hold_url，没配就回 Release 页。 */
+    private Rel holdTarget() {
+        Rel r = new Rel();
+        String to = cloudHoldTo == null ? "" : cloudHoldTo.trim();
+        r.tag = to.length() == 0 ? "旧版本" : to;
+        r.ver = code(to);
+        r.page = (cloudHoldUrl == null || cloudHoldUrl.length() == 0) ? PAGE : cloudHoldUrl.trim();
+        return r;
+    }
+
+    private String holdNotice() {
+        String s = cloudHoldNotice == null ? "" : cloudHoldNotice.trim();
+        return s.length() == 0
+                ? "当前版本存在问题，已暂停使用。请下载上一版本覆盖安装，数据不会丢失。"
+                : s;
+    }
+
+    /**
+     * 检查超时的看门狗：只在「还没算出结论」时放行。
+     * 已经判成强更的不受影响 —— 否则这个开关就成了绕过强更的后门。
+     */
+    private void armWatchdog() {
+        if (cloudMaxWait <= 0) {
+            return;
+        }
+        if (watchdog == null) {
+            watchdog = new android.os.Handler(getMainLooper());
+        }
+        watchdog.removeCallbacksAndMessages(null);
+        watchdog.postDelayed(() -> {
+            if (decision == null && !isFinishing() && !isDestroyed()) {
+                tvMsg.setText("检查更新超时，已按云端配置放行…");
+                UpdateState.save(this, UpdateState.NONE, "");
+                pass();
+            }
+        }, cloudMaxWait * 1000L);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (watchdog != null) {
+            watchdog.removeCallbacksAndMessages(null);
+            watchdog = null;
+        }
+        super.onDestroy();
+    }
+
+    private static int intOf(String s, int def) {
+        try {
+            return Integer.parseInt(s.trim());
+        } catch (Throwable t) {
+            return def;
+        }
+    }
+
+    private static List<String> splitList(String s) {
+        List<String> out = new ArrayList<>();
+        if (s == null) {
+            return out;
+        }
+        for (String x : s.split("[,，\\s]+")) {
+            if (x != null && x.trim().length() > 0) {
+                out.add(x.trim());
+            }
+        }
+        return out;
     }
 
     // ---------------------------------------------------------------- 检查
@@ -360,6 +653,9 @@ public class UpdateGateActivity extends Activity {
     private void check(final int attempt) {
         tvMsg.setText(attempt == 0 ? "正在检查更新…" : ("网络异常，正在重试（" + attempt + "/" + retryCount + "）…"));
         new Thread(() -> {
+            readCloudSwitches();          // 云控开关在后台读：flag() 首次会触发整份配置重放
+            condVars = buildCondVars();   // 条件变量也在后台算：登录态 / 设备名 / 偏好都是磁盘活
+            runOnUiThread(this::armWatchdog);
             String json = null;
             String err = null;
             try {
@@ -387,7 +683,8 @@ public class UpdateGateActivity extends Activity {
         saveCache(json);
 
         List<Rel> rels = parseReleases(json);
-        decision = decide(rels, currentVersion, currentApi, currentMajor, rolloutBucket(this));
+        decision = decide(rels, currentVersion, currentApi, currentMajor, bucketNow(), condVars);
+        applyCloud(decision);
         render(decision);
     }
 
@@ -401,9 +698,10 @@ public class UpdateGateActivity extends Activity {
         if (p != null && ageDays <= allowed) {
             // 有可用缓存：按缓存策略走（含它自己的强更/提示规则）
             List<Rel> rels = parseReleases(p.rawReleases);
-            decision = decide(rels, currentVersion, currentApi, currentMajor, rolloutBucket(this));
+            decision = decide(rels, currentVersion, currentApi, currentMajor, bucketNow(), condVars);
             decision.offline = true;
             decision.cachedAt = cacheAt;
+            applyCloud(decision);
             render(decision);
             return;
         }
@@ -413,6 +711,14 @@ public class UpdateGateActivity extends Activity {
             tvMsg.setText("无法联网检查更新，已放行进入。\n（下次联网启动会自动补检）");
             btnKeep.setVisibility(View.VISIBLE);
             autoPass(3);
+            return;
+        }
+
+        // 云端急停：连"缓存过期不许进"也一起放行 —— 这条开关存在的意义就是救这种场
+        if (cloudOff) {
+            UpdateState.save(this, "off", "");
+            tvMsg.setText("已按云端配置跳过更新检查，正在进入…");
+            autoPass(2);
             return;
         }
 
@@ -827,6 +1133,8 @@ public class UpdateGateActivity extends Activity {
         int min = Integer.MAX_VALUE;
         int max = Integer.MIN_VALUE;
         String text = "";
+        /** 这条规则自己的条件（同一行写 when="…"）；空 = 无条件。 */
+        String when = "";
     }
 
     static class Decision {
@@ -925,6 +1233,12 @@ public class UpdateGateActivity extends Activity {
      * 4) 展示：本版策略为"全显示"，正文完整呈现（指令行自动剥离）。
      */
     static Decision decide(List<Rel> rels, String currentVersion, int api, int major, int bucket) {
+        return decide(rels, currentVersion, api, major, bucket, null);
+    }
+
+    /** 带条件变量的版本：规则里的 when="…" 按 {@code vars} 求值。 */
+    static Decision decide(List<Rel> rels, String currentVersion, int api, int major, int bucket,
+                           Map<String, String> vars) {
         Decision d = new Decision();
         int cur = code(currentVersion);
         long now = System.currentTimeMillis();
@@ -943,12 +1257,12 @@ public class UpdateGateActivity extends Activity {
         });
 
         Rel newest = higher.isEmpty() ? null : higher.get(higher.size() - 1);
-        Policy newestPolicy = newest != null ? parsePolicy(newest, api, major)
-                : (rels.isEmpty() ? null : parsePolicy(rels.get(rels.size() - 1), api, major));
+        Policy newestPolicy = newest != null ? parsePolicy(newest, api, major, vars)
+                : (rels.isEmpty() ? null : parsePolicy(rels.get(rels.size() - 1), api, major, vars));
 
         // 1) 放行优先：忽略（白名单）/ 安卓跳过
         for (Rel r : rels) {
-            Policy p = (r == newest) ? newestPolicy : parsePolicy(r, api, major);
+            Policy p = (r == newest) ? newestPolicy : parsePolicy(r, api, major, vars);
             if (!active(p, now, bucket)) {
                 continue;
             }
@@ -973,7 +1287,7 @@ public class UpdateGateActivity extends Activity {
         Policy display = newestPolicy;
         // 2) 逐个更高的版本，找"最小的被强制版本"
         for (Rel r : higher) {
-            Policy p = (r == newest) ? newestPolicy : parsePolicy(r, api, major);
+            Policy p = (r == newest) ? newestPolicy : parsePolicy(r, api, major, vars);
             if (!active(p, now, bucket)) {
                 continue;
             }
@@ -1090,9 +1404,10 @@ public class UpdateGateActivity extends Activity {
         return (a != null && !a.isEmpty()) ? a : b;
     }
 
-    private static boolean hitLogAny(List<Rel> higher, int cur, int api, int major, Policy fallback) {
+    private static boolean hitLogAny(List<Rel> higher, int cur, int api, int major,
+                                     Policy fallback, Map<String, String> vars) {
         for (Rel r : higher) {
-            Policy p = parsePolicy(r, api, major);
+            Policy p = parsePolicy(r, api, major, vars);
             for (Rule rule : p.versionRules) {
                 if ("LOG".equals(rule.kind) && match(rule, cur)) {
                     return true;
@@ -1180,8 +1495,63 @@ public class UpdateGateActivity extends Activity {
 
     // ---------------------------------------------------------------- 解析
 
-    /** 解析一个 release 正文里的全部指令。 */
+    /** 取 from 位置所在那一行的剩余部分，用于读同一行尾巴上的 when="…"。 */
+    private static String restOfLine(String body, int from) {
+        if (body == null || from < 0 || from >= body.length()) {
+            return "";
+        }
+        int end = body.indexOf('\n', from);
+        return end < 0 ? body.substring(from) : body.substring(from, end);
+    }
+
+    /** 从一行里抽 when="…" / if='…' / 条件: …；没有就返回空串。 */
+    private static String whenOf(String line) {
+        if (line == null || line.length() == 0) {
+            return "";
+        }
+        Matcher m = RE_WHEN.matcher(line);
+        if (!m.find()) {
+            return "";
+        }
+        String s = m.group(1) != null ? m.group(1)
+                : (m.group(2) != null ? m.group(2) : m.group(3));
+        return s == null ? "" : s.trim();
+    }
+
+    /**
+     * 规则条件求值。三种情况：
+     * <ul>
+     *   <li>没写条件 → 生效；</li>
+     *   <li>还没算变量（离线读缓存那一趟）→ 生效，不拿条件卡人；</li>
+     *   <li>表达式写错 → <b>不生效</b>，绝不因为一个坏条件把所有人强更。</li>
+     * </ul>
+     */
+    private static boolean condOk(String when, Map<String, String> vars) {
+        if (when == null || when.length() == 0 || vars == null) {
+            return true;
+        }
+        try {
+            return Expr.test(when, vars);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** 解析一个 release 正文里的全部指令（不按条件过滤，给离线读缓存那趟用）。 */
     static Policy parsePolicy(Rel rel, int api, int major) {
+        return parsePolicy(rel, api, major, null);
+    }
+
+    /**
+     * 解析一个 release 正文里的全部指令。
+     *
+     * <p>{@code vars} 非空时，每条规则自己那行写的 {@code when="…"} 会在这里求值：
+     * 不成立的规则<b>直接丢掉</b>，后面的 decide 根本看不到它 —— 于是
+     * {@code 强更 全部 when="authorized"} 就只对白名单生效。
+     *
+     * <p>求值失败（表达式写错）按"不生效"处理，绝不因为一个坏条件把所有人强更。
+     */
+    static Policy parsePolicy(Rel rel, int api, int major, Map<String, String> vars) {
         Policy p = new Policy();
         if (rel == null) {
             return p;
@@ -1194,14 +1564,20 @@ public class UpdateGateActivity extends Activity {
         while (m.find()) {
             Rule r = ruleOf(m.group(1), m.group(2));
             if (r != null) {
-                p.versionRules.add(r);
+                r.when = whenOf(restOfLine(body, m.start()));
+                if (condOk(r.when, vars)) {
+                    p.versionRules.add(r);
+                }
             }
         }
         m = RE_ANDROID.matcher(body);
         while (m.find()) {
             Rule r = ruleOf(m.group(2), m.group(3));
             if (r != null) {
-                p.androidRules.add(r);
+                r.when = whenOf(restOfLine(body, m.start()));
+                if (condOk(r.when, vars)) {
+                    p.androidRules.add(r);
+                }
             }
         }
         m = RE_OFFLINE.matcher(body);
@@ -1487,6 +1863,10 @@ public class UpdateGateActivity extends Activity {
     }
 
     /** 设备稳定分桶（0-99），用于灰度。 */
+    /**
+     * 旧的灰度分桶：只吃 ANDROID_ID。现在只作 {@link #bucketNow()} 的兜底 ——
+     * 正常路径走配置那套 {@code roll}，两套哈希不同会导致 A/B 人群对不上。
+     */
     static int rolloutBucket(Context ctx) {
         String id;
         try {
