@@ -13,6 +13,7 @@ import com.mineways.PackConvertActivity;
 import com.mineways.ExportActivity;
 import com.mineways.FileRepairActivity;
 import com.mineways.GifActivity;
+import com.mineways.gjgjx.GjgjxActivity;
 import com.mineways.LandscapeEnhanceActivity;
 import com.mineways.MiniGameActivity;
 import com.mineways.ObjPreviewActivity;
@@ -23,6 +24,7 @@ import com.mineways.PixelmapActivity;
 import com.mineways.PngToModelActivity;
 import com.mineways.R;
 import com.mineways.RealWorldActivity;
+import com.mineways.FourDGenActivity;
 import com.mineways.RhineLabActivity;
 import com.mineways.SeedMapActivity;
 import com.mineways.SnowstormActivity;
@@ -124,10 +126,12 @@ public final class HomeIndex {
 		 * 每次渲染/点击现问 {@code LoginAccess.check}，才会跟着「刚登录完」立刻变。
 		 */
 		public final String gate;
+		/** 功能页标识（内置条目 = 图标键，云端条目 = id）；ui_hide_pages / ui_only_pages 按它匹配。 */
+		public final String pageKey;
 
 		Item(String key, String title, String sub, int icon, Intent intent, String cat,
 				String catName, String group, int builtinKind, FeatureGate.State st,
-				String feature, boolean fromCloud) {
+				String feature, boolean fromCloud, String pageKey) {
 			this.key = key;
 			this.feature = feature;
 			this.title = title;
@@ -148,6 +152,7 @@ public final class HomeIndex {
 			this.fromCloud = fromCloud;
 			this.source = st.source;
 			this.gate = st.gate == null ? "" : st.gate;
+			this.pageKey = pageKey == null ? "" : pageKey;
 		}
 
 		/** 搜索用的 haystack。 */
@@ -212,6 +217,19 @@ public final class HomeIndex {
 
 		List<Item> out = new ArrayList<>();
 		for (Row r : rows) {
+			// 音乐播放器是「整块功能」：云控没下发 music_on 时连入口都不出现（不是灰掉）
+			if ("music".equals(FeatureCatalog.norm(r.iconKey))
+					&& !com.mineways.music.MusicSources.gateOpenCached(ctx)) {
+				continue;
+			}
+			// 整页隐藏（云控 ui_hide_pages / ui_only_pages）：入口根本不生成，
+			// 首页、4 个页签、关于页收录清单、AI 功能清单会同时生效。
+			// 网页工具的 iconKey 统一是 preview，不能拿它当 pageKey（否则一关全关）；
+			// 网页条目继续由 FEAT hide 控制。
+			if (!r.web && (com.mineways.cloud.UiFlags.pageHidden(r.iconKey)
+					|| com.mineways.cloud.UiFlags.pageHidden(r.title))) {
+				continue;
+			}
 			int builtinKind = kindOfTags(r.tags);
 			FeatureGate.State st = gate.stateOf(r.title, r.category(), builtinKind);
 			if (!st.visible) {
@@ -223,10 +241,14 @@ public final class HomeIndex {
 			String url = st.url != null && st.url.trim().length() > 0 ? st.url : r.url;
 			out.add(new Item(FeatureCatalog.norm(r.title), title, sub, iconFor(iconKey),
 					target(ctx, r, url), r.category(), catName(r.category()),
-					r.web ? "web" : "local", builtinKind, st, r.title, false));
+					r.web ? "web" : "local", builtinKind, st, r.title, false,
+					r.web ? "" : r.iconKey));
 		}
 		// 云端新增的在线站点
 		for (FeatureCatalog.Site s : gate.extraSites()) {
+			if (com.mineways.cloud.UiFlags.pageHidden(s.id)) {
+				continue;
+			}
 			FeatureGate.State st = gate.stateOf(s.id, s.category, FeatureGate.KIND_FREE);
 			if (!st.visible) {
 				continue;
@@ -237,10 +259,13 @@ public final class HomeIndex {
 			String cat = s.category == null || s.category.length() == 0 ? "w_sinc" : s.category;
 			out.add(new Item(FeatureCatalog.norm(s.id), title, sub, R.drawable.ic_preview,
 					webIntent(ctx, title, url), cat, catName(cat), "cloud",
-					FeatureGate.KIND_FREE, st, s.id, true));
+					FeatureGate.KIND_FREE, st, s.id, true, s.id));
 		}
 		// 云端新增的本地入口：Activity 必须真在包里，否则不显示，并且把原因留在状态面板
 		for (FeatureCatalog.Entry e : gate.extraEntries()) {
+			if (com.mineways.cloud.UiFlags.pageHidden(e.id)) {
+				continue;
+			}
 			FeatureGate.State st = gate.stateOf(e.id, e.category, kindOfTier(e.tier));
 			if (!st.visible) {
 				continue;
@@ -254,7 +279,7 @@ public final class HomeIndex {
 			Intent it = new Intent(ctx, cls);
 			out.add(new Item(FeatureCatalog.norm(e.id), title, sub, iconFor(e.icon), it,
 					e.category, catName(e.category), "cloud-local",
-					kindOfTier(e.tier), st, e.id, true));
+					kindOfTier(e.tier), st, e.id, true, e.id));
 		}
 		sort(out, gate);
 		items = out;
@@ -506,6 +531,9 @@ public final class HomeIndex {
 		if ("landscape".equals(k)) {
 			return R.drawable.ic_landscape;
 		}
+		if ("photocraft".equals(k)) {
+			return R.drawable.ic_photocraft;
+		}
 		if ("game".equals(k)) {
 			return R.drawable.ic_game;
 		}
@@ -514,6 +542,9 @@ public final class HomeIndex {
 		}
 		if ("mineimator".equals(k)) {
 			return R.drawable.mim_logo;
+		}
+		if ("astrbot".equals(k)) {
+			return R.drawable.ic_astrbot;
 		}
 		if ("fmtconv".equals(k)) {
 			return R.drawable.ic_tools;
@@ -526,6 +557,12 @@ public final class HomeIndex {
 		}
 		if ("repair".equals(k)) {
 			return R.drawable.ic_tools;
+		}
+		if ("prism".equals(k)) {
+			return R.drawable.ic_prism;
+		}
+		if ("ysm".equals(k)) {
+			return R.drawable.ic_ysm;
 		}
 		return R.drawable.ic_tools;
 	}
@@ -560,6 +597,9 @@ public final class HomeIndex {
 		if ("blockbench".equals(k)) {
 			return new Intent(ctx, BlockbenchActivity.class);
 		}
+		if ("gjgjx".equals(k)) {
+			return new Intent(ctx, GjgjxActivity.class);
+		}
 		if ("ai".equals(k)) {
 			return new Intent(ctx, AiAnimActivity.class);
 		}
@@ -572,11 +612,30 @@ public final class HomeIndex {
 		if ("colorcode".equals(k)) {
 			return new Intent(ctx, ColorCodeActivity.class);
 		}
+		if ("music".equals(k)) {
+			return new Intent(ctx, com.mineways.music.MusicActivity.class);
+		}
 		if ("gif".equals(k)) {
 			return new Intent(ctx, GifActivity.class);
 		}
+		// 动捕：相机 → 33 关节 → 五骨骼 .animation.json（本地解算，纯 Java 零依赖）
+		if ("mocap".equals(k)) {
+			return new Intent(ctx, com.mineways.mocap.MocapActivity.class);
+		}
+		// 棱镜玩机：按 Build.MANUFACTURER + ROM 属性自动裁剪功能表
+		if ("prism".equals(k)) {
+			return new Intent(ctx, com.mineways.prism.PrismActivity.class);
+		}
+		if ("ysm".equals(k)) {
+			return new Intent(ctx, com.mineways.ysm.YsmActivity.class);
+		}
 		if ("landscape".equals(k)) {
 			return new Intent(ctx, LandscapeEnhanceActivity.class);
+		}
+		if ("photocraft".equals(k)) {
+			// Rust + egui + wgpu 的修图引擎，界面由 libphotocraft_android.so 自绘；
+			// 只有 arm64-v8a 产物，其它 ABI 由 PhotoCraftActivity 拦下并提示
+			return new Intent(ctx, com.mineways.PhotoCraftActivity.class);
 		}
 		if ("game".equals(k)) {
 			return new Intent(ctx, MiniGameActivity.class);
@@ -590,6 +649,12 @@ public final class HomeIndex {
 		if ("repair".equals(k)) {
 			return new Intent(ctx, FileRepairActivity.class);
 		}
+		if ("logan".equals(k)) {
+			return new Intent(ctx, com.mineways.logan.LogAnalyzerActivity.class);
+		}
+		if ("guard".equals(k)) {
+			return new Intent(ctx, com.mineways.guardlink.GuardLinkActivity.class);
+		}
 		if ("fmtconv".equals(k)) {
 			return new Intent(ctx, com.mineways.conv.FormatConvertActivity.class);
 		}
@@ -598,6 +663,9 @@ public final class HomeIndex {
 		}
 		if ("rhinelab".equals(k)) {
 			return new Intent(ctx, RhineLabActivity.class);
+		}
+		if ("4dgen".equals(k)) {
+			return new Intent(ctx, FourDGenActivity.class);
 		}
 		if ("cloudtrain".equals(k)) {
 			return new Intent(ctx, CloudTrainActivity.class);
@@ -614,6 +682,9 @@ public final class HomeIndex {
 		}
 		if ("p3d".equals(k)) {
 			return new Intent(ctx, P3DConvertActivity.class);
+		}
+		if ("astrbot".equals(k)) {
+			return new Intent(ctx, com.mineways.astrbot.AstrBotActivity.class);
 		}
 		// export / world / tools / 空串：都进导出页，登记表的最后一列是页内定位
 		Intent it = new Intent(ctx, ExportActivity.class);
@@ -632,7 +703,7 @@ public final class HomeIndex {
 
 	/**
 	 * 云端 {@code ENTRY add activity=} 只允许类名，且必须能在包里找到 ——
-	 * 配置永远不下发可执行代码，这条线不能松。
+	 * 入口这条线不松：新增入口只能指向已经打进 APK 的界面。（网页适配的 CSS/JS 是另一条通道，见 {@code WebAdapt}。）
 	 */
 	private static Class<?> activityFor(Context ctx, String simpleName) {
 		if (simpleName == null || simpleName.length() == 0) {
@@ -642,10 +713,12 @@ public final class HomeIndex {
 				"SeedMapActivity", "PixelmapActivity", "ColorCodeActivity", "GifActivity",
 				"LandscapeEnhanceActivity", "PhraseToolboxActivity", "SnowstormActivity",
 				"BlockbenchActivity", "AiAnimActivity", "MiniGameActivity", "RhineLabActivity",
+				"GjgjxActivity",
+				"FourDGenActivity",
 				"CloudTrainActivity", "OpenCutActivity", "BrandScrubActivity", "PngToModelActivity",
 				"BbToObjActivity", "ObjPreviewActivity", "FileRepairActivity", "P3DConvertActivity",
 				"RealWorldActivity", "ExportActivity", "FormatConvertActivity", "BlenderActivity",
-				"PackConvertActivity",
+				"PackConvertActivity", "StoryWallActivity", "PanoActivity",
 		};
 		boolean named = false;
 		for (String a : allowed) {
@@ -657,7 +730,7 @@ public final class HomeIndex {
 		if (!named) {
 			return null;
 		}
-		String[] prefixes = {"com.mineways.", "com.mineways.conv.", "com.mineways.blender."};
+		String[] prefixes = {"com.mineways.", "com.mineways.conv.", "com.mineways.blender.", "com.mineways.vr."};
 		for (String p : prefixes) {
 			try {
 				Class<?> c = Class.forName(p + simpleName);

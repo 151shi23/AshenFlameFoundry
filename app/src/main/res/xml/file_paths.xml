@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 动捕输出（可分享 / 导出） -->
+    <external-files-path name="mocap" path="mocap/" />
     <!-- 应用外部专属目录：导出 OBJ 与转换输出的世界都放在这里 -->
     <external-files-path name="exports" path="exports/" />
     <external-files-path name="converted" path="converted/" />
     <!-- 文件修复产物（可分享 / 导出） -->
     <external-files-path name="repair" path="repair/" />
+    <!-- YSM 解密产物与 zip 分享 -->
+    <external-files-path name="ysm" path="ysm/" />
+    <files-path name="ysm_files" path="ysm/" />
+    <!-- 日志诊断报告（可分享 / 导出） -->
+    <external-files-path name="logan" path="logan/" />
     <!-- 剪辑标识清除产物 -->
     <external-files-path name="scrub" path="scrub/" />
     <!-- Mine-imator 工作室产物：引擎写在应用私有 files 目录里，分享/打开要走 FileProvider -->

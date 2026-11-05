@@ -85,6 +85,8 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
     private static final String[] TAB_TAGS = {"", "free", "paid", "limit", null};
 
     private LiquidGlassNav glassNav;
+    /** 软件内悬浮播放条（同意后挂在内容层上，切到任何页签都还在）。 */
+    private com.mineways.ui.MwMusicFloat musicFloat;
     /** 官方 Navigation 的控制器（每个标签一个 Fragment 目的地）。 */
     private NavController navController;
     /** 5 个标签目的地，与 TAB_TITLES 一一对应。 */
@@ -104,8 +106,13 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             {"网易存档解密", "找存档、解密、导出，都在这一页", "world", "free local", "world"},
             {"真实世界生成", "拉真实地图数据，在手机里生成 Minecraft 存档", "realworld", "free local", ""},
             {"Mine-imator 动画", "内置动画工作室：建模、摆动作、渲染出片，全离线", "mineimator", "limit local", ""},
+            {"AstrBot 机器人", "一键部署 AstrBot（电脑最新版）+ QQ 桥，手机内运行", "astrbot", "free local", ""},
+            // 免费功能：出厂不设激活码。要做限制只能由云控下发（FEATURE tier=limited）
             {"文件修复", "修 P3D 工程包（2.0/3.0）、ZIP、图片、音频、BB 导出格式", "repair", "limit local", ""},
-            {"格式转换", "图片 / 音频 / 模型互转；模型支持 .blend → GLB、OBJ、STL 等", "fmtconv", "free local", ""},
+            {"日志诊断", "把日志包扔进来：自动认出是谁的日志（MC / 安卓 / Windows / Linux / macOS / Gradle），再出中文诊断报告", "logan", "free local", ""},
+            {"安全守护", "检测「没人碰屏幕但界面自己在动」：远程操控 / 自动点击器一露头就 Lockdown，先只掐它自己的联网，真人按压才确认处置", "guard", "free local", ""},
+            {"格式转换", "图片、音频、模型互转；支持 PMX → GLB、.blend、OBJ、STL", "fmtconv", "free local", ""},
+            {"YSM 解密", "解密 .ysm 模型，还原 Blockbench 工程", "ysm", "free local", ""},
             {"Blender 渲染", "手机本地跑完整 Blender：装官方 Linux 版，渲染 .blend 工程出图", "blender", "free local", ""},
             {"莱茵生命终端", "明日方舟莱茵生命终端 3D 复刻，档案阵列与结构查看全离线", "rhinelab", "free local", ""},
             {"云间列车", "落日云海与穿云列车：WebGL 实时动画，可调速度/云量/染色/曝光", "cloudtrain", "free local", ""},
@@ -119,12 +126,17 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             {"bb 模型转 OBJ", "离线跑 Blockbench 内核", "bb2obj", "free local", ""},
             {"粒子编辑器", "Snowstorm 离线版，界面已经汉化", "particle", "free local", ""},
             {"Blockbench", "方块建模，网页版打包在本地", "blockbench", "free local", ""},
+            {"搞机工具箱", "ADB 图形化玩机（离线网页版 + 原生 USB 桥）：设备信息、应用管理、安装推送、显示控制、终端", "gjgjx", "free local", ""},
+            {"棱镜玩机", "按本机系统自动适配：澎湃OS / OriginOS / ColorOS 专属开关 + 通用冻结、卸载、动画速度、状态栏与广告向导", "prism", "free local", ""},
             {"AI 动画助手", "说一句要什么，出动画、粒子、Molang", "ai", "free local", ""},
             {"离线种子地图", "查群系、结构、要塞、出生点、史莱姆区块，不用联网", "seedmap", "free local", ""},
             {"像素地图存档", "搜像素地图站的玩家地图，能下的地图包直接存进「下载」", "pixelmap", "free local", ""},
             {"颜色代码", "Java 和基岩的颜色、格式代码，点了就复制", "colorcode", "free local", ""},
+            {"音乐播放器", "多音源搜索与播放，后台/锁屏不断，悬浮条随意拖", "music", "free local", ""},
             {"GIF 工具", "视频转 GIF、拆帧、合成、旋转、材质动画贴图", "gif", "free local", ""},
+            {"动作捕捉", "手机相机实时采集 → MC 五骨骼 .animation.json（本地解算，One-Euro + 欧拉拟合 + RDP 0.5°）", "mocap", "free local", ""},
             {"风景增强", "一张风景照自动精修：多尺度分析算出逐块修改计划，去雾、提亮、提饱和、清晰度，全程离线", "landscape", "free local", ""},
+            {"PhotoCraft 修图", "Rust 引擎的完整修图软件：图层、选区、画笔、调色、曲线、滤镜，原生渲染，全离线（仅 64 位 ARM）", "photocraft", "free local", ""},
             {"串词工具箱", "复制自动换谐音字、一键出表情包，可导入 txt 串词 / 谐音表，用 1 个激活码", "phrase", "limit local", ""},
             {"寂零快跑", "导出等进度时玩的小游戏", "game", "free local", ""},
             {"P3D 工程工具", "Prisma3D 工程包：识别版本、修头、解包、数据报告，用 1 个激活码", "p3d", "limit local", ""},
@@ -337,6 +349,8 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
         AvatarLoader.init(getCacheDir());     // 社区头像的磁盘缓存目录（cacheDir/avatar）
         // 云端功能目录：先用上次有效缓存立刻生效，再后台拉 features.txt 刷新
         com.mineways.cloud.CloudCatalog.init(this);
+        // 守护的自动值守要排在云控之后：guard_on 没下发就不起，本地记住的意愿不能绕过闸门
+        com.mineways.guardlink.GuardLinkActivity.autostartIfWanted(this);
         // 公告必须排在云控之后：notice_off / notice_ids 这些开关要读得到配置，
         // 否则首次启动时 gate 还是空的，云端配了「停发」也拦不住。
         AnnouncementCenter.checkAndShow(this);  // 仓库根目录 ovo.txt 公告：命中条件就弹，没有就算了
@@ -345,6 +359,10 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
         renderCloudProgress(com.mineways.cloud.CloudCatalog.progress());
         // 启动不再弹任何问答窗：登录改成「关于」页手动登录，白名单只认登录账号
         // 起始目的地由 NavHost 自己落位，栏状态在目的地回调里同步
+
+        // 独立进程（Mine-imator 等）崩了它自己没机会复制；主界面有焦点，这里补一次：
+        // 有未读的崩溃/错误日志就弹出来并自动复制到剪贴板
+        com.mineways.AppLog.pickup(this);
     }
 
     /** 建列表时用的云端版本；回到前台时和当前生效版本比，不一样就重建界面。 */
@@ -365,10 +383,23 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
      * 主界面没变化）。所以界面自己每次回前台对照一次，担起这个责任。
      */
     @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            // 窗口真正有焦点后才复制：部分 ROM 会丢弃无焦点时的剪贴板写入
+            com.mineways.AppLog.flushPendingCopy(this);
+        }
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         // AI 的放行人群/环境跟登录态有关：回前台重算一次（白名单可能刚登录/过期）
         com.mineways.AiAccess.refresh(this);
+        // 悬浮条：可能在音乐页里刚答完「退出后要不要在软件内播放」，回来就要按新答案决定画不画
+        if (musicFloat != null) {
+            musicFloat.refresh();
+        }
         String now = cloudStamp();
         if (!now.equals(builtWithCloudVersion)) {
             builtWithCloudVersion = now;
@@ -468,38 +499,54 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
         content.addView(host, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // 先把玻璃栏建好，NavHost 落位时目的地回调就能同步它
-        glassNav = new LiquidGlassNav(this);
-        // 背板源必须是 NavHost，不是 content：content 里还装着导航栏自己，
-        // 把父容器整个画进快照 = 玻璃把自己的上一帧又采一遍，边缘会发暗、发死。
-        glassNav.setBackdropSource(host);
-        // ui_accent 也要管到导航栏：选中态用它，未选中仍是 60% 白
-        glassNav.setColors(com.mineways.ui.MwViews.style(this).accent, DIM2);
-        // 标签由玻璃栏自己用 Compose 画（图标 + 文字）——只有画在 Compose 层里，
-        // 滑块的玻璃才能把图标文字录进背景，拖动时边缘扫过它们才会折射、模糊
-        glassNav.setTabs(TAB_ICONS, TAB_TITLES);
-        glassNav.setSelected(currentTab, false);
-        // 手指拖动高亮块松手 → 切页（玄戒 onDragStopped → onTabSelected）
-        glassNav.setOnTabSelectedListener(index -> selectTab(index, true));
-        glassNav.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, orr, ob) -> {
-            int pad = v.getHeight() + dp(28);      // 栏高 + 一点余量，最后一行不会被胶囊压住
-            if (pad != pageBottomPad) {
-                pageBottomPad = pad;              // 胶囊悬浮：页面底距随时跟栏高走
-                // Compose 页不能设 View padding（onMeasure 会扣掉，背景就画不到栏下面），
-                // 改成写进 MwInsets，由页面自己作用在 LazyColumn 的 contentPadding 上。
-                com.mineways.ui.MwInsets.bottomNavDp.setIntValue(
-                        Math.round(pad / getResources().getDisplayMetrics().density));
-                for (View p : pageViews) {
-                    if (!(p instanceof androidx.compose.ui.platform.ComposeView)) {
-                        p.setPadding(0, 0, 0, pad);
+        // 底部导航是原生 View：云控 ui_show_nav=0 / ui_hide=nav 时整条不创建，
+        // 并把 Compose 的底距归零（否则页面底部会留一条 108dp 的空白带）。
+        boolean showNav = com.mineways.cloud.UiFlags.show(com.mineways.cloud.UiFlags.NAV);
+        if (showNav) {
+            // 先把玻璃栏建好，NavHost 落位时目的地回调就能同步它
+            glassNav = new LiquidGlassNav(this);
+            // 背板源必须是 NavHost，不是 content：content 里还装着导航栏自己，
+            // 把父容器整个画进快照 = 玻璃把自己的上一帧又采一遍，边缘会发暗、发死。
+            glassNav.setBackdropSource(host);
+            // ui_accent 也要管到导航栏：选中态用它，未选中仍是 60% 白
+            glassNav.setColors(com.mineways.ui.MwViews.style(this).accent, DIM2);
+            // 标签由玻璃栏自己用 Compose 画（图标 + 文字）——只有画在 Compose 层里，
+            // 滑块的玻璃才能把图标文字录进背景，拖动时边缘扫过它们才会折射、模糊
+            glassNav.setTabs(TAB_ICONS, TAB_TITLES);
+            glassNav.setSelected(currentTab, false);
+            // 手指拖动高亮块松手 → 切页（玄戒 onDragStopped → onTabSelected）
+            glassNav.setOnTabSelectedListener(index -> selectTab(index, true));
+            glassNav.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, orr, ob) -> {
+                int pad = v.getHeight() + dp(28);      // 栏高 + 一点余量，最后一行不会被胶囊压住
+                if (pad != pageBottomPad) {
+                    pageBottomPad = pad;              // 胶囊悬浮：页面底距随时跟栏高走
+                    // Compose 页不能设 View padding（onMeasure 会扣掉，背景就画不到栏下面），
+                    // 改成写进 MwInsets，由页面自己作用在 LazyColumn 的 contentPadding 上。
+                    com.mineways.ui.MwInsets.bottomNavDp.setIntValue(
+                            Math.round(pad / getResources().getDisplayMetrics().density));
+                    for (View p : pageViews) {
+                        if (!(p instanceof androidx.compose.ui.platform.ComposeView)) {
+                            p.setPadding(0, 0, 0, pad);
+                        }
                     }
                 }
-            }
-        });
-        FrameLayout.LayoutParams nlp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        nlp.gravity = Gravity.BOTTOM;
-        content.addView(glassNav, nlp);
+            });
+            FrameLayout.LayoutParams nlp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            nlp.gravity = Gravity.BOTTOM;
+            content.addView(glassNav, nlp);
+        } else {
+            glassNav = null;
+            pageBottomPad = dp(28);
+            com.mineways.ui.MwInsets.bottomNavDp.setIntValue(0);
+        }
+
+        // 播放悬浮条挂在内容层之上（导航栏之后 = 永远浮在页面上），切到任何页签都还在。
+        // 背景采的是 host 那块页面视图 —— 和玻璃导航栏同一套快照路子，折射的确实是页面本身。
+        musicFloat = new com.mineways.ui.MwMusicFloat(this);
+        musicFloat.setBackdropSource(host);
+        content.addView(musicFloat, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         // 官方 Navigation：NavHostFragment + nav_graph（每页一个 PageFragment，单实例 + 保状态）
         NavHostFragment navHost = (NavHostFragment) getSupportFragmentManager()
@@ -640,7 +687,7 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
 
     /** 首页唯一的取数入口：内置登记表 + 云端新增条目，档位 / 显隐 / 文案都已经合并好。 */
     private List<HomeIndex.Item> items() {
-        return HomeIndex.build(this, rows(), catRows(), cloudStamp());
+        return HomeIndex.build(this, rows(this), catRows(), cloudStamp());
     }
 
     /** 每个页签的副标题：说清这一页要用得满足什么条件。 */
@@ -721,6 +768,53 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
         ScrollView sv = newPage();
         LinearLayout col = column();
         col.addView(sectionTitle("关于", "版本 " + versionName()));
+
+        // 设置分享：放在关于页最顶部，做成显眼卡片（导出 / 导入两个入口）
+        LinearLayout shareCard = new LinearLayout(this);
+        shareCard.setOrientation(LinearLayout.VERTICAL);
+        shareCard.setPadding(dp(16), dp(16), dp(16), dp(16));
+        shareCard.setBackground(round(PANEL, 14));
+        TextView shareTitle = new TextView(this);
+        shareTitle.setText("设置分享码");
+        shareTitle.setTextSize(18);
+        shareTitle.setTextColor(0xFFFFFFFF);
+        shareTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        shareCard.addView(shareTitle);
+        TextView shareSub = new TextView(this);
+        shareSub.setText("把本机的工具设置、词库、音源、PS 修图预设、建模 / 粒子预设一键做成码；也能粘贴别人的码快速复用。");
+        shareSub.setTextSize(13);
+        shareSub.setTextColor(DIM);
+        shareSub.setLineSpacing(dp(4), 1f);
+        shareSub.setPadding(0, dp(6), 0, dp(12));
+        shareCard.addView(shareSub);
+        LinearLayout shareRow = new LinearLayout(this);
+        shareRow.setOrientation(LinearLayout.HORIZONTAL);
+        TextView shareOut = textButton("分享我的设置", true);
+        shareOut.setOnClickListener(v -> {
+            mwFx();
+            Intent it = new Intent(MainActivity.this, com.mineways.share.ShareActivity.class);
+            it.putExtra("mode", "export");
+            startActivity(it);
+        });
+        shareRow.addView(shareOut);
+        TextView shareIn = textButton("导入分享码", false);
+        LinearLayout.LayoutParams shareInLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        shareInLp.leftMargin = dp(16);
+        shareIn.setLayoutParams(shareInLp);
+        shareIn.setOnClickListener(v -> {
+            mwFx();
+            Intent it = new Intent(MainActivity.this, com.mineways.share.ShareActivity.class);
+            it.putExtra("mode", "import");
+            startActivity(it);
+        });
+        shareRow.addView(shareIn);
+        shareCard.addView(shareRow);
+        LinearLayout.LayoutParams shareCardLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        shareCardLp.bottomMargin = dp(12);
+        col.addView(shareCard, shareCardLp);
+
 
         // 登录：三档身份（论坛 / Google / 微软）合成一个入口。
         // 旧版在这里并排两行 —— 社区授权登录、白名单账号登录，两个按钮各说各的登录态。
@@ -878,6 +972,9 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
         } else {
             sb.append("当前没有生效的云端配置，首页按内置默认运行。");
         }
+        // 网页工具的流量走本机代理（自带 HTTPDNS）；开没开、最近解析到哪台，直接写在这里，
+        // 出问题时不用连电脑看日志。
+        sb.append("\n网络加速：").append(com.mineways.net.WebViewProxy.status());
 
         TextView body = new TextView(this);
         body.setText(sb);
@@ -962,21 +1059,32 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             {"Chunker", "基岩版存档 → Java 版世界转换", "GPL-3.0", "https://github.com/hivemc/chunker"},
             {"Arnis v3.2.0", "真实世界地图生成内核（Rust，交叉编译成 libarnis.so）", "Apache-2.0", "https://github.com/louis-e/arnis"},
             {"OpenCut", "视频剪辑器（网页版整体内置，另加中文与手机横屏适配）", "MIT", "https://opencut.app"},
+            {"MCBE-4DGen", "4D 皮肤生成（PMX/VRM/GLB/OBJ 转基岩版皮肤包，网页整站按需下载）", "GPL-3.0-only", "https://github.com/XiaoYangx666/MCBE-4DGen"},
             {"Blockbench", "方块建模编辑器（内置网页版）", "MIT", "https://www.blockbench.net"},
             {"Snowstorm", "粒子编辑器（内置网页版）", "GPL-3.0-or-later", "https://github.com/JannisX11/snowstorm"},
+            {"MSCD", "音乐播放页整站（队列 / 歌词 / 界面沿用上游，声音改由原生播放）", "MIT", "https://github.com/ENA-QWQ/MSCD"},
             {"three.js r134", "模型预览渲染（含 OBJLoader / MTLLoader / OrbitControls）", "MIT", "https://threejs.org"},
+            {"jszip", "网页侧 ZIP 读写（皮肤包、材质包的导入导出）", "MIT · GPL-3.0 双许可", "https://github.com/Stuk/jszip"},
             {"Mine-imator 2.x", "动画引擎与素材（libmineimator.so）", "上游未附许可", "https://www.mine-imator.com/"},
             {"Qt 5.15.2", "Mine-imator 的 GUI 运行时（动态链接）", "LGPL-3.0 / GPL-2.0+", "https://www.qt.io"},
-            {"Assimp 6.x", "模型格式导入，编入 libfmtconv.so", "BSD-3-Clause", "https://assimp.org"},
+            {"Assimp 6.x", "模型格式导入，编入 libfmtconv.so；4D 皮肤生成的网页侧解析另用其 wasm 版", "BSD-3-Clause", "https://assimp.org"},
+            {"YSMParser", "YSM 模型解密与 Blockbench 工程还原（arm64-v8a JNI）", "MIT", "https://github.com/OpenYSM/YSMParser"},
             {"zstd 1.5.x", "压缩解压，编入 libfmtconv.so", "BSD-3-Clause", "https://github.com/facebook/zstd"},
             {"lodepng", "PNG 读写", "zlib", "https://lodev.org/lodepng/"},
             {"stb_image", "图片解码", "Public Domain / MIT", "https://github.com/nothings/stb"},
             {"region.cpp", "Minecraft region 文件读取（Ryan Hitchman, 2011）", "BSD-2-Clause", ""},
             {"mediabunny", "OpenCut 在浏览器内导出 MP4 / WebM", "MPL-2.0", "https://mediabunny.dev"},
             {"onnxruntime-web · transformers.js", "OpenCut 的 AI 能力（抠图等）", "MIT · Apache-2.0", "https://onnxruntime.ai/docs/tutorials/web"},
+            {"OpenAI Whisper", "剪辑器的语音转写（内置 onnx-community/whisper-base 导出）", "代码 MIT；权重按上游模型条款", "https://huggingface.co/onnx-community/whisper-base"},
+            {"Arnis v3.2.0", "真实世界地图生成内核（Rust，交叉编译成 libarnis.so）", "Apache-2.0", "https://github.com/louis-e/arnis"},
+            {"PureLandscape", "风景增强引擎（com.zeus.landscape，33 个文件原样引入）", "⚠ 上游未附许可", ""},
+            {"PhotoCraft", "修图引擎（Rust + egui + wgpu，编译成 libphotocraft_android.so）", "见上游", ""},
+            {"地图底图数据", "真实世界地图的底图 / 地形（运行期请求，安装包内不含任何底图数据）", "© OpenStreetMap contributors（ODbL）等", "https://www.openstreetmap.org/copyright"},
             {"Shizuku API", "系统级能力调用", "见上游", "https://shizuku.rikka.app"},
-            {"AndroidX · Material Components", "界面基础库", "Apache-2.0", "https://developer.android.com/jetpack/androidx"},
+            {"AndroidX · Material · Jetpack Compose", "界面基础库", "Apache-2.0", "https://developer.android.com/jetpack/androidx"},
+            {"Backdrop · shapes", "液态玻璃界面（实时背景折射与模糊、玻璃按钮与导航栏背板）", "Apache-2.0", "https://github.com/Kyant0/AndroidLiquidGlass"},
             {"云间列车", "WebGL2 动画背景（原始 shader 作者 mdb）", "维护者已获授权", "https://github.com/Rice-dog/code-codex"},
+            {"界面背景照片", "关于页与首页的星空雪山底图", "Unsplash License", "https://unsplash.com/photos/blue-mountain-and-clear-sky-during-golden-hour-photo-1519681393784-d120267933ba"},
     };
 
     private void addCredits(LinearLayout col) {
@@ -1179,9 +1287,25 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
      * 内置登记表 → 首页模型要的原始行。这里<b>只搬数据、不做判断</b>：档位、显隐、文案覆盖、
      * 图标、Intent 全部由 {@link HomeIndex} 与云端门面决定，所以配置改动能一次贯通所有页面。
      */
-    static List<HomeIndex.Row> rows() {
+    static List<HomeIndex.Row> rows(android.content.Context c) {
         List<HomeIndex.Row> out = new ArrayList<>();
         for (String[] r : LOCAL_TOOLS) {
+            // 显隐统一由云控配置决定（astrbot_cfg.enabled，兼容旧 astrbot_on）
+            if ("astrbot".equals(r[2]) && !com.mineways.astrbot.AstrBotEnv.enabled(c)) {
+                continue;
+            }
+            // 搞机工具箱：gjgjx_on=0 时入口整条隐藏（云端一票下架）
+            if ("gjgjx".equals(r[2]) && !com.mineways.gjgjx.GjgjxFlags.on(c)) {
+                continue;
+            }
+            // 棱镜玩机：prism_on=0 时入口整条隐藏；子功能由 prism_<id> / prism_risk 控制
+            if ("prism".equals(r[2]) && !com.mineways.prism.PrismFlags.on(c)) {
+                continue;
+            }
+            // YSM 解密：ysm_on=0 整条入口隐藏；页面内还会再拦一次
+            if ("ysm".equals(r[2]) && !com.mineways.cloud.CloudFlags.bool("ysm_on", true)) {
+                continue;
+            }
             out.add(new HomeIndex.Row(r[0], r[1], r[2], r[3],
                     r.length > 4 ? r[4] : "", false, ""));
         }
@@ -1686,6 +1810,12 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             toast("该功能尚未上架");
             return;
         }
+        // 第二道兜底：首页已按 ui_hide_pages 跳过，但历史任务/深链仍可能带着旧 Item 进来
+        if (com.mineways.cloud.UiFlags.pageHidden(tool.pageKey)
+                || com.mineways.cloud.UiFlags.pageHidden(tool.title)) {
+            toast("这个功能页已被云端关闭");
+            return;
+        }
         if (!tool.usable) {
             new androidx.appcompat.app.AlertDialog.Builder(this)
                     .setTitle("这个功能暂时不可用")
@@ -1823,6 +1953,10 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             glassNav.setSelected(idx, true);
             glassNav.refreshBackdrop();
         }
+        // 悬浮条跟着换页：背景得换成新页那块内容，位置也要重新贴一次边
+        if (musicFloat != null) {
+            musicFloat.refresh();
+        }
     }
 
     // ---------------------------------------------------------------- 页面（供 PageFragment 调用）
@@ -1907,9 +2041,12 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
         com.mineways.ui.MwTabMeta meta = new com.mineways.ui.MwTabMeta();
         meta.title = TAB_TITLES[index];
         String hint = tabHint(index);
-        meta.hint = hint == null ? mwCountLine(pool) : hint;
-        meta.stats = mwCountLine(pool);
-        meta.searchHint = index == 0 ? "搜功能、站点、分类（如：皮肤 / 存档 / 光影）" : "";
+        String h = hint == null ? mwCountLine(pool) : hint;
+        // ui_hide_desc=1 时整段说明都不下发；ui_desc_tab_<n>_hint / _stats / _search 可单独改文案
+        meta.hint = com.mineways.cloud.UiFlags.desc("tab_" + index + "_hint", h);
+        meta.stats = com.mineways.cloud.UiFlags.desc("tab_" + index + "_stats", mwCountLine(pool));
+        meta.searchHint = com.mineways.cloud.UiFlags.desc("tab_" + index + "_search",
+                index == 0 ? "搜功能、站点、分类（如：皮肤 / 存档 / 光影）" : "");
         if (index <= 1) {
             java.util.List<String> cats = new ArrayList<>();
             cats.add("全部");
@@ -1989,7 +2126,8 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             java.util.List<HomeIndex.Item> tools) {
         com.mineways.ui.MwBlock block = new com.mineways.ui.MwBlock();
         block.title = title;
-        block.subtitle = subtitle;
+        block.subtitle = com.mineways.cloud.UiFlags.desc(
+                "group_" + com.mineways.cloud.UiFlags.key(title), subtitle);
         block.trailing = tools.size() + " 项";
         block.grid = true;
         java.util.List<com.mineways.ui.MwCell> cells = new ArrayList<>();
@@ -2005,7 +2143,9 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
     private com.mineways.ui.MwCell mwCell(HomeIndex.Item tool, int number) {
         com.mineways.ui.MwCell cell = new com.mineways.ui.MwCell();
         cell.title = tool.title;
-        cell.sub = tool.sub;
+        // 单条副标题：ui_hide_desc 总关；ui_desc_tool_<pageKey> 单独覆盖
+        cell.sub = com.mineways.cloud.UiFlags.desc(
+                "tool_" + tool.pageKey, tool.sub);
         cell.iconRes = tool.icon;
         cell.index = number;
         cell.item = tool;
@@ -2038,9 +2178,11 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
     public com.mineways.ui.MwTabMeta aboutMeta() {
         com.mineways.ui.MwTabMeta meta = new com.mineways.ui.MwTabMeta();
         meta.title = "关于";
-        meta.hint = "版本 " + versionName() + " · 内置 " + LOCAL_TOOLS.length
-                + " 个本机功能 · 收录 " + WEB_TOOLS.length + " 个在线工具";
-        meta.stats = com.mineways.cloud.CloudCatalog.status();
+        meta.hint = com.mineways.cloud.UiFlags.desc("about",
+                "版本 " + versionName() + " · 内置 " + LOCAL_TOOLS.length
+                        + " 个本机功能 · 收录 " + WEB_TOOLS.length + " 个在线工具");
+        meta.stats = com.mineways.cloud.UiFlags.desc("about_stats",
+                com.mineways.cloud.CloudCatalog.status());
         meta.searchHint = "";
         meta.categories = java.util.Collections.emptyList();
         return meta;
@@ -2088,13 +2230,24 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             cloud.add(mwValue("旧版本清理", com.mineways.cloud.CloudCatalog.pruneNote()
                     + "，腾出 " + (com.mineways.cloud.CloudCatalog.droppedBytes() / 1024L) + " KB"));
         }
+        // 音乐：音源、探活结果、脚本状态都摊在这；判错了不用抓 log
+        cloud.add(mwValue("音乐播放", com.mineways.music.MusicSources.statusLine(this)));
+        // 网页适配（CSS/JS）：这一版给页面注了什么、有没有正文没拉到，直接写在这行；
+        // 在首次告知里关掉的功能，也从这一行重新打开。
+        com.mineways.ui.MwCell adapt = new com.mineways.ui.MwCell();
+        adapt.title = "网页适配（CSS / JS）";
+        adapt.sub = com.mineways.AdaptInject.statusLine(this);
+        adapt.actionLabel = com.mineways.AdaptInject.userOff(this) ? "重新打开" : "关闭";
+        adapt.action = com.mineways.ui.MwUiHost.ACTION_ADAPT_TOGGLE;
+        cloud.add(adapt);
         com.mineways.cloud.FeatureCatalog.Result raw =
                 com.mineways.cloud.CloudCatalog.gate().raw();
         if (raw != null) {
             cloud.add(mwValue("这份配置动了什么", "生效 " + raw.applied + " 条 · 写错 " + raw.issues.size()
                     + " 条 · 本机不适用 " + raw.notes.size() + " 条 · 隐藏 " + raw.hidden.size()
                     + " · 改档 " + raw.tiers.size() + " · 开关 " + raw.flags.size()
-                    + " · 词条 " + com.mineways.cloud.CloudCatalog.gate().translationCount()));
+                    + " · 词条 " + com.mineways.cloud.CloudCatalog.gate().translationCount()
+                    + " · 适配 " + raw.adapts.size()));
         }
         if (raw != null && !raw.issues.isEmpty()) {
             for (int i = 0; i < raw.issues.size() && i < 20; i++) {
@@ -2104,7 +2257,6 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
         }
         com.mineways.ui.MwCell refresh = new com.mineways.ui.MwCell();
         refresh.title = "云端配置";
-        refresh.sub = "每次启动都会拉清单核对；配置改了不用重装 App。";
         refresh.actionLabel = "立即刷新";
         refresh.action = com.mineways.ui.MwUiHost.ACTION_REFRESH;
         refresh.primary = true;
@@ -2112,24 +2264,20 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
         if (GlassPolicy.hasChoice(this)) {
             com.mineways.ui.MwCell glass = new com.mineways.ui.MwCell();
             glass.title = "玻璃效果的机型选择";
-            glass.sub = "你这台机器被云控命中过「询问是否降低」，已经选过一次了。"
-                    + "想改主意就清掉，下次进页面会再问一次。";
+            glass.sub = "已选择过";
             glass.actionLabel = "重新选择";
             glass.action = com.mineways.ui.MwUiHost.ACTION_GLASS_RESET;
             glass.primary = true;
             cloud.add(glass);
         }
-        out.add(mwTextBlock("云端配置", "这一页的显示与功能都由它指挥；云控说退回旧界面也能退回", cloud));
+        com.mineways.ui.MwBlock cloudBlock = mwTextBlock("云端配置", null, cloud);
+        cloudBlock.expandable = true;
+        out.add(cloudBlock);
 
         // 说明与社区
         java.util.List<com.mineways.ui.MwCell> links = new ArrayList<>();
-        com.mineways.ui.MwCell body = new com.mineways.ui.MwCell();
-        body.title = "这个 App";
-        body.sub = getString(R.string.about_body).replace('\n', ' ');
-        links.add(body);
         com.mineways.ui.MwCell join = new com.mineways.ui.MwCell();
         join.title = getString(R.string.about_join_btn);
-        join.sub = "反馈、提需求、看更新";
         join.actionLabel = "加入";
         join.action = com.mineways.ui.MwUiHost.ACTION_JOIN;
         join.primary = true;
@@ -2156,8 +2304,9 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             cell.action = com.mineways.ui.MwUiHost.ACTION_OPEN_URL;
             credits.add(cell);
         }
-        out.add(mwTextBlock("开源项目鸣谢",
-                "下面这些项目作为源码或静态资源内置，权利归原作者；点击可打开上游", credits));
+        com.mineways.ui.MwBlock creditsBlock = mwTextBlock("开源项目鸣谢", null, credits);
+        creditsBlock.expandable = true;
+        out.add(creditsBlock);
 
         // 收录网站：一百多家全列会把关于页拉得看不到底，所以按板块分组、默认折叠，和旧版一致。
         // 取数同样只走 HomeIndex —— 云端下架过的站点不会再从这里冒出来。
@@ -2208,7 +2357,8 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             java.util.List<com.mineways.ui.MwCell> cells) {
         com.mineways.ui.MwBlock block = new com.mineways.ui.MwBlock();
         block.title = title;
-        block.subtitle = subtitle;
+        // 关于页的分组说明不再画：标题 + 行本身已经说明结构
+        block.subtitle = null;
         block.trailing = null;
         block.grid = false;
         block.cells = cells;
@@ -2291,6 +2441,12 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             case com.mineways.ui.MwUiHost.ACTION_GLASS_RESET:
                 GlassPolicy.reset(this);
                 toast("已清掉选择，下次进入功能页会再问一次");
+                recreate();
+                break;
+            case com.mineways.ui.MwUiHost.ACTION_ADAPT_TOGGLE:
+                // 告知弹窗里关掉的功能要能在这里原样打开，不然只能清除应用数据
+                com.mineways.AdaptInject.setUserOff(this, !com.mineways.AdaptInject.userOff(this));
+                toast(com.mineways.AdaptInject.lastDiag());
                 recreate();
                 break;
             default:

@@ -5,12 +5,28 @@
     <!-- Shizuku 提权：允许本应用在用户授权后通过 Shizuku 以更高权限运行 shell，
          以便读取 Minecraft 沙箱外的存档（基岩版 /Android/data/ 目录）。 -->
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+    <!-- 「搞机工具箱」通过 OTG 以 USB 主机身份连接目标设备并跑 ADB，缺少 USB Host 支持的设备不提供该功能 -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <!-- PhotoCraft 用 wgpu 渲染，真机优先 Vulkan 1.1+；声明成可选，GLES-only 设备也能装（
+         GPU 不可用时引擎会退回 CPU 画布，不会白屏） -->
+    <uses-feature android:name="android.hardware.vulkan.version"
+        android:version="0x401000"
+        android:required="false" />
     <!-- Blockbench 在线网页版加载需要网络 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 动捕实时采集（MediaPipe Pose） -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- 读取系统连通性。WebView 的 navigator.onLine 由底层 ConnectivityManager 推导，
          缺少本权限时可能恒定误报为 false，会连带影响 Blockbench 商店列表的填充
          与内置插件加载时的网络探测；同时本应用展示联网状态也需要它。 -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 故事墙的定向条件要判断"本机装了某个包"。Android 11+ 默认看不到别的应用，
+         而包名是云控下发的、没法写死 <queries>，所以只能声明这条普通权限。
+         注意：它是 protectionLevel=normal，安装即授予，没有运行时弹窗 ——
+         不要试图用 requestPermissions 去"申请"它，那不会弹任何东西。 -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
     <!-- 把 Blockbench 导出的模型写入公共“下载”目录。Android 10+ 走 MediaStore 不需要权限，
          仅 Android 8/9 需要它；未授权时导出会退回应用私有目录，文件不会丢。 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
@@ -24,6 +40,30 @@
          Android 13+ 读非媒体文件只能靠「所有文件访问」这个开关，授权页会跳设置。 -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
+
+    <!-- 音乐：前台服务后台放歌 + 锁屏/通知栏控制 + 播放时不让 CPU 睡 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 人工确认窗要能盖在别的 App 上：Android 14+ 没这条会被降级成横幅通知（仍能点进确认窗）。 -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- 「安全守护」要读前台切换与使用记录（判"没人碰但界面自己在动"归属到哪个包）。
+         这条是 appop，声明了还要授权：优先用 Shizuku 自授，没授权就退到系统"使用情况访问"列表。
+         两者都拿不到时，媒体豁免与行为终筛一律按"不豁免"保守处理，功能页会把这一位标成未就绪。 -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- 「安全守护」跨重启续状态：Lockdown / 静默模式 / 累计触发数 / 复活监测目标，
+         靠开机广播接回来。只恢复保护与监测，不会在开机时自动断网。 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 系统级悬浮条（用户可在音乐页菜单里开/关；没授权时只影响这一项） -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- 棱镜玩机：没有 Shizuku 时仍能读写 settings 三张表（动画倍率/不锁屏/极暗等）。
+         这条权限没有运行时弹窗，只能由 Shizuku 或 adb 授予：
+         adb shell pm grant com.mineways android.permission.WRITE_SECURE_SETTINGS -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
 
     <!-- Android 11+ 的包可见性：不声明这段，resolveActivity()/queryIntentActivities()
          一律返回 null，App 就会误判成"这台设备没有文件选择器"（实际系统文件管理器、
@@ -75,6 +115,117 @@
             </intent-filter>
         </activity>
 
+        <!-- 故事墙：内容读仓库根目录 story.txt，10 分钟生效，不用发版。
+             入口是首页那条金色横幅，由云控 story_off / story_hide 控制；
+             也能被 ENTRY add activity=StoryWallActivity 挂成普通卡片。 -->
+        <!-- 360 全景视频：全景图 → 4K 360 MP4（带球形元数据） -->
+        <activity
+            android:name=".vr.PanoActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode" />
+
+        <!-- PhotoCraft 修图：Rust + egui + wgpu 引擎，整套界面由 libphotocraft_android.so 的
+             android_main 在独立线程自绘。启动闸门先判断 ABI（本产物只有 arm64-v8a），
+             不支持时给提示，不进入 GameActivity 以免 UnsatisfiedLinkError 崩掉。 -->
+        <!-- 动作捕捉：相机 → MediaPipe Pose 33 点 → 五骨骼 .animation.json。
+             采集要相机权限；横屏给全景取景（人占画面 60% 以上才够精度）。 -->
+        <activity
+            android:name="com.mineways.mocap.MocapActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode" />
+
+        <!-- 棱镜玩机：按本机系统（澎湃 / OriginOS / ColorOS / 通用）自动裁剪功能表。
+             所有写操作走 Shizuku 或 WRITE_SECURE_SETTINGS，并带 original_* 备份与回读校验。 -->
+        <activity
+            android:name=".prism.PrismActivity"
+            android:exported="false"
+            android:label="棱镜玩机"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden" />
+
+        <!-- YSM 解密：OpenYSM/YSMParser JNI，仅 arm64-v8a 打包内核 -->
+        <activity
+            android:name=".ysm.YsmActivity"
+            android:exported="false"
+            android:label="YSM 解密"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden" />
+
+        <!-- 棱镜玩机 · 屏幕体检：纯色/灰阶/触控网格，全屏沉浸、无权限、不联网 -->
+        <activity
+            android:name=".prism.PrismScreenTestActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden" />
+
+        <!-- 棱镜玩机 · 隐藏系统通知：snoozeNotification 3 年（可逆）。
+             用户必须在系统「通知使用权」里勾选本应用，服务才会绑定。 -->
+        <service
+            android:name=".prism.PrismNotificationService"
+            android:exported="true"
+            android:label="棱镜玩机 · 通知管理"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <activity
+            android:name=".PhotoCraftActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode" />
+
+        <!-- androidx.games 的 GameActivity 是原生胶水的入口（继承 AppCompatActivity，必须用 AppCompat 主题）。
+             这里声明的是它的子类 PhotoCraftGameActivity：原生胶水仍然拿 this 当 activity 句柄，
+             但多出来的 onActivityResult 用来接 SAF 打开/另存为，再把结果通过 JNI 推回 Rust。
+             android.app.lib_name 是去掉 lib 前缀与 .so 后缀的库名。 -->
+        <activity
+            android:name=".PhotoCraftGameActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode|smallestScreenSize|density|fontScale|layoutDirection|locale|mcc|mnc|touchscreen"
+            android:theme="@style/Theme.AppCompat.NoActionBar">
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="photocraft_android" />
+        </activity>
+
+        <activity
+            android:name=".StoryWallActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode" />
+
+        <!-- 音乐播放器：网页壳（MSCD, MIT）+ 原生播放/通知栏/悬浮条。
+             入口由云控 music_on 控制，没下发时首页不出现。 -->
+        <activity
+            android:name=".music.MusicActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode|keyboardHidden" />
+
+        <service
+            android:name=".music.MusicService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!-- AstrBot 机器人：部署/运行都挂前台服务，锁屏保活 -->
+        <service
+            android:name=".astrbot.AstrBotService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
+            android:name=".music.MusicOverlay"
+            android:exported="false" />
+
         <!-- 旧启动墙：读另一个仓库（Mineways-Gate）根目录的文件计数。已不作为入口，保留代码备查。 -->
         <activity
             android:name=".CloudGateActivity"
@@ -89,12 +240,27 @@
             android:theme="@style/Theme.MinewaysMobile"
             android:configChanges="orientation|screenSize|uiMode" />
 
+        <activity
+            android:name="com.mineways.astrbot.AstrBotActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode|keyboardHidden" />
+
         <!-- 莱茵生命终端（RhineLabUI，MIT）：站点打包在 assets/rhinelab，WebView 离线运行 -->
         <activity
             android:name=".RhineLabActivity"
             android:exported="false"
             android:theme="@style/Theme.MinewaysMobile"
             android:configChanges="orientation|screenSize|uiMode" />
+
+        <!-- 4DGen 皮肤生成（GPL-3.0）：站点 13 MB 不随包分发，首开按需下载到 filesDir，
+             横屏工作台（模型预览 + 参数面板），需要大屏横向空间 -->
+        <activity
+            android:name=".FourDGenActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.MinewaysMobile.WebTool"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden" />
 
         <!-- 工具箱主界面：底部导航 全部 / 免费功能 / 付费功能 / 限制功能 / 关于（纯 UI 外壳） -->
         <activity
@@ -110,6 +276,15 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|uiMode" />
 
+        <!-- 设置分享：把本机工具设置做成分享码，或导入别人的码 -->
+        <activity
+            android:name="com.mineways.share.ShareActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden" />
+
         <!-- 网页工具容器（Minecraft 在线资源，全部免费） -->
         <activity
             android:name=".WebToolActivity"
@@ -123,6 +298,15 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
             android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- 搞机工具箱（Web 移植版离线页 + 原生 USB 桥，OTG 连机跑 ADB） -->
+        <activity
+            android:name="com.mineways.gjgjx.GjgjxActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:label="搞机工具箱" />
 
         <!-- OBJ 自动贴图预览（全屏 WebView + 内置离线 WebGL 查看器 assets/objviewer） -->
         <activity
@@ -348,6 +532,82 @@
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
             android:theme="@style/Theme.MinewaysMobile"
             android:label="文件修复" />
+
+        <!-- 日志诊断：日志包 → 自动识别 18 类来源 → 中文诊断报告（引擎 com.ember.logan，全离线） -->
+        <activity
+            android:name="com.mineways.logan.LogAnalyzerActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:label="日志诊断" />
+
+        <!-- 「安全守护」：检测"没人碰屏幕但界面自己在动"（远程操控 / 自动点击器）。
+             功能页 + 真人按压确认窗 + 事件源无障碍服务 + 复活监测广播。 -->
+        <activity
+            android:name="com.mineways.guardlink.GuardLinkActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:label="安全守护" />
+
+        <!-- 人工确认窗：FIRED 后进入系统主界面时由无障碍服务拉起，必须能盖在锁屏上。
+             singleTop + 不吃返回键（返回键不该成为绕过真人确认的出口）。 -->
+        <activity
+            android:name="com.mineways.guardlink.GuardConfirmActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:showOnLockScreen="true"
+            android:configChanges="orientation|screenSize|uiMode"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:label="安全守护 · 人工确认" />
+
+        <!-- 触摸与窗口事件的唯一来源。配置里 canRetrieveWindowContent=false：只收时序，不读屏幕内容。 -->
+        <service
+            android:name="com.mineways.guardlink.GuardAccessibilityService"
+            android:exported="true"
+            android:label="安全守护"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/guard_accessibility" />
+        </service>
+
+        <!-- 常驻服务：进程活得住 + 定时把守护与无障碍拉回来（再生能力，可用 guard_regen 关）。
+             通知压到最低优先级、不响、不进角标；dataSync 类型沿用 AstrBotService 的先例。 -->
+        <service
+            android:name="com.mineways.guardlink.GuardService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- 复活监测：卸载嫌疑包后同名包又被装回来。Android 13+ 对普通应用收窄了包变更广播，
+             收不到时功能页有「查安装来源」手动补位，不会谎称已确认干净。 -->
+        <receiver
+            android:name="com.mineways.guardlink.GuardRebirthReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 跨重启续状态：开机后把 Lockdown / 静默模式 / 累计触发数 / 复活监测接回来。
+             静态注册（API33 起动态注册的包变更/开机广播收不到）。厂商 ROM 还要在
+             「自启动管理」里放行本应用，否则这条广播根本不发 —— 功能页的引导里有说明。 -->
+        <receiver
+            android:name="com.mineways.guardlink.GuardBootReceiver"
+            android:exported="false"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!-- 我的作品：列出 Mine-imator 工作室产出的视频/图片，保存到相册 / 分享 / 打开 -->
         <activity

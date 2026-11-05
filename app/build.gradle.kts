@@ -97,7 +97,20 @@ android {
         // Tailwind 那个 131KB 的 CSS，于是 WebView 里渲染出的是无样式空壳，
         // 控件全挤成一堆，表现就是「手机上按钮点不到」。
         // 这里覆盖默认规则：只继续屏蔽隐藏文件与版本控制目录，放行下划线目录。
-        ignoreAssetsPattern = "!.svn:!.git:!.hg:!.cvsignore:.*:!Thumbs.db:!desktop.ini:!*.iml"
+        //
+        // 另外把 opencut 排除掉：那套视频剪辑素材有 28606 个文件 / 344 MB，
+        // 只有真用剪辑的人才需要，不该让所有下载者一起扛。改由
+        // com.mineways.assets.AssetPacks 在第一次打开剪辑页时按需下载
+        // （仓库 151shi23/AshenFlameAssets，压缩后 108 MB）。
+        // 调试内置版：加 -PkeepOpencut=true
+        val keepOpencut = (project.findProperty("keepOpencut") as String?) == "true"
+        val assetRules = "!.svn:!.git:!.hg:!.cvsignore:.*:!Thumbs.db:!desktop.ini:!*.iml"
+        ignoreAssetsPattern = if (keepOpencut) assetRules
+                else "$assetRules:!opencut:!minigame:!rhinelab"
+        // 动捕模型（MediaPipe .task）必须**不压缩**：tasks-vision 用 AAssetManager 的
+        // 文件描述符直接 mmap 模型，deflate 过的 asset 拿不到 fd → 加载直接失败。
+        // 实测默认打包是 method 8（30.6MB → 28.5MB），模型必然"启动不起来"。
+        noCompress += "task"
     }
 
     packagingOptions {
@@ -108,6 +121,12 @@ android {
             useLegacyPackaging = true
             // libarnis.so 是可执行文件不是共享库，别让 AGP 拿 strip 去动它（会破坏 ELF 入口）
             keepDebugSymbols += "**/libarnis.so"
+            // YSM 官方预编译 JNI：已经 strip，别再让 AGP 动它
+            keepDebugSymbols += "**/libYSMParserJNI.so"
+            // libphotocraft_android.so 是 108 MB 的 Rust 引擎（NDK r28 构建、LOAD 段 16 KB 对齐），
+            // 导出符号 android_main / GameActivity_onCreate 由 Java 胶水按名字查找；
+            // 让 AGP 别重写这份 ELF，既省一次整库 strip，也避免破坏页对齐。
+            keepDebugSymbols += "**/libphotocraft_android.so"
         }
     }
 }
@@ -129,6 +148,9 @@ kotlin {
 }
 
 dependencies {
+    // YSM（Yes Steve Model）解密：OpenYSM/YSMParser 官方 JNI 封装 + arm64-v8a 预编译库
+    implementation(files("libs/YSMParserJNI.jar"))
+
     // ── Compose + 液态玻璃原库（玄戒工具箱用的就是这套，效果由它的 AGSL 着色器算）──
     // 2026-10-17 按 liquid-glass 技能的基线升到 backdrop 2.0.0（KMP 包，Android 侧把
     // org.jetbrains.compose.* 映射到 androidx compose 1.11.0，所以核心跟着从 1.10.3 进 1.11.0）。
@@ -168,6 +190,20 @@ dependencies {
     implementation("androidx.documentfile:documentfile:1.0.1")
     // WebViewAssetLoader / WebViewCompat：用于离线加载内置 Blockbench 网页版
     implementation("androidx.webkit:webkit:1.10.0")
+
+    // 动捕：MediaPipe Pose Landmarker（Apache-2.0）+ CameraX。
+    // 模型随包放 assets/pose_landmarker_heavy.task（29MB），代码按 heavy>full>lite 自动取最高档。
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+    val camerax = "1.4.2"
+    implementation("androidx.camera:camera-core:$camerax")
+    implementation("androidx.camera:camera-camera2:$camerax")
+    implementation("androidx.camera:camera-lifecycle:$camerax")
+    implementation("androidx.camera:camera-view:$camerax")
+    // PhotoCraft 修图：整套界面与引擎都是 Rust + egui + wgpu 的原生实现
+    // （libphotocraft_android.so 里的 android_main 在独立线程自绘），
+    // Java 侧只需要 androidx.games 的 GameActivity 生命周期胶水。
+    // 注意：不要开 prefab / 再链一份 GameActivity C++ 胶水，会与 .so 内的符号重复定义。
+    implementation("androidx.games:games-activity:4.4.0")
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
     // Blender 离线渲染：.deb / Blender 官方包都是 .tar.xz，java.util.zip 只有 deflate/gzip，
