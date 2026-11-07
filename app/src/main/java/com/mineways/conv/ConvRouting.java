@@ -27,7 +27,7 @@ public final class ConvRouting {
 
     public enum Kind {IMAGE, AUDIO, MODEL, OTHER}
 
-    public enum Engine {PLATFORM, NATIVE, FFMPEG, BLENDER}
+    public enum Engine {PLATFORM, NATIVE, FFMPEG, BLENDER, PMX}
 
     /** 一个「可以转成什么」。 */
     public static final class Target {
@@ -62,6 +62,8 @@ public final class ConvRouting {
                 return "ffmpeg";
             case BLENDER:
                 return "Blender";
+            case PMX:
+                return "PMX 内核";
             default:
                 return "平台";
         }
@@ -74,7 +76,7 @@ public final class ConvRouting {
     private static final String[] AUDIO_IN = {"mp3", "m4a", "aac", "flac", "opus", "ogg", "oga", "wav",
             "amr", "3gp", "wma", "aiff", "aif", "mka", "ape", "mp2"};
     private static final String[] MODEL_IN = {"blend", "obj", "gltf", "glb", "fbx", "stl", "ply", "dae",
-            "3ds", "md2", "md3", "objnomtl", "assbin", "assxml"};
+            "3ds", "md2", "md3", "objnomtl", "assbin", "assxml", "pmx", "zip"};
 
     public static String extOf(File f) {
         final String n = f == null ? "" : f.getName().toLowerCase(Locale.ROOT);
@@ -130,6 +132,9 @@ public final class ConvRouting {
             if (n >= 12 && h[4] == 'f' && h[5] == 't' && h[6] == 'y' && h[7] == 'p') return "mp4";
             if (h[0] == 'g' && h[1] == 'l' && h[2] == 'T' && h[3] == 'F') return "glb";
             if (h[0] == 'B' && h[1] == 'L' && h[2] == 'E' && h[3] == 'N') return "blend";
+            // PMX 2.0 魔数："PMX " + float 2.0（小端 00 00 00 40）
+            if (h[0] == 'P' && h[1] == 'M' && h[2] == 'X' && h[3] == ' ') return "pmx";
+            if (h[0] == 'P' && h[1] == 'K' && h[2] == 3 && h[3] == 4) return "zip";
             return "";
         } catch (Throwable t) {
             return "";
@@ -193,6 +198,18 @@ public final class ConvRouting {
             add(out, "ogg2", Engine.FFMPEG, false, "Vorbis 编码（与平台 Opus 版不同）",
                     ff ? null : "需要先装「ffmpeg 工具」");
         } else if (kind == Kind.MODEL) {
+            // 压缩包先看里面是不是 PMX；PMX 不走 Assimp，走纯 Java 的 PMX 内核
+            String effective = srcExt;
+            if ("zip".equals(srcExt)) {
+                String inner = ModelArchive.pickName(src);
+                String ie = inner == null ? "" : extOf(new File(inner));
+                if ("pmx".equals(ie)) effective = "pmx";
+            }
+            if ("pmx".equals(effective)) {
+                add(out, "glb", Engine.PMX, true,
+                        "PMX 专用通道：骨骼/Skin、材质、顶点与 UV morph、贴图原字节嵌入单文件 GLB", null);
+                return out;
+            }
             // 原生（Assimp）双向：以编译进去的导入/导出器为准
             addModelTargets(c, out, srcExt);
             add(out, "blend", Engine.BLENDER, false,
@@ -228,15 +245,9 @@ public final class ConvRouting {
         list.add(t);
     }
 
-    /** 规则说明（页面顶部那一段，解释引擎分工）。 */
+    /** 规则说明（页面顶部那一段，保持两行，细节交给按钮状态）。 */
     public static String rules() {
-        return "规则（就三条）：\n"
-                + "① 目标只列这个源文件真能转的格式，按钮上标了引擎；不支持的直接不显示，不用试错。\n"
-                + "② 标「平台/原生」的是本机自带的，一定不失败；标「看机型」的是系统编码器，个别机型可能没有。\n"
-                + "③ 标「ffmpeg / Blender」的要用扩展引擎（在 Blender 渲染页装一次即可），"
-                + "装它就是补 Android 缺的那些编码器（MP3、GIF 等）。\n"
-                + "\n"
-                + "为什么有的格式天生单向：Android 只提供「解码器」，不提供 MP3 / GIF 编码器，"
-                + "Assimp 也没有 .blend 导出器 —— 这些方向不是没做，是得靠外挂引擎补。";
+        return "只列当前文件可转的格式；灰色 = 本机缺组件。\n"
+                + "PMX 把 .pmx 和 tex/ 一起打成 zip，贴图才会嵌进 GLB。";
     }
 }

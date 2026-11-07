@@ -20,12 +20,16 @@ import android.widget.Toast;
 import androidx.core.content.FileProvider;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 /**
  * 格式转换（新工具）：图片 / 音频 / 模型 三类互转。
@@ -68,18 +72,6 @@ public class FormatConvertActivity extends Activity {
     private LinearLayout rulesBox;
     private List<ConvRouting.Target> routeTargets = new ArrayList<>();
 
-    /** 三个引擎当前就绪情况（让"规则"看得见）。 */
-    private String engineStatus() {
-        final boolean ff = ConvRouting.ffmpegReady(this);
-        final boolean bl = ConvRouting.blenderReady(this);
-        return "  平台（Bitmap/MediaCodec）：就绪\n"
-                + "  原生（Assimp/stb）：" + (FmtConv.available() ? "就绪" : "不可用：" + FmtConv.loadError()) + "\n"
-                + "  ffmpeg：" + (ff ? "就绪（补充 MP3/GIF/FLAC 等编码器）"
-                : "未安装 → 缺的方向会显示「需先装 ffmpeg 工具」") + "\n"
-                + "  Blender：" + (bl ? "就绪（补 .blend 输出、全格式导出）"
-                : "未安装 → 模型转 .blend 会显示「需先装 Blender 环境」");
-    }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -104,8 +96,7 @@ public class FormatConvertActivity extends Activity {
         root.addView(title);
 
         final TextView sub = new TextView(this);
-        sub.setText("图片 / 音频 / 模型 互转。模型支持 Assimp 全家桶，**.blend 也能读**"
-                + "（压缩过的会先 zstd/gzip 解开）。");
+        sub.setText("图片、音频、模型互转。模型支持 PMX → GLB、.blend、OBJ、STL 等。");
         sub.setTextColor(DIM);
         sub.setTextSize(13f);
         sub.setLineSpacing(dp(4), 1f);
@@ -173,7 +164,7 @@ public class FormatConvertActivity extends Activity {
         rulesBox.setOrientation(LinearLayout.VERTICAL);
         rulesBox.setVisibility(View.GONE);
         final TextView rules = new TextView(this);
-        rules.setText(ConvRouting.rules() + "\n\n" + "引擎状态：\n" + engineStatus());
+        rules.setText(ConvRouting.rules());
         rules.setTextColor(0xFFB9C4CF);
         rules.setTextSize(12.5f);
         rules.setTextIsSelectable(true);
@@ -184,13 +175,13 @@ public class FormatConvertActivity extends Activity {
         root.addView(rulesBox);
 
         final Button btnRules = new Button(this);
-        btnRules.setText("规则 / 支持方向说明（点开）");
+        btnRules.setText("说明");
         btnRules.setAllCaps(false);
         btnRules.setTextSize(13f);
         btnRules.setOnClickListener(v -> {
             final boolean show = rulesBox.getVisibility() != View.VISIBLE;
             rulesBox.setVisibility(show ? View.VISIBLE : View.GONE);
-            btnRules.setText(show ? "收起说明" : "规则 / 支持方向说明（点开）");
+            btnRules.setText(show ? "收起" : "说明");
         });
         root.addView(btnRules);
 
@@ -205,6 +196,7 @@ public class FormatConvertActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         ilp.topMargin = dp(14);
         tvInfo.setLayoutParams(ilp);
+        tvInfo.setVisibility(View.GONE);
         root.addView(tvInfo);
 
         tvReport = new TextView(this);
@@ -262,41 +254,33 @@ public class FormatConvertActivity extends Activity {
         outBox.removeAllViews();
         produced.clear();
         tvReport.setText("");
-        tvInfo.setText("还没选文件。选完后：自动切到对应类别，并只列出这个文件真能转成的格式。");
+        tvInfo.setText("");
+        tvInfo.setVisibility(View.GONE);
         rebuildTargets();
     }
 
-    /** 按已选文件生成目标按钮（含引擎标注 / 是否可用 / 失败原因）。 */
+    /** 按已选文件生成目标按钮；不可用的只置灰，点一下再解释原因。 */
     private void rebuildTargets() {
         formatRow.removeAllViews();
+        tvTargetLabel.setText("目标格式");
         if (picked == null || !picked.isFile()) {
-            tvTargetLabel.setText("目标格式（选文件后，这里只列这个文件真能转的）");
-            final TextView hint = new TextView(this);
-            hint.setText("先在上面选文件");
-            hint.setTextColor(DIM);
-            hint.setTextSize(13f);
-            hint.setPadding(0, dp(4), 0, dp(4));
-            formatRow.addView(hint);
             btnGo.setEnabled(false);
             return;
         }
-        final ConvRouting.Kind kind = ConvRouting.kindOf(picked);
         routeTargets = ConvRouting.targetsFor(this, picked);
         if (routeTargets.isEmpty()) {
-            tvTargetLabel.setText("目标格式");
             final TextView hint = new TextView(this);
-            hint.setText("认不出这个源文件（类别：" + kind + "）。图片/音频/模型之外的先不支持。");
-            hint.setTextColor(ACCENT);
+            hint.setText("不支持");
+            hint.setTextColor(DIM);
             hint.setTextSize(13f);
             formatRow.addView(hint);
             btnGo.setEnabled(false);
             return;
         }
-        tvTargetLabel.setText("目标格式（共 " + routeTargets.size() + " 个方向，标了引擎）");
         String first = "";
         for (ConvRouting.Target t : routeTargets) {
             final Button b = new Button(this);
-            b.setText(t.label());
+            b.setText(t.ext.toUpperCase(Locale.ROOT));
             b.setAllCaps(false);
             b.setTextSize(13f);
             b.setPadding(dp(14), dp(8), dp(14), dp(8));
@@ -315,8 +299,6 @@ public class FormatConvertActivity extends Activity {
                 b.setOnClickListener(v -> {
                     targetExt = t.ext;
                     rebuildTargets();
-                    tvReport.setText("目标：" + t.label()
-                            + (t.note == null || t.note.isEmpty() ? "" : "（" + t.note + "）"));
                 });
             }
             formatRow.addView(b);
@@ -472,33 +454,18 @@ public class FormatConvertActivity extends Activity {
                 : kind == ConvRouting.Kind.MODEL ? TAB_MODEL : tab;
         if (want != tab) {
             applyTabLook(want);
-            toast("已按文件类型切到「" + (want == TAB_AUDIO ? "音频" : want == TAB_MODEL ? "模型" : "图片") + "」");
         }
         final StringBuilder sb = new StringBuilder();
-        sb.append("已选择：").append(pickedName)
-                .append("（").append(human(picked.length())).append("）\n");
-        sb.append("类别：").append(kind == ConvRouting.Kind.IMAGE ? "图片"
-                : kind == ConvRouting.Kind.AUDIO ? "音频"
-                : kind == ConvRouting.Kind.MODEL ? "模型" : "其它（暂不支持）").append('\n');
-        final String sniffKind = FmtConv.available() ? FmtConv.sniff(picked.getAbsolutePath()) : "";
-        if (sniffKind.length() > 0) {
-            sb.append("原生内核探测到：").append(sniffKind).append('\n');
-        }
-        if (tab == TAB_IMAGE) {
-            sb.append(ImageConvert.info(picked));
-        } else if (tab == TAB_MODEL && sniffKind.startsWith("blend")) {
-            sb.append("这是 Blender 工程：\n")
-              .append("· 转成别的格式（obj/glb…）走原生 Assimp，快，但复杂节点/修改器会丢；\n")
-              .append("· 要保真：目标选 .blend（走真 Blender）或去 Blender 渲染页的工程工具导出。");
-        } else if (tab == TAB_MODEL && !FmtConv.available()) {
-            sb.append("原生内核不可用：").append(FmtConv.loadError());
+        sb.append(pickedName).append(" · ").append(human(picked.length()));
+        if (isPmxName(pickedName) && !ModelArchive.isZip(picked, pickedName)) {
+            sb.append('\n').append("贴图请和 .pmx 一起打成 zip");
         }
         tvInfo.setText(sb.toString());
+        tvInfo.setVisibility(View.VISIBLE);
         btnPick.setText("换个文件");
-        rebuildTargets();          // 只列这个文件真能转的方向
+        rebuildTargets();
         btnGo.setEnabled(!targetExt.isEmpty());
-        tvReport.setText(targetExt.isEmpty() ? "这个文件没有可用的转换方向。"
-                : "选好目标格式后点「开始转换」（当前：" + targetExt.toUpperCase(Locale.ROOT) + "）。");
+        tvReport.setText("");
     }
 
     // ---------------------------------------------------------------- 转换
@@ -523,7 +490,15 @@ public class FormatConvertActivity extends Activity {
                     runOnUiThread(() -> tvReport.setText(msg));
                     return;
                 }
-                final String base = stripExt(pickedName);
+                String base = stripExt(pickedName);
+                // 压缩包用里面的模型名命名产物：xxx.zip → 菲欧妮.glb，而不是整个包名
+                if (ModelArchive.isZip(in, pickedName)) {
+                    final String inner = ModelArchive.pickName(in);
+                    if (inner != null) {
+                        final int slash = inner.lastIndexOf('/');
+                        base = stripExt(slash >= 0 ? inner.substring(slash + 1) : inner);
+                    }
+                }
                 // ogg2 只是路由里的"ffmpeg 的 Vorbis 版"，落盘还是 .ogg
                 final String diskExt = "ogg2".equals(ext) ? "ogg" : ext;
                 final File out = new File(dir, base + "." + diskExt);
@@ -547,8 +522,28 @@ public class FormatConvertActivity extends Activity {
                     final AudioConvert.Result r = AudioConvert.convert(in, out, diskExt);
                     finishConvert(out, r.message, r.ok);
                 } else {
-                    final FmtConv.Result r = FmtConv.convertModel(in.getAbsolutePath(), out.getAbsolutePath());
-                    finishConvert(out, r.message, r.ok);
+                    File modelIn = in;
+                    File unpackDir = null;
+                    try {
+                        if (ModelArchive.isZip(in, pickedName)) {
+                            unpackDir = modelTop(in);
+                            modelIn = ModelArchive.unpack(in, unpackDir);
+                            final String shown = modelIn.getName();
+                            runOnUiThread(() -> tvReport.setText("压缩包已解开：" + shown + "，正在转换…"));
+                        }
+                        if (isPmxName(modelIn.getName())) {
+                            final File assetRoot = unpackDir != null ? unpackDir : modelIn.getParentFile();
+                            final PmxConvert.Result r = PmxConvert.convert(modelIn, out, assetRoot);
+                            finishConvert(out, r.message, r.ok);
+                        } else {
+                            final FmtConv.Result r = FmtConv.convertModel(modelIn.getAbsolutePath(), out.getAbsolutePath());
+                            finishConvert(out, r.message, r.ok);
+                        }
+                    } catch (Throwable e2) {
+                        finishConvert(out, "压缩包处理失败：" + (e2.getMessage() == null ? e2.toString() : e2.getMessage()), false);
+                    } finally {
+                        if (unpackDir != null) ModelArchive.deleteTree(unpackDir);
+                    }
                 }
             }
         }, "fmt-convert").start();
@@ -654,6 +649,14 @@ public class FormatConvertActivity extends Activity {
         }
     }
 
+    // ---------------------------------------------------------------- 压缩包
+
+    /** 解压到 cache/fmtin/unz_<hash>（和 ModelArchive 配合；用完整个删掉）。 */
+    private File modelTop(File zip) {
+        String key = zip.getName() + ":" + zip.length();
+        return new File(new File(getCacheDir(), "fmtin"), "unz_" + Math.abs(key.hashCode()));
+    }
+
     // ---------------------------------------------------------------- 文件工具
 
     private File copyToWork(Uri uri, String name) throws Exception {
@@ -708,6 +711,10 @@ public class FormatConvertActivity extends Activity {
         }
         final String p = uri.getLastPathSegment();
         return p == null ? "file" : p;
+    }
+
+    private static boolean isPmxName(String name) {
+        return name != null && name.toLowerCase(Locale.ROOT).endsWith(".pmx");
     }
 
     private static String stripExt(String name) {
