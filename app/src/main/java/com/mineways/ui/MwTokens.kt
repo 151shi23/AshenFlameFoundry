@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.mineways.cloud.CloudCatalog
+import com.mineways.cloud.UiFlags
 
 /**
  * 界面重构的唯一设计源：颜色、圆角、间距、字号、时长全部从这里出，界面代码里不许再写十六进制色。
@@ -150,6 +151,21 @@ object MwTokens {
             val legacyHome: Boolean,
             /** 云控里到底有没有动过这些值 —— 状态面板要说清是出厂还是下发。 */
             val fromCloud: Boolean,
+            // ---- 界面控件显隐（ui_show_* / ui_hide）与说明文字（ui_hide_desc / ui_desc_*）----
+            val showTopBar: Boolean = true,
+            val showSearch: Boolean = true,
+            val showAi: Boolean = true,
+            val showQuick: Boolean = true,
+            val showCats: Boolean = true,
+            val showIntro: Boolean = true,
+            val showFooter: Boolean = true,
+            val showStory: Boolean = true,
+            val showVideo: Boolean = true,
+            val showEmpty: Boolean = true,
+            val descIntro: String = "",
+            val descFooter: String = "",
+            val descAbout: String = "",
+            val descVisible: Boolean = true,
     )
 
     fun spec(context: Context): Spec {
@@ -190,6 +206,20 @@ object MwTokens {
                 refractDp = refract,
                 legacyHome = "legacy".equals(home, ignoreCase = true),
                 fromCloud = cloud,
+                showTopBar = UiFlags.show(UiFlags.TOPBAR),
+                showSearch = UiFlags.show(UiFlags.SEARCH),
+                showAi = UiFlags.show(UiFlags.AI),
+                showQuick = UiFlags.show(UiFlags.QUICK),
+                showCats = UiFlags.show(UiFlags.CATS),
+                showIntro = UiFlags.show(UiFlags.INTRO),
+                showFooter = UiFlags.show(UiFlags.FOOTER),
+                showStory = UiFlags.show(UiFlags.STORY),
+                showVideo = UiFlags.show(UiFlags.VIDEO),
+                showEmpty = UiFlags.show(UiFlags.EMPTY),
+                descIntro = UiFlags.desc(UiFlags.INTRO, ""),
+                descFooter = UiFlags.desc(UiFlags.FOOTER, ""),
+                descAbout = UiFlags.desc("about", ""),
+                descVisible = UiFlags.descVisible(),
         )
     }
 

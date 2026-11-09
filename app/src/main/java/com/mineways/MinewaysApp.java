@@ -1,13 +1,19 @@
 package com.mineways;
 
 import android.app.Application;
+import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -26,6 +32,28 @@ public class MinewaysApp extends Application {
     private static final String TAG = "MinewaysGlobalError";
     private static final String CLIP_LABEL = "MinewaysError";
 
+    /** 前台 Activity 计数：到 0 表示用户已经离开软件。 */
+    private int started;
+
+    /** 离开软件时按「有权限就开」的约定挂系统悬浮条；回前台立刻收起。 */
+    private void overlayOnBackground() {
+        try {
+            if (!com.mineways.music.MusicCtl.active()) return;
+            if (!com.mineways.music.MusicSources.overlayOn(this)) return;
+            if (!com.mineways.music.MusicSources.backgroundAllowed(this)) return;
+            if (Build.VERSION.SDK_INT >= 23
+                    && !android.provider.Settings.canDrawOverlays(this)) {
+                return;   // 没给「显示在其他应用上层」就不打扰
+            }
+            com.mineways.music.MusicOverlay.start(this);
+        } catch (Throwable t) {
+            Log.w(TAG, "overlay start failed", t);
+        }
+    }
+
+    /** 本进程是否已经拾取过待展示的错误日志（只弹一次）。 */
+    private boolean pickedUp = false;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -34,7 +62,28 @@ public class MinewaysApp extends Application {
          * 先把功能清单登记进门面，再启动云端配置。顺序反过来的话，解析器面对一张空清单，
          * 每一条 id= 都会报「找不到功能」，那些假错误会留在关于页面板上，看起来像配置写坏了。
          */
-        com.mineways.home.HomeIndex.register(MainActivity.rows(), MainActivity.catRows());
+        // 机型/包名云控条件要用的包列表：在任何界面/配置求值之前注入。
+        // 安装/卸载后立刻失效缓存并重建界面，ui_hide_*_pkgs 不必等重启。
+        com.mineways.cloud.PkgProbe.init(this);
+        try {
+            IntentFilter pkgFilter = new IntentFilter();
+            pkgFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
+            pkgFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
+            pkgFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
+            pkgFilter.addAction(Intent.ACTION_PACKAGE_CHANGED);
+            pkgFilter.addDataScheme("package");
+            ContextCompat.registerReceiver(this, new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    com.mineways.cloud.CloudCatalog.onPackagesChanged();
+                }
+            }, pkgFilter, ContextCompat.RECEIVER_NOT_EXPORTED);
+        } catch (Throwable ignored) {
+        }
+        com.mineways.home.HomeIndex.register(MainActivity.rows(this), MainActivity.catRows());
+        // 棱镜玩机的功能表也登记进门面：云端才能用 FEAT hide/disable/label/pin 统一控制，
+        // 而不是只认 prism_<id> 这种私有键。同样必须早于 CloudCatalog.init。
+        com.mineways.prism.PrismFeatures.registerCloud();
 
         /*
          * 云端功能目录在这里启动：Application 先于所有 Activity，任何入口（更新门槛页、
@@ -50,10 +99,31 @@ public class MinewaysApp extends Application {
          */
         com.mineways.ui.MwChrome.install(this);
 
+        /*
+         * 日志只有一个出口：files/logs（app.log 流水 + last-error.txt 最近一次错误）。
+         * 装兜底处理器 + 绑定 application context，所有模块都往这里写、都用 AppLog 的复制实现。
+         * 必须在任何可能出错的东西之前（CloudCatalog/MwChrome 之后、界面之前）。
+         */
+        com.mineways.AppLog.bind(this);
+        com.mineways.AppLog.init(this);
+
         registerActivityLifecycleCallbacks(new android.app.Application.ActivityLifecycleCallbacks() {
             @Override
             public void onActivityResumed(android.app.Activity activity) {
+                /*
+                 * 任何入口（更新门槛页/云控页/首页/工具页）第一次回到前台时，
+                 * 把上一轮没看过的错误日志弹出来并自动复制 —— 不依赖具体哪个 Activity。
+                 */
+                if (!pickedUp) {
+                    pickedUp = true;
+                    com.mineways.AppLog.pickup(activity);
+                }
                 com.mineways.cloud.CloudCatalog.setUi(activity);
+                /*
+                 * 网页工具的稳定访问：把本进程 WebView 的流量接到本机代理（自带 HTTPDNS）。
+                 * 放在每次 resume 上，是为了让云控的 net_proxy_off 能中途生效，不用重启 App。
+                 */
+                com.mineways.net.WebViewProxy.sync(activity);
             }
 
             @Override
@@ -62,6 +132,11 @@ public class MinewaysApp extends Application {
 
             @Override
             public void onActivityStarted(android.app.Activity activity) {
+                started++;
+                if (started == 1) {
+                    // 回到软件里：系统条收起，改用应用内那条
+                    com.mineways.music.MusicOverlay.stop(MinewaysApp.this);
+                }
             }
 
             @Override
@@ -70,6 +145,10 @@ public class MinewaysApp extends Application {
 
             @Override
             public void onActivityStopped(android.app.Activity activity) {
+                started = Math.max(0, started - 1);
+                if (started == 0) {
+                    overlayOnBackground();
+                }
             }
 
             @Override

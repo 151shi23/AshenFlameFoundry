@@ -114,6 +114,9 @@ interface MwUiHost {
 
         /** 清掉「玻璃效果」的机型询问选择，下次进页面会重新问一次。 */
         const val ACTION_GLASS_RESET = 13
+
+        /** 「关于 → 云端配置」里网页适配（CSS/JS）的本机总闸开关。 */
+        const val ACTION_ADAPT_TOGGLE = 14
     }
 
     /** 界面参数（云控可覆盖）。 */

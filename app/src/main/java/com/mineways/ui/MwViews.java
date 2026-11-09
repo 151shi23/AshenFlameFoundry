@@ -93,16 +93,29 @@ public final class MwViews {
     /** 读云控覆盖；读不到就出厂值。 */
     public static Style style(Context ctx) {
         FeatureGate gate = CloudCatalog.gate();
-        S.accent = parseColor(gate.flag("ui_accent", ""), ACCENT);
-        S.radiusDp = clampInt(gate.flag("ui_radius", ""), S.radiusDp, 0, 32);
+        S.accent = parseColor(com.mineways.cloud.CloudFlags.str(gate, "ui_accent", ""), ACCENT);
+        S.radiusDp = com.mineways.cloud.CloudFlags.num(gate, "ui_radius", S.radiusDp, 0, 32);
         // 机型策略（ui_glass_models）优先：命中 off 就直接不画玻璃，命中 low 顺带关动效
-        S.glass = com.mineways.GlassPolicy.glassOn(ctx, !"0".equals(gate.flag("ui_glass", "")));
-        S.motion = !"0".equals(gate.flag("ui_motion", ""))
+        S.glass = com.mineways.GlassPolicy.glassOn(ctx,
+                com.mineways.cloud.CloudFlags.bool(gate, "ui_glass", true));
+        S.motion = com.mineways.cloud.CloudFlags.bool(gate, "ui_motion", true)
                 && !com.mineways.GlassPolicy.dropMotion();
-        S.flow = !"0".equals(gate.flag("ui_flow", ""))
+        S.flow = com.mineways.cloud.CloudFlags.bool(gate, "ui_flow", true)
                 && !com.mineways.GlassPolicy.dropFlow();
-        S.restyle = !"0".equals(gate.flag("ui_restyle", ""));
+        S.restyle = com.mineways.cloud.CloudFlags.bool(gate, "ui_restyle", true);
         return S;
+    }
+
+    /**
+     * 页面根底：纯黑 + 白色流光（{@code ui_flow=0} 时纯黑静底）。
+     * 给自己重铺整页的门槛页用，保证不依赖 MwChrome 的自动重写也能有底。
+     */
+    public static Drawable pageBackground(Context c) {
+        Style st = style(c);
+        if (!st.flow) {
+            return new android.graphics.drawable.ColorDrawable(BG);
+        }
+        return new FlowLightDrawable(c, st);
     }
 
     // ── 页面重写（由 MwChrome 在生命周期上触发）──────────────────────────────
@@ -115,6 +128,14 @@ public final class MwViews {
     public static void restyle(Activity act) {
         Style st = style(act);
         if (!st.restyle) {
+            return;
+        }
+        // 两个启动闸门页已经按同一套体系手工铺好（玻璃卡 + 胶囊按钮 + 流光底），
+        // 不再走遍历重写：遍历会按字号重刷文字色，主按钮的深色字会被刷成浅色而看不清。
+        final String gate = act.getClass().getSimpleName();
+        if ("UpdateGateActivity".equals(gate) || "CloudGateActivity".equals(gate)
+                || "AstrBotActivity".equals(gate) || "LogAnalyzerActivity".equals(gate)
+                || "GuardLinkActivity".equals(gate) || "GuardConfirmActivity".equals(gate)) {
             return;
         }
         View root = act.findViewById(android.R.id.content);
@@ -380,7 +401,10 @@ public final class MwViews {
 
     // ── 结构件：新页面骨架直接用 ────────────────────────────────────────────
 
-    /** 顶栏：小字类目 + 大标题 + 一句人话副标题（QQ/抖音详情页的头图节奏）。 */
+    /**
+     * 顶栏：小字类目 + 大标题。
+     * 第三参数保留是为了兼容旧调用；副标题不再渲染，页面结构自己说明功能。
+     */
     public static View header(Context c, String eyebrow, String title, String sub) {
         Style st = style(c);
         LinearLayout col = new LinearLayout(c);
@@ -402,15 +426,6 @@ public final class MwViews {
         t.setTextColor(TEXT);
         t.setPadding(0, dp(c, eyebrow == null || eyebrow.length() == 0 ? 0 : 6), 0, 0);
         col.addView(t);
-        if (sub != null && sub.length() > 0) {
-            TextView s = new TextView(c);
-            s.setText(sub);
-            s.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f);
-            s.setTextColor(TEXT_2);
-            s.setPadding(0, dp(c, 8), 0, 0);
-            s.setLineSpacing(dp(c, 3), 1.3f);
-            col.addView(s);
-        }
         return col;
     }
 

@@ -54,6 +54,11 @@
     <string name="tools_bb_repo_desc">查看 Blockbench 开源代码仓库（需网络）</string>
     <string name="tools_no_world">尚未加载存档。请先在“世界 3D 导出”中选择存档目录。</string>
 
+    <!-- PhotoCraft 修图（Rust + egui + wgpu，只有 arm64-v8a 产物） -->
+    <string name="photocraft_title">PhotoCraft 修图</string>
+    <string name="photocraft_unsupported">PhotoCraft 只提供 arm64-v8a 版本，这台设备的 CPU 架构（%1$s）跑不了。\n\n可以改用「风景增强」「GIF 工具」等内置的图片处理功能。</string>
+    <string name="photocraft_launch_failed">PhotoCraft 启动失败：%1$s</string>
+
     <!-- Blockbench 页标题 -->
     <string name="bb_online_title">Blockbench 在线版</string>
     <string name="bb_offline_title">Blockbench 离线版</string>
@@ -283,4 +288,7 @@
         <item>全显示（保留所有方块）</item>
         <item>强剔除（精简工程结构块）</item>
     </string-array>
+
+    <!-- 安全守护：无障碍服务在系统设置里给用户看的说明（必须说清它不读屏幕内容） -->
+    <string name="guard_a11y_description">只监听「有没有人在触摸屏幕」与「哪个窗口出现在前台」两类事件时序，不读取屏幕上显示的任何内容；用于检测手机被远程操控或自动点击，并在疑似被操控时把隐私应用踢回主界面、冻结嫌疑应用。保护窗口内还会暂时停用「不可信的无障碍服务」（大厂、银行、输入法、系统自带一律不动），停用列表在保护解除后原样还原；改动这些设置只走本机，不联网、不上传。</string>
 </resources>

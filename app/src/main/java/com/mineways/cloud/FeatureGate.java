@@ -593,6 +593,85 @@ public final class FeatureGate {
 	}
 
 	/**
+	 * 云端下发的安全守护豁免档位：小写包名 → {@code evidence|rank|irreversible}。
+	 * 语义解释在 {@code com.mineways.guardlink.GuardTrust}，这里只负责把 {@code PKG} 行取出来。
+	 */
+	public Map<String, String> pkgLevels() {
+		if (!active()) {
+			return Collections.emptyMap();
+		}
+		ensureResolved();
+		return new LinkedHashMap<>(catalog.pkgLevels);
+	}
+
+	/** 云端用 {@code PKG drop} 明确撤掉的包名（内置清单里的那条也就不生效了）。 */
+	public java.util.Set<String> pkgDropped() {
+		if (!active()) {
+			return Collections.emptySet();
+		}
+		ensureResolved();
+		return new java.util.LinkedHashSet<>(catalog.pkgDrops);
+	}
+
+	/** {@code PKG … name=} 给的展示名；没写返回空串，由调用方退回包名。 */
+	public String pkgName(String pkg) {
+		if (!active() || pkg == null) {
+			return "";
+		}
+		ensureResolved();
+		String v = catalog.pkgNames.get(pkg.toLowerCase(java.util.Locale.ROOT));
+		return v == null ? "" : v;
+	}
+
+	/**
+	 * 网页适配（{@code CSS}/{@code JS}）总闸。默认关。
+	 *
+	 * <p>开：{@code FLAG key=js_on to=1}；停：{@code FLAG key=js_off to=1}（或 {@code js_on=0}）。
+	 * 留一个反向闸是因为这是"配置能改页面行为"的能力，出事时要能一条指令停掉，
+	 * 而不是等到发版。灰度、时间窗、条件照旧用 {@code rollout= / from= / if=} 写在适配行上。
+	 */
+	public boolean adaptOn() {
+		if (!active()) {
+			return false;
+		}
+		ensureResolved();
+		if (truthy(catalog.flags.get("js_off"))) {
+			return false;
+		}
+		return truthy(catalog.flags.get("js_on"));
+	}
+
+	private static boolean truthy(String v) {
+		if (v == null) {
+			return false;
+		}
+		String t = FeatureCatalog.norm(v);
+		return "1".equals(t) || "true".equals(t) || "on".equals(t) || "yes".equals(t) || "y".equals(t)
+				|| "是".equals(t);
+	}
+
+	/**
+	 * 这个页面要套的适配规则（{@code kind} 传 {@code "css"} 或 {@code "js"}），已按 {@code order} 排好。
+	 * 总闸关着就返回空表 —— 调用方不需要各自再判一次开关。
+	 */
+	public List<FeatureCatalog.Adapt> adaptsFor(String kind, String host, String path) {
+		if (!active() || !adaptOn()) {
+			return Collections.emptyList();
+		}
+		ensureResolved();
+		return catalog.adaptsFor(kind, host, path);
+	}
+
+	/** 本次链里一共挂了多少条适配（状态面板用）。 */
+	public int adaptCount() {
+		if (!active()) {
+			return 0;
+		}
+		ensureResolved();
+		return catalog.adapts.size();
+	}
+
+	/**
 	 * 这个站点能用的译文表：全站通用词条（{@code host=*}）打底，站点专属词条覆盖它。
 	 *
 	 * <p>返回的表按<b>原文长度从长到短</b>排，注入页面的脚本因此会先试整句再试短语 ——
@@ -696,6 +775,11 @@ public final class FeatureGate {
 		ensureResolved();
 		for (Map.Entry<String, String> e : catalog.flags.entrySet()) {
 			v.put("flag_" + e.getKey(), e.getValue());
+			// 界面/棱镜键再提供一份不带 flag_ 的别名，规则里可以直接写
+			// if="ui_show_nav == 0" / if="prism_risk < 2"；其余键仍用 flag_xxx，避免和内置变量重名。
+			if (e.getKey().startsWith("ui_") || e.getKey().startsWith("prism_")) {
+				v.put(e.getKey(), e.getValue());
+			}
 		}
 		v.put("cloud_version", catalog.fileVersion);
 		v.put("cloud_chain", String.valueOf(catalog.chain.size()));

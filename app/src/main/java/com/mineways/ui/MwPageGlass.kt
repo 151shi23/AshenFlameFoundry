@@ -132,7 +132,13 @@ class MwPageGlass private constructor(private val act: Activity) {
                 "ObjPreviewActivity", "UpdateGateActivity", "CloudGateActivity")
 
         @JvmStatic
-        fun allowed(act: Activity): Boolean = !SKIP.contains(act.javaClass.simpleName)
+        fun allowed(act: Activity): Boolean {
+            // 云控 ui_show_pageglass=0 / ui_hide=pageglass 时，原生工具页不再套悬浮玻璃顶栏
+            if (!com.mineways.cloud.UiFlags.show(com.mineways.cloud.UiFlags.PAGEGLASS)) {
+                return false
+            }
+            return !SKIP.contains(act.javaClass.simpleName)
+        }
 
         @JvmStatic
         fun attach(act: Activity): Boolean = MwPageGlass(act).attach()

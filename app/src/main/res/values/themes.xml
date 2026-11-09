@@ -30,4 +30,15 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowFullscreen">true</item>
+    </style>
+
+    <!--
+      网页型本地工具页（4D 皮肤生成这类整页 WebView）用的主题：同样的绿带问题，
+      但页面自己有顶栏，不需要剪辑页那套窗口背景，所以单开一条。
+    -->
+    <style name="Theme.MinewaysMobile.WebTool" parent="Theme.MinewaysMobile">
+        <item name="android:windowBackground">@color/ember_bg_deep</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowFullscreen">true</item>
     </style></resources>

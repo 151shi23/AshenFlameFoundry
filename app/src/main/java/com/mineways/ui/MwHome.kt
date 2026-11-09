@@ -5,6 +5,10 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -200,6 +204,8 @@ fun MwHomeScreen(
         com.mineways.AiAccess.refreshAndAllowed(context) to com.mineways.ApiEnv.isDev()
     }
     val aiEnabled = aiAccess.first
+    /** 云控 ui_show_ai=0 时，入口、面板、长按问 AI 一起消失（不是只藏按钮）。 */
+    val aiVisible = aiEnabled && spec.showAi
     val aiDev = aiAccess.second
     val aiRipple = remember(aiGate) { aiGate.flag("ui_ai_ripple", "") != "0" }
     val aiHint = remember(aiGate) {
@@ -210,8 +216,9 @@ fun MwHomeScreen(
     // 全局开关：MainActivity 的返回键要靠它先收面板（而不是直接切页/退出）
     var aiOpen by MwAiBus.open
     // 面板展开时把底部导航栏藏掉 —— 它是后加进 FrameLayout 的，会压住全屏输入条
-    LaunchedEffect(aiOpen, aiEnabled) {
-        if (aiEnabled) {
+    LaunchedEffect(aiOpen, aiVisible) {
+        if (!aiVisible) aiOpen = false
+        if (aiVisible) {
             host.run(MwUiHost.ACTION_AI_OPEN, null, if (aiOpen) "1" else "0")
         }
     }
@@ -220,14 +227,14 @@ fun MwHomeScreen(
      * 关掉时长按就是没有这个手势（不是画了个按钮再禁用）。
      */
     val askCell: (MwCell) -> Unit =
-            if (aiEnabled && AiPolicy.entryAllowed(AiTools.FLAGS, AiPolicy.E_CARD)) {
+            if (aiVisible && AiPolicy.entryAllowed(AiTools.FLAGS, AiPolicy.E_CARD)) {
                 onAsk
             } else {
                 {}
             }
     /** 搜索没搜到时的「问 AI」兜底（`ai_entries_off=search` 可关）。 */
     val askSearch: (() -> Unit)? =
-            if (aiEnabled && AiPolicy.entryAllowed(AiTools.FLAGS, AiPolicy.E_SEARCH)) {
+            if (aiVisible && AiPolicy.entryAllowed(AiTools.FLAGS, AiPolicy.E_SEARCH)) {
                 {
                     MwAiBus.prefill.value = if (query.isBlank()) {
                         "帮我从这些功能里挑：我还说不清要哪一个"
@@ -259,9 +266,29 @@ fun MwHomeScreen(
         out
     }
 
-    val showQuick = query.isBlank() && quick.isNotEmpty()
-    val showCats = query.isBlank() && meta.categories.size > 1
-    val toolsIndex = 1 + (if (showQuick) 1 else 0) + (if (showCats) 1 else 0)
+    // 默认不挂说明条：只有云端专门下发了 ui_desc_intro 才显示，避免首页一进来就是一段解释。
+    val showIntro = spec.showIntro && spec.descVisible && spec.descIntro.isNotBlank()
+    val showVideo = uiVideos.isNotEmpty() && spec.showVideo
+    val showQuick = query.isBlank() && quick.isNotEmpty() && spec.showQuick
+    val showCats = query.isBlank() && meta.categories.size > 1 && spec.showCats
+    /*
+     * 故事墙横幅：内容在仓库根目录 story.txt，入口由云控按
+     * 机型 / 系统版本 / 本地已安装包 / 登录账号 共同决定（见 StoryGate）。
+     * 搜索态不显示，免得和搜索结果抢位置。
+     */
+    val storyShown = remember(query, spec.showStory) {
+        query.isBlank() && spec.showStory && com.mineways.StoryGate.allowed(context)
+    }
+    // 配了 story_pkg 但 Android 11+ 读不到应用列表时，弹一次说明。
+    // 注意：QUERY_ALL_PACKAGES 是普通权限，申请不了，这里只是把情况说清楚。
+    LaunchedEffect(Unit) {
+        (context as? android.app.Activity)?.let {
+            com.mineways.StoryGate.maybeAskPackageAccess(it)
+        }
+    }
+    // 工具区之前有几个 item：intro + 视频 + 故事墙 + 快捷 + 分类
+    val toolsIndex = (if (showIntro) 1 else 0) + (if (showVideo) 1 else 0) +
+            (if (storyShown) 1 else 0) + (if (showQuick) 1 else 0) + (if (showCats) 1 else 0)
 
     val sceneBd = rememberLayerBackdrop()
     val contentBd = rememberLayerBackdrop()
@@ -325,29 +352,49 @@ fun MwHomeScreen(
                 modifier = Modifier.fillMaxSize()
                         .then(contentModifier),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp,
-                        top = 142.dp, bottom = navPad + 26.dp),
+                        top = when {
+                            spec.showTopBar && spec.showSearch -> 142.dp
+                            spec.showTopBar -> 84.dp
+                            spec.showSearch -> 74.dp
+                            else -> 24.dp
+                        },
+                        bottom = navPad + 26.dp),
         ) {
-            item(key = "intro") {
-                Column(Modifier.then(rememberMwEnter(0, spec.motion, played))) {
-                    MwGlassPanel(sceneBd, spec, tier, Modifier.fillMaxWidth(),
-                            quality = MwGlassQuality.LITE, radius = spec.radius) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Box(Modifier.size(8.dp).clip(Capsule())
-                                    .background(spec.accent.copy(alpha = 0.9f)))
-                            BasicText(
-                                    meta.hint.ifEmpty { meta.stats },
-                                    style = MwType.body.copy(fontSize = 12.5.sp,
-                                            color = Color.White.copy(alpha = 0.78f)),
-                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (showIntro) {
+                item(key = "intro") {
+                    Column(Modifier.then(rememberMwEnter(0, spec.motion, played))) {
+                        MwGlassPanel(sceneBd, spec, tier, Modifier.fillMaxWidth(),
+                                quality = MwGlassQuality.LITE, radius = spec.radius) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Box(Modifier.size(8.dp).clip(Capsule())
+                                        .background(spec.accent.copy(alpha = 0.9f)))
+                                BasicText(
+                                        spec.descIntro.ifEmpty { meta.hint.ifEmpty { meta.stats } },
+                                        style = MwType.body.copy(fontSize = 12.5.sp,
+                                                color = Color.White.copy(alpha = 0.78f)),
+                                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
                         }
+                        Spacer(Modifier.height(6.dp))
                     }
-                    Spacer(Modifier.height(6.dp))
+                }
+            }
+            // 故事墙：一条窄横幅，比工具卡片矮，靠金色细条和金色标题区分
+            if (storyShown) {
+                item(key = "story") {
+                    Column(Modifier.then(rememberMwEnter(5, spec.motion, played))) {
+                        MwStoryBanner(spec, tier, sceneBd) {
+                            context.startActivity(android.content.Intent(
+                                    context, com.mineways.StoryWallActivity::class.java))
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
                 }
             }
             // 展示栏：云控下发的内嵌视频（B 站/抖音官方播放器），单条或多条轮播
-            if (uiVideos.isNotEmpty()) {
+            if (showVideo) {
                 item(key = "video") {
                     Column(Modifier.then(rememberMwEnter(1, spec.motion, played))) {
                         MwVideoPanel(uiVideos, spec, tier, sceneBd, context)
@@ -359,10 +406,8 @@ fun MwHomeScreen(
                 item(key = "quick") {
                     Column(Modifier.then(rememberMwEnter(2, spec.motion, played))) {
                         MwQuickPanel(quick, spec, tier, sceneBd, onCell, askCell,
-                                title = "快捷访问", trailing = "更多",
-                                onTrailing = {
-                                    scope.launch { listState.animateScrollToItem(toolsIndex) }
-                                }, accent = spec.accent)
+                                title = "", trailing = null, onTrailing = null,
+                                accent = spec.accent)
                     }
                 }
             }
@@ -374,7 +419,7 @@ fun MwHomeScreen(
                                     onRail(i)
                                     scope.launch { listState.animateScrollToItem(toolsIndex) }
                                 },
-                                title = "分类", accent = spec.accent)
+                                title = "", accent = spec.accent)
                     }
                 }
             }
@@ -390,9 +435,8 @@ fun MwHomeScreen(
                                     index == 0 -> "全部工具"
                                     else -> meta.title
                                 },
-                                subtitle = if (query.isNotBlank()) "匹配到 ${shownCells.size} 项" else null,
-                                trailing = if (rail > 0 || query.isNotBlank()) "清除"
-                                else "${shownCells.size} 项",
+                                subtitle = null,
+                                trailing = if (rail > 0 || query.isNotBlank()) "清除" else null,
                                 onTrailing = if (rail > 0 || query.isNotBlank()) {
                                     {
                                         onRail(0)
@@ -407,7 +451,7 @@ fun MwHomeScreen(
                     Spacer(Modifier.height(10.dp))
                 }
             }
-            if (shown.isEmpty()) {
+            if (shown.isEmpty() && spec.showEmpty) {
                 item(key = "empty") { MwEmptyPanel(query, askSearch) }
             } else {
                 itemsIndexed(shown, key = { i, b -> "g" + i + "-" + (b.title ?: "") }) { i, block ->
@@ -419,42 +463,52 @@ fun MwHomeScreen(
                     }
                 }
             }
-            item(key = "footer") {
-                Spacer(Modifier.height(6.dp))
-                MwGlassPanel(sceneBd, spec, tier, Modifier.fillMaxWidth(),
-                        quality = MwGlassQuality.LITE, radius = spec.radius) {
-                    BasicText("共 ${shownCells.size} 项 · 云端配置在启动时自动同步",
-                            style = MwType.caption.copy(textAlign = TextAlign.Center,
-                                    color = Color.White.copy(alpha = 0.6f)),
-                            modifier = Modifier.fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 10.dp))
+            if (spec.showFooter && spec.descVisible && spec.descFooter.isNotBlank()) {
+                item(key = "footer") {
+                    Spacer(Modifier.height(6.dp))
+                    MwGlassPanel(sceneBd, spec, tier, Modifier.fillMaxWidth(),
+                            quality = MwGlassQuality.LITE, radius = spec.radius) {
+                        BasicText(spec.descFooter.ifEmpty {
+                            "共 ${shownCells.size} 项 · 云端配置在启动时自动同步"
+                        },
+                                style = MwType.caption.copy(textAlign = TextAlign.Center,
+                                        color = Color.White.copy(alpha = 0.6f)),
+                                modifier = Modifier.fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp))
+                    }
                 }
             }
         }
         }
 
         // ③ 悬浮玻璃顶栏 + 搜索：折射照片与滚动内容
-        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp)) {
-            MwTopBar(
-                    title = if (index == 0) "工具箱" else meta.title,
-                    spec = spec, tier = tier, bd = chromeBd,
-                    actionIcon = Icons.Rounded.MoreHoriz,
-                    onAction = {
-                        if (aiEnabled) {
-                            aiOpen = true
-                        } else {
-                            host.run(MwUiHost.ACTION_ABOUT, null, null)
-                        }
-                    })
-            Spacer(Modifier.height(10.dp))
-            MwSearchField(query, onQuery,
-                    meta.searchHint.ifEmpty { "搜索功能、站点、分类" },
-                    spec, tier, chromeBd)
+        if (spec.showTopBar || spec.showSearch) {
+            Column(Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)) {
+                if (spec.showTopBar) {
+                    MwTopBar(
+                            title = if (index == 0) "工具箱" else meta.title,
+                            spec = spec, tier = tier, bd = chromeBd,
+                            actionIcon = Icons.Rounded.MoreHoriz,
+                            onAction = {
+                                if (aiVisible) {
+                                    aiOpen = true
+                                } else {
+                                    host.run(MwUiHost.ACTION_ABOUT, null, null)
+                                }
+                            })
+                }
+                if (spec.showTopBar && spec.showSearch) Spacer(Modifier.height(10.dp))
+                if (spec.showSearch) {
+                    MwSearchField(query, onQuery,
+                            meta.searchHint.ifEmpty { "搜索功能、站点、分类" },
+                            spec, tier, chromeBd)
+                }
+            }
         }
 
         // ④ AI 入口：暗场 + 液态玻璃水波纹 + 悬浮输入框（画在最上层，压住顶栏与列表）
-        if (aiEnabled) {
+        if (aiVisible) {
             MwAiOverlay(
                     visible = aiOpen,
                     onDismiss = { aiOpen = false },
@@ -623,7 +677,9 @@ private fun MwQuickPanel(
             quality = MwGlassQuality.FULL, radius = spec.radius) {
         // Box 会把所有子元素叠在一起：标题和内容必须包进同一个 Column
         Column(Modifier.fillMaxWidth()) {
-        MwPanelHeader(title, null, trailing, onTrailing, accent)
+        if (title.isNotEmpty() || trailing != null) {
+            MwPanelHeader(title, null, trailing, onTrailing, accent)
+        }
         Column(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 12.dp)) {
             var i = 0
             while (i < cells.size) {
@@ -713,7 +769,9 @@ private fun MwCategoryPanel(
     MwGlassPanel(bd, spec, tier, Modifier.fillMaxWidth(),
             quality = MwGlassQuality.FULL, radius = spec.radius) {
         Column(Modifier.fillMaxWidth()) {
-        MwPanelHeader(title, null, null, null, accent)
+        if (title.isNotEmpty()) {
+            MwPanelHeader(title, null, null, null, accent)
+        }
         Column(Modifier.fillMaxWidth().padding(8.dp)) {
             var i = 0
             while (i < labels.size) {
@@ -805,7 +863,7 @@ private fun MwGroupPanel(
     MwGlassPanel(bd, spec, tier, Modifier.fillMaxWidth(),
             quality = MwGlassQuality.FULL, radius = spec.radius) {
         Column(Modifier.fillMaxWidth()) {
-        MwPanelHeader(block.title ?: "", block.subtitle, block.trailing, null, spec.accent)
+        MwPanelHeader(block.title ?: "", null, null, null, spec.accent)
         Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)
                 .animateContentSize(spring(dampingRatio = 1f, stiffness = 320f))) {
             for (j in cells.indices) {
@@ -820,7 +878,7 @@ private fun MwGroupPanel(
     }
     if (collapsed) {
         Spacer(Modifier.height(8.dp))
-        MwExpandPill("展开其余 ${all.size - cells.size} 项", spec, tier, bd) { expanded = true }
+        MwExpandPill("展开", spec, tier, bd) { expanded = true }
     }
 }
 
@@ -945,8 +1003,6 @@ private fun MwEmptyPanel(query: String, onAsk: (() -> Unit)?) {
             IconVec(Icons.Rounded.Search, Color.White.copy(alpha = 0.45f), 26.dp)
             BasicText(if (query.isBlank()) "这一页还没有功能" else "没有找到「$query」",
                     style = MwType.headline)
-            BasicText(if (onAsk == null) "换个关键词，或点上面的分类看看"
-            else "换个关键词、点上面的分类，或者让 AI 替你在清单里挑", style = MwType.caption)
             if (onAsk != null) {
                 Spacer(Modifier.height(4.dp))
                 Box(Modifier.clip(Capsule())
@@ -1031,11 +1087,6 @@ internal fun MwPanelHeader(
         Column(Modifier.weight(1f)) {
             BasicText(title, style = MwType.title.copy(fontSize = 15.sp),
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (!subtitle.isNullOrEmpty()) {
-                BasicText(subtitle, style = MwType.caption,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp))
-            }
         }
         if (trailing != null) {
             val click = if (onTrailing != null) {
@@ -1420,6 +1471,54 @@ internal fun IconRes(id: Int, tint: Color, size: Dp = 20.dp,
     } else {
         Image(painter = painterResource(id), contentDescription = null,
                 modifier = modifier.size(size), colorFilter = ColorFilter.tint(tint))
+    }
+}
+
+/**
+ * 首页的「故事墙」横幅。
+ *
+ * 设计上刻意和工具卡片拉开距离，但只占一条窄条：
+ *  · 金色竖条 + 金色标题（工具卡片全是白字，一眼能认出来是"另一类东西"）；
+ *  · 高度只有工具卡片的一半，不抢视线；
+ *  · 竖条有一点点呼吸，`ui_motion=0` 或低端机时是静态的。
+ */
+@Composable
+private fun MwStoryBanner(
+        spec: MwTokens.Spec,
+        tier: MwTier,
+        bd: Backdrop?,
+        onClick: () -> Unit,
+) {
+    val accent = Color(0xFFFFC86B)
+    val glow: Float = if (spec.motion) {
+        val t = rememberInfiniteTransition(label = "story")
+        val a by t.animateFloat(
+                initialValue = 0.35f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                        animation = tween(2200, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse),
+                label = "storyGlow")
+        a
+    } else {
+        1f
+    }
+
+    MwGlassPanel(bd, spec, tier, Modifier.fillMaxWidth(),
+            quality = MwGlassQuality.LITE, radius = spec.radius, onClick = onClick) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.width(3.dp).height(30.dp).clip(Capsule())
+                    .background(accent.copy(alpha = 0.45f + 0.55f * glow)))
+            Column(Modifier.weight(1f)) {
+                BasicText("故事墙",
+                        style = MwType.headline.copy(fontSize = 14.sp, color = accent))
+            }
+            BasicText("›",
+                    style = MwType.headline.copy(fontSize = 22.sp,
+                            color = Color.White.copy(alpha = 0.42f)))
+        }
     }
 }
 

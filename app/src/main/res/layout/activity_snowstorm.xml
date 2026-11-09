@@ -1,43 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<!-- 粒子修改器独占全屏：标题栏去掉，网页铺满；进度与状态是覆盖层，不占页面高度。
+     状态条放**底部** —— 这个站点自己的工具栏在顶部，往上叠会挡住它的菜单按钮。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface"
-    android:orientation="vertical">
+    android:background="?attr/colorSurface">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/ss_toolbar"
+    <WebView
+        android:id="@+id/ss_webview"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorSurface"
-        app:title="@string/ss_title"
-        app:titleTextColor="?attr/colorOnSurface" />
+        android:layout_height="match_parent" />
 
     <ProgressBar
         android:id="@+id/ss_progress"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:indeterminate="true" />
+        android:layout_height="3dp"
+        android:indeterminate="true"
+        android:layout_gravity="top" />
 
     <TextView
         android:id="@+id/ss_status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/colorSurface"
+        android:layout_gravity="bottom"
+        android:background="#E614141A"
         android:paddingStart="16dp"
         android:paddingTop="6dp"
         android:paddingEnd="16dp"
         android:paddingBottom="6dp"
         android:text="@string/ss_status_loading"
-        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textColor="@color/white"
         android:textSize="12sp" />
 
-    <WebView
-        android:id="@+id/ss_webview"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-</LinearLayout>
+</FrameLayout>

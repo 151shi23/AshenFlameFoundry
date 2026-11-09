@@ -50,19 +50,36 @@ $hookOpenNew = '_.pickDirectory=o;' + "`n" + $helper.Trim() + "`n" + 'function r
 $anchorHelper = 'function a(s){try{s.dispatchEvent(new MouseEvent("click"))}'
 $anchorHelperNew = 'function a(s){try{if(window.MMSaveNative&&s&&s.download&&/^(blob|data):/i.test(s.href||"")&&window.MMSaveNative(s.href,s.download))return;s.dispatchEvent(new MouseEvent("click"))}'
 
+# B2~B4 用正则锚点：FileSaver 的压缩变量名每个版本都可能变（5.2.1 是 Ow，5.2.2 是 Lw），
+# 只认 "(0,<变量>.default)(参数…)" 这个调用形状，升级后无需再手改脚本。
 $edits = @(
-    @{ Name = 'A  商店列表不再依赖 navigator.onLine'; From = 'St.json instanceof Object&&navigator.onLine'; To = 'St.json instanceof Object' },
+    @{ Name = 'A  商店列表不再依赖 navigator.onLine';
+       From = 'St.json instanceof Object&&navigator.onLine'; To = 'St.json instanceof Object';
+       Forbid = 'St.json instanceof Object&&navigator.onLine' },
     @{ Name = 'B1 注入导出桥实现 + 暴露给下载层';      From = $hookOpen;     To = $hookOpenNew },
-    @{ Name = 'B2 图片 / data:URL 分支走文件桥';       From = '(0,Ow.default)(g.content,v,{})';        To = 'mmSaveToAndroid(g.content,v)||(0,Ow.default)(g.content,v,{})' },
-    @{ Name = 'B3 zip / buffer / binary 分支走文件桥'; From = '(0,Ow.default)(E,v)';                   To = 'mmSaveToAndroid(E,v)||(0,Ow.default)(E,v)' },
-    @{ Name = 'B4 文本分支（json / bbmodel 等）';      From = '(0,Ow.default)(y,v,{autoBOM:!0})';       To = 'mmSaveToAndroid(y,v)||(0,Ow.default)(y,v,{autoBOM:!0})' },
+    @{ Name = 'B2 图片 / data:URL 分支走文件桥';
+       Pattern = '\(0,[\w$]+\.default\)\(g\.content,v,\{\}\)';
+       Replacement = 'mmSaveToAndroid(g.content,v)||$&'; CheckPattern = 'mmSaveToAndroid\(g\.content,v\)\|\|' },
+    @{ Name = 'B3 zip / buffer / binary 分支走文件桥';
+       Pattern = '\(0,[\w$]+\.default\)\((z|E),v\)';
+       Replacement = 'mmSaveToAndroid($1,v)||$&'; CheckPattern = 'mmSaveToAndroid\((z|E),v\)\|\|' },
+    @{ Name = 'B4 文本分支（json / bbmodel 等）';
+       Pattern = '\(0,[\w$]+\.default\)\(y,v,\{autoBOM:!0\}\)';
+       Replacement = 'mmSaveToAndroid(y,v)||$&'; CheckPattern = 'mmSaveToAndroid\(y,v\)\|\|' },
     @{ Name = 'B5 游离锚点下载兜底走文件桥';           From = $anchorHelper; To = $anchorHelperNew }
 )
+
+# 判断某条补丁是否已生效：Forbid 看「锚点已彻底消失」，正则补丁看 CheckPattern，其余看替换结果
+function Test-Applied([string]$s, $e) {
+    if ($e.ContainsKey('Forbid')) { return -not $s.Contains($e.Forbid) }
+    if ($e.ContainsKey('CheckPattern')) { return ([regex]$e.CheckPattern).IsMatch($s) }
+    return $s.Contains($e.To)
+}
 
 # ---------------------------------------------------------------- 应用
 $pending = @()
 foreach ($e in $edits) {
-    if ($text.Contains($e.To)) { Write-Host ("  [已生效] " + $e.Name) -ForegroundColor DarkGray; continue }
+    if (Test-Applied $text $e) { Write-Host ("  [已生效] " + $e.Name) -ForegroundColor DarkGray; continue }
     $pending += $e
 }
 
@@ -78,6 +95,20 @@ if ($pending.Count -eq 0) {
     }
 
     foreach ($e in $pending) {
+        if ($e.ContainsKey('Pattern')) {
+            $rx = [regex]$e.Pattern
+            $count = $rx.Matches($text).Count
+            if ($count -eq 0) {
+                Write-Host ("  [跳过] " + $e.Name + "：未找到锚点（内核版本可能已变，请人工确认）") -ForegroundColor Yellow
+                continue
+            }
+            if ($count -gt 1) {
+                Write-Host ("  [注意] " + $e.Name + "：锚点出现 " + $count + " 次，将全部替换") -ForegroundColor Yellow
+            }
+            $text = $rx.Replace($text, $e.Replacement)
+            Write-Host ("  [写入] " + $e.Name + "  (x" + $count + ")") -ForegroundColor Cyan
+            continue
+        }
         $count = ([regex]::Matches($text, [regex]::Escape($e.From))).Count
         if ($count -eq 0) {
             Write-Host ("  [跳过] " + $e.Name + "：未找到锚点（内核版本可能已变，请人工确认）") -ForegroundColor Yellow
@@ -98,7 +129,7 @@ if ($pending.Count -eq 0) {
 $final = [System.IO.File]::ReadAllText($path)
 $ok = $true
 foreach ($e in $edits) {
-    if (-not $final.Contains($e.To)) { Write-Host ("  [缺失] " + $e.Name) -ForegroundColor Red; $ok = $false }
+    if (-not (Test-Applied $final $e)) { Write-Host ("  [缺失] " + $e.Name) -ForegroundColor Red; $ok = $false }
 }
 if ($ok) { Write-Host '补丁校验：全部到位。' -ForegroundColor Green }
 

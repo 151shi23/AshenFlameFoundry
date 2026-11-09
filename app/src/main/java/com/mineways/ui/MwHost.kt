@@ -34,7 +34,11 @@ object MwHost {
         val view = ComposeView(context)
         // 玻璃导航栏悬浮在内容之上，页面要能滚到它下面那片空白才算到底
         view.clipToPadding = false
-        view.setContent { content(host, bottomPadDp.dp) }
+        view.setContent {
+            // 播放悬浮条不再挂在这里：它挂在 Activity 的内容层上（见 MwMusicFloat），
+            // 这样切到任何页面都还在，而且只有一份、不会跟页面级玻璃抢同一棵树的录制。
+            content(host, bottomPadDp.dp)
+        }
         return view
     }
 }

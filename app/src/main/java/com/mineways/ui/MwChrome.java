@@ -95,7 +95,9 @@ public final class MwChrome implements Application.ActivityLifecycleCallbacks {
         }
         String name = act.getClass().getSimpleName();
         if ("MainActivity".equals(name) || "UpdateGateActivity".equals(name)
-                || "CloudGateActivity".equals(name)) {
+                || "CloudGateActivity".equals(name) || "AstrBotActivity".equals(name)
+                || "LogAnalyzerActivity".equals(name)
+                || "GuardLinkActivity".equals(name) || "GuardConfirmActivity".equals(name)) {
             return;
         }
         FrameLayout box = (FrameLayout) content;

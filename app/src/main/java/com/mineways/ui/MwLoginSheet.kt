@@ -98,11 +98,6 @@ fun MwLoginSheet(host: MwUiHost, spec: MwTokens.Spec, tier: MwTier, bd: Backdrop
                 ) {
                     Column(Modifier.padding(PaddingValues(20.dp, 18.dp, 20.dp, 16.dp))) {
                         BasicText("登录", style = MwType.title)
-                        Spacer(Modifier.height(6.dp))
-                        BasicText(
-                                "用哪一种方式登录都行。哪个功能要哪种身份、要不要在名单里，" +
-                                        "由云端配置逐条规定。",
-                                style = MwType.caption)
                         Spacer(Modifier.height(14.dp))
                         for (scope in LoginPolicy.SCOPES) {
                             LoginRow(tier, bd, tilt, scope, act, changed, close)

@@ -165,29 +165,17 @@ fun MwAboutScreen(host: MwUiHost, bottomPad: Dp) {
                 modifier = Modifier.fillMaxSize()
                         .then(contentModifier),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp,
-                        top = 84.dp, bottom = navPad + 26.dp),
+                        top = if (spec.showTopBar) 84.dp else 24.dp,
+                        bottom = navPad + 26.dp),
         ) {
-            item(key = "about-intro") {
-                Column(Modifier.then(rememberMwEnter(0, spec.motion, played))) {
-                    BasicText(meta.hint, style = MwType.body.copy(fontSize = 12.5.sp,
-                            color = Color.White.copy(alpha = 0.72f), shadow = textShadow()),
-                            maxLines = 3, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.height(6.dp))
-                }
-            }
-            item(key = "about-status") {
-                Column(Modifier.then(rememberMwEnter(1, spec.motion, played))) {
-                    MwGlassPanel(sceneBd, spec, tier, Modifier.fillMaxWidth(),
-                            quality = MwGlassQuality.FULL, radius = spec.radius) {
-                        Column(Modifier.fillMaxWidth()) {
-                            MwPanelHeader("云端配置", null, null, null, spec.accent)
-                            Column(Modifier.fillMaxWidth()
-                                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                BasicText(meta.stats, style = MwType.caption.copy(fontSize = 12.sp),
-                                        modifier = Modifier.fillMaxWidth())
-                            }
-                        }
+            if (spec.showIntro && spec.descVisible && spec.descAbout.isNotBlank()) {
+                item(key = "about-intro") {
+                    Column(Modifier.then(rememberMwEnter(0, spec.motion, played))) {
+                        BasicText(spec.descAbout.ifEmpty { meta.hint },
+                                style = MwType.body.copy(fontSize = 12.5.sp,
+                                        color = Color.White.copy(alpha = 0.72f), shadow = textShadow()),
+                                maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(6.dp))
                     }
                 }
             }
@@ -198,7 +186,7 @@ fun MwAboutScreen(host: MwUiHost, bottomPad: Dp) {
                         MwGlassPanel(sceneBd, spec, tier, Modifier.fillMaxWidth(),
                                 quality = MwGlassQuality.LITE, radius = spec.radius) {
                             Column(Modifier.fillMaxWidth()) {
-                                MwPanelHeader(block.title ?: "", block.subtitle, block.trailing,
+                                MwPanelHeader(block.title ?: "", null, null,
                                         null, spec.accent)
                                 Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                                     for (j in block.cells.indices) {
@@ -214,24 +202,30 @@ fun MwAboutScreen(host: MwUiHost, bottomPad: Dp) {
                     Spacer(Modifier.height(6.dp))
                 }
             }
-            item(key = "about-footer") {
-                Spacer(Modifier.height(8.dp))
-                BasicText("MinewaysMobile · 界面由云控 ui_* 开关控制，出问题可在「关于」里回滚",
-                        style = MwType.caption.copy(textAlign = TextAlign.Center,
-                                color = Color.White.copy(alpha = 0.5f)),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp))
+            if (spec.showFooter && spec.descVisible && spec.descFooter.isNotBlank()) {
+                item(key = "about-footer") {
+                    Spacer(Modifier.height(8.dp))
+                    BasicText(spec.descFooter.ifEmpty {
+                        "MinewaysMobile · 界面由云控 ui_* 开关控制，出问题可在「关于」里回滚"
+                    },
+                            style = MwType.caption.copy(textAlign = TextAlign.Center,
+                                    color = Color.White.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp))
+                }
             }
         }
         }
 
         // 悬浮玻璃顶栏（折射照片与滚动内容）
-        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp)) {
-            MwTopBar(
-                    title = "关于",
-                    spec = spec, tier = tier, bd = chromeBd,
-                    actionIcon = Icons.Rounded.Refresh,
-                    onAction = { host.run(MwUiHost.ACTION_REFRESH, null, null) })
+        if (spec.showTopBar) {
+            Column(Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)) {
+                MwTopBar(
+                        title = "关于",
+                        spec = spec, tier = tier, bd = chromeBd,
+                        actionIcon = Icons.Rounded.Refresh,
+                        onAction = { host.run(MwUiHost.ACTION_REFRESH, null, null) })
+            }
         }
 
         // 统一登录面板：与顶栏同一层 backdrop，所以它折射的是背后真实的页面，不是半透明黑块

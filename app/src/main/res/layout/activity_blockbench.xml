@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<!-- 建模页独占全屏：没有标题栏，网页铺满整块屏幕；进度与状态是浮在上面的覆盖层，
+     不占页面高度（以前那条 LinearLayout + MaterialToolbar 会永久吃掉 actionBarSize，
+     Blockbench 自己的工具栏就被顶下去一截）。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:background="@color/md_theme_primary">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/bb_toolbar"
+    <WebView
+        android:id="@+id/bb_webview"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/md_theme_primary"
-        app:titleTextColor="@color/white" />
+        android:layout_height="match_parent" />
 
     <ProgressBar
         android:id="@+id/bb_progress"
@@ -18,21 +18,18 @@
         android:layout_width="match_parent"
         android:layout_height="3dp"
         android:indeterminate="true"
+        android:layout_gravity="top"
         android:visibility="gone" />
-
-    <WebView
-        android:id="@+id/bb_webview"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
 
     <TextView
         android:id="@+id/bb_status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/surfaceVariant"
+        android:layout_gravity="top"
+        android:layout_marginTop="3dp"
+        android:background="#E614141A"
         android:padding="8dp"
         android:visibility="gone"
-        android:textColor="@color/onSurface"
+        android:textColor="@color/white"
         android:textSize="12sp" />
-</LinearLayout>
+</FrameLayout>

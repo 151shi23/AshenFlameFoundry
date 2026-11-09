@@ -44,6 +44,8 @@ import java.util.Set;
  * FEAT hide|show|disable|enable sel=… | id=…
  * WL user add email=a@b.com / WL user drop email=a@b.com
  * WL add email=a@b.com list=forum|google|ms   分档名单（不写 list= 落进共享名单）
+ * PKG add pkg=com.tencent.mm name=微信 level=evidence|rank|irreversible   安全守护豁免名单
+ * PKG drop pkg=com.xxx.tool                    把内置那条撤下来（改档位就再 add 一次同包名）
  *
  * 公共字段：sel=选择器  id=单个键  if="组合条件"  notice=给用户看的理由
  *           rollout=灰度  minv/maxv=版本门  mode=生效方式  override=builtin（改内置项必填）
@@ -87,6 +89,32 @@ public final class FeatureCatalog {
 	private static final Set<String> MODES = new HashSet<>(Arrays.asList(
 			MODE_ASK, MODE_DOWNLOAD, MODE_APPLY));
 
+	/**
+	 * 安全守护豁免档位（{@code PKG … level=}）。语法词表归这里，语义解释在
+	 * {@code com.mineways.guardlink.GuardTrust} —— 两边共用这几个常量，别各写一套字符串。
+	 */
+	public static final String PKG_EVIDENCE = "evidence";
+	public static final String PKG_RANK = "rank";
+	public static final String PKG_IRREVERSIBLE = "irreversible";
+
+	/** {@code level=} 的归一：认不出来返回 null（让调用方报错，而不是悄悄当成某一档）。 */
+	public static String pkgLevelOf(String raw) {
+		String s = raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
+		if (s.length() == 0) {
+			return null;
+		}
+		if (PKG_EVIDENCE.equals(s) || "证据".equals(raw.trim()) || "不算证据".equals(raw.trim())) {
+			return PKG_EVIDENCE;
+		}
+		if (PKG_RANK.equals(s) || "榜".equals(raw.trim()) || "不进榜".equals(raw.trim())) {
+			return PKG_RANK;
+		}
+		if (PKG_IRREVERSIBLE.equals(s) || "不可逆".equals(raw.trim())) {
+			return PKG_IRREVERSIBLE;
+		}
+		return null;
+	}
+
 	/** 入口状态（{@link Result#visOf} 的取值）。 */
 	public static final String VIS_HIDDEN = "hidden";
 	public static final String VIS_DISABLED = "disabled";
@@ -109,6 +137,20 @@ public final class FeatureCatalog {
 	 */
 	public static final int TR_TEXT_MAX = 600;
 
+	// ============================================================ 网页适配（CSS / JS）
+
+	/**
+	 * 内联 CSS 上限（字符）。适配表就是几条覆盖规则，写到几千字说明它在替站点重写版面，
+	 * 那种东西该走外链 —— 配置是整包分发的，塞大段正文会让每次拉取都变重。
+	 */
+	public static final int CSS_INLINE_MAX = 8000;
+	/** 内联 JS 上限（{@code b64:} 解码之后的字符数）。 */
+	public static final int JS_INLINE_MAX = 24000;
+	/** 外链正文（css=/js= 的 url=）客户端最多读多少字节，超了直接判失败。 */
+	public static final int ADAPT_FETCH_MAX = 256 * 1024;
+	/** 同一个主机名最多挂多少条适配：再多就是互相打架，看不出谁生效。 */
+	public static final int ADAPT_PER_HOST_MAX = 24;
+
 	/**
 	 * {@code i18n=auto} 时自动开汉化所需的本站专属词条下限。设这个下限是因为只翻了三五个按钮的
 	 * 页面会中英夹杂，比整页英文更难看；下限之上还要配上 {@code host=*} 的通用词表才够铺满页面，
@@ -128,16 +170,21 @@ public final class FeatureCatalog {
 	private static final Set<String> BARE_WORDS = new HashSet<>(Arrays.asList(
 			"add", "drop", "clear", "tier", "hide", "show", "disable", "enable", "user", "set", "pin",
 			"unpin", "builtin", "all", "none", "yes", "no", "on", "off", "true", "false",
-			"reset"));
+			"reset", "force", "once"));
 
 	/** 认得的字段名。写了不认识的 {@code xxx=yyy} 会当成错误上报，而不是静悄悄丢掉。 */
 	private static final Set<String> FIELDS = new HashSet<>(Arrays.asList(
 			"id", "key", "name", "名", "cat", "category", "类别", "url", "link", "desc", "介绍",
 			"icon", "order", "mode", "rollout", "minv", "maxv", "if", "when", "to", "override",
 			"notice", "提示", "email", "sel", "where", "group", "kind", "tag", "activity",
-			"label", "标题", "value", "val", "host", "site", "en", "zh", "i18n",
+			"label", "标题", "value", "val", "host", "domain", "站点", "site", "en", "zh", "i18n",
 			"variant", "sha256", "sha", "from", "开始", "until", "结束", "schedule", "时间", "preset", "radius",
 			"video", "视频", "code", "代码", "gate", "list", "档",
+			// 安全守护豁免名单：PKG add pkg=… name=… level=…（档位词表见 pkgLevelOf）
+			"pkg", "包名", "level",
+			// 网页适配：CSS add / JS add 用得到的字段（css=/js=/style= 内联，url=+sha256= 外链，path= 限定路径，
+			// scope= 明说生效范围：page 单页 / site 整站 / all 全局）
+			"css", "js", "style", "data", "size", "适配", "path", "scope",
 			"file-version", "ver", "strict", "scope", "default", "sig", "hmac"));
 
 	// ============================================================ 数据
@@ -245,6 +292,12 @@ public final class FeatureCatalog {
 		public String gate;
 		/** {@code WL … list=} 的名单档（已归一成 any|forum|google|ms），空 = 共享名单。 */
 		public String wlList = LoginPolicy.ANY;
+		/**
+		 * {@code PKG … level=}：安全守护的豁免档位。
+		 * {@code evidence} 连触发证据都不算；{@code rank} 照报警但不进推举榜；
+		 * {@code irreversible} 照报警照上榜，只是不许断网 / 不许卸载。
+		 */
+		public String pkgLevel = "";
 		public boolean hide, show, disable, enable, pin, unpin;
 		public String label;           // label=新标题
 		public String textDesc;        // desc=新说明
@@ -266,6 +319,29 @@ public final class FeatureCatalog {
 		public String videoDrop;       // VIDEO drop 的键
 		public boolean videoClear;     // VIDEO clear：清空展示栏
 		public String activity;        // ENTRY 指向的 Activity 简单类名
+		/**
+		 * 网页适配（{@code CSS add} / {@code JS add}）的内联内容：解析期就已经从 {@code b64:} 解好，
+		 * 存的是最终要注入页面的那段 CSS / JS 原文。外链那条走 {@link #adaptUrl}。
+		 */
+		public String adaptData;       // 内联正文（已解码）
+		public String adaptUrl;        // 外链正文地址（必须 https）
+		public String adaptSha;        // 外链正文的 sha256（64 位十六进制，必填）
+		public int adaptSize;          // 作者声明的字节数（可空 = 0），拉下来要对得上
+		/** {@code path=}：只作用在这个路径前缀下的页面（本地工具页共用一个主机名，靠它区分）。 */
+		public String adaptPath = "";
+		/** {@code site=}：给了站点 id，主机名由它的网址推（和 TR 同一个口径）。 */
+		public String adaptSite = "";
+		/** {@code CSS drop all} / {@code JS clear}：这一类整类撤掉。 */
+		public boolean adaptDropAll;
+		/** 生效范围（{@code scope=}）：{@code page} 单页 / {@code site} 整站 / {@code all} 全局；空=按写法推。 */
+		public String adaptScope = "";
+		/** {@code force}：这页"原版已适配手机"也不挡它（功能型脚本要的就是这个）。 */
+		public boolean adaptForce;
+		/** {@code once}：这台设备只注一次（紧急运维用；配置里这条一改动就重新算一次）。 */
+		public boolean adaptOnce;
+		/** {@code CSS off id=x} 临时停用（规则留在配置里，但不生效）；{@code on} 再打开。 */
+		public boolean adaptOff;
+		public boolean adaptOn;
 		public String host;            // TR 作用的站点主机名（* = 全站通用）
 		public String en;              // TR 的原文
 		public String zh;              // TR 的译文
@@ -282,7 +358,81 @@ public final class FeatureCatalog {
 		}
 	}
 
-	/** {@code ENTRY add} 新增出来的本地入口（指向包里已有的 Activity，永远不下发代码）。 */
+	/**
+	 * 一条网页适配规则（{@code CSS add} / {@code JS add} 的产物）。
+	 *
+	 * <p>命中范围是 {@link #host} + {@link #path}：主机名必填（或 {@code *} = 所有网页），
+	 * 路径前缀可空。本地工具页都挂在同一个主机名上（{@code appassets.androidplatform.net}），
+	 * 所以 {@code path=/assets/snowstorm} 这种写法才是"只改粒子修改器"。
+	 *
+	 * <p>正文两种形态二选一：{@link #data} 非空是内联（解析期已解码好，直接可注入）；
+	 * {@link #url} 非空是外链，正文不在配置里，由 {@link WebAdapt} 拉取并按 {@link #sha} 校验。
+	 */
+	public static final class Adapt {
+		/** {@code css} | {@code js}。 */
+		public String kind = "css";
+		public String id = "";
+		/** 归一化主机名（小写、去 {@code www.}），或 {@code *}。 */
+		public String host = "";
+		/** 路径前缀（以 {@code /} 开头；空 = 该主机名下所有页面）。 */
+		public String path = "";
+		public String data;
+		public String url = "";
+		public String sha = "";
+		public int size;
+		/** 同一页面多条时的先后：小的在前，后套的按 CSS 层叠规则盖掉前面的。 */
+		public int order = 100;
+		/** 生效范围：{@code page}（要配 {@code path=}）/ {@code site}（整站）/ {@code all}（所有网页）。 */
+		public String scope = "site";
+		/** 这页被测出"原版已适配手机"时是否照样注入（功能型脚本必须开这个）。 */
+		public boolean force;
+		/** 一台设备只注一次（紧急运维；这条规则的正文或范围一改就算新的一条，会再注）。 */
+		public boolean once;
+		/** {@code off} 关掉的状态：规则还在配置里但不生效，用于"先停一停再打开"。 */
+		public boolean off;
+		public String name = "";
+		public String desc = "";
+		public int file;
+		public int line;
+		public String raw = "";
+
+		/**
+		 * 这个页面（主机名 + 路径）该不该套上本条。
+		 *
+		 * <p>{@code host=*} 命中所有网页；写了 {@code path=} 就还要路径前缀对得上，
+		 * 并且前缀后面必须是 {@code / . - _} 或正好到头 —— 不然 {@code /assets/bb} 会把
+		 * {@code /assets/bbengine} 也一起改坏。
+		 */
+		public boolean matches(String pageHost, String pagePath) {
+			if (off) {
+				return false;
+			}
+			String h = pageHost == null ? "" : pageHost.toLowerCase(Locale.ROOT);
+			if (h.startsWith("www.")) {
+				h = h.substring(4);
+			}
+			if ("all".equals(scope) || TR_GLOBAL.equals(host)) {
+				return true;
+			}
+			if (!host.equals(h)) {
+				return false;
+			}
+			if (path == null || path.length() == 0) {
+				return true;
+			}
+			String p = pagePath == null || pagePath.length() == 0 ? "/" : pagePath;
+			if (p.equals(path)) {
+				return true;
+			}
+			if (!p.startsWith(path) || p.length() <= path.length()) {
+				return false;
+			}
+			char next = p.charAt(path.length());
+			return next == '/' || next == '.' || next == '-' || next == '_' || next == '?';
+		}
+	}
+
+	/** {@code ENTRY add} 新增出来的本地入口（只登记包里已有的 Activity，不会指向外部代码）。 */
 	public static final class Entry {
 		public String id = "";
 		public String name = "";
@@ -426,6 +576,14 @@ public final class FeatureCatalog {
 		 */
 		public final Map<String, Set<String>> wlAddsByList = new LinkedHashMap<>();
 		public final Map<String, Set<String>> wlDropsByList = new LinkedHashMap<>();
+		/**
+		 * 安全守护豁免名单（{@code PKG}）：小写包名 → 档位。
+		 * 包名在 Android 上区分大小写，但配置里手打的大小写不该决定生不生效，所以一律按小写存、按小写查。
+		 */
+		public final Map<String, String> pkgLevels = new LinkedHashMap<>();
+		/** 同上的展示名（{@code name=}），没写就用包名。 */
+		public final Map<String, String> pkgNames = new LinkedHashMap<>();
+		public final Set<String> pkgDrops = new HashSet<>();
 		/** 显式写了 {@code override=builtin} 且真的作用到内置项上的键。 */
 		public final Set<String> overrideKeys = new HashSet<>();
 		public final Map<String, String> notices = new HashMap<>();
@@ -464,6 +622,12 @@ public final class FeatureCatalog {
 		/** 云端新增的本地入口（Activity 必须在本机存在，否则不显示）。 */
 		public final Map<String, Entry> entries = new LinkedHashMap<>();
 		public final Set<String> droppedEntries = new HashSet<>();
+		/**
+		 * 网页适配规则：{@code "css#id"} / {@code "js#id"} → 规则。
+		 * 用 {@link LinkedHashMap} 是为了让"同序时按登记先后"这条兜底有确定的含义。
+		 */
+		public final Map<String, Adapt> adapts = new LinkedHashMap<>();
+		public final Set<String> droppedAdapts = new HashSet<>();
 		/** 键 → 最后命中它的那条指令原文（状态面板要把"是谁改了这条"说清楚）。 */
 		public final Map<String, String> reasons = new HashMap<>();
 		public final List<Issue> issues = new ArrayList<>();
@@ -493,6 +657,47 @@ public final class FeatureCatalog {
 		public String noticeOf(String featureId) {
 			String n = notices.get(featureId);
 			return n == null ? "" : n;
+		}
+
+		/** 这个主机名下已经挂了多少条某类适配（上限判定用）。 */
+		int adaptCount(String kind, String host) {
+			int n = 0;
+			for (Adapt a : adapts.values()) {
+				if (kind.equals(a.kind) && host.equals(a.host)) {
+					n++;
+				}
+			}
+			return n;
+		}
+
+		/**
+		 * 某个页面该套的适配规则，按 {@code order} 排序（小的在前），同序按登记先后。
+		 *
+		 * @param kind {@code "css"} 或 {@code "js"}
+		 * @param host 页面主机名（可带 {@code www.}，内部会归一）
+		 * @param path 页面路径（{@code /assets/snowstorm/index.html}）
+		 */
+		public List<Adapt> adaptsFor(String kind, String host, String path) {
+			List<Adapt> out = new ArrayList<>();
+			for (Adapt a : adapts.values()) {
+				if (kind.equals(a.kind) && a.matches(host, path)) {
+					out.add(a);
+				}
+			}
+			final List<Adapt> base = new ArrayList<>(adapts.values());
+			java.util.Collections.sort(out, new java.util.Comparator<Adapt>() {
+				@Override
+				public int compare(Adapt x, Adapt y) {
+					if (x.order != y.order) {
+						return x.order < y.order ? -1 : 1;
+					}
+					if (x.file != y.file) {
+						return x.file < y.file ? -1 : 1;
+					}
+					return Integer.compare(base.indexOf(x), base.indexOf(y));
+				}
+			});
+			return out;
 		}
 
 		/** 全站通用词条之外的总量控制用。 */
@@ -526,6 +731,9 @@ public final class FeatureCatalog {
 			whitelistDrops.clear();
 			wlAddsByList.clear();
 			wlDropsByList.clear();
+			pkgLevels.clear();
+			pkgNames.clear();
+			pkgDrops.clear();
 			overrideKeys.clear();
 			notices.clear();
 			labels.clear();
@@ -539,6 +747,8 @@ public final class FeatureCatalog {
 			i18n.clear();
 			entries.clear();
 			droppedEntries.clear();
+			adapts.clear();
+			droppedAdapts.clear();
 			reasons.clear();
 			// 上一轮展开阶段记的问题先清掉：重跑（清单登记齐了再算一次）不应该把同样的错叠出来
 			java.util.Iterator<Issue> old = issues.iterator();
@@ -639,6 +849,22 @@ public final class FeatureCatalog {
 					}
 					continue;
 				}
+				if ("pkg".equals(r.verb)) {
+					// 后写的覆盖先写的：同一条包名再 add 一次就是改档，drop 才是真撤
+					String k = lower(r.id);
+					if ("drop".equals(r.action)) {
+						pkgLevels.remove(k);
+						pkgNames.remove(k);
+						pkgDrops.add(k);
+					} else {
+						pkgLevels.put(k, r.pkgLevel);
+						if (r.name != null && r.name.length() > 0) {
+							pkgNames.put(k, r.name);
+						}
+						pkgDrops.remove(k);
+					}
+					continue;
+				}
 				if ("cat".equals(r.verb)) {
 					if ("add".equals(r.action)) {
 						Category c = new Category();
@@ -691,6 +917,67 @@ public final class FeatureCatalog {
 							reasons.put(id, r.raw);
 						}
 					}
+					continue;
+				}
+				if ("css".equals(r.verb) || "js".equals(r.verb)) {
+					String kind = r.verb;
+					if (r.adaptDropAll) {
+						java.util.Iterator<String> keys = adapts.keySet().iterator();
+						while (keys.hasNext()) {
+							if (keys.next().startsWith(kind + "#")) {
+								keys.remove();
+							}
+						}
+						continue;
+					}
+					String key = kind + "#" + norm(r.id);
+					if (r.adaptOff || r.adaptOn) {
+						Adapt t = adapts.get(key);
+						if (t == null) {
+							expandIssues.add(exp(r.file, r.line,
+									r.adaptOff ? "要 off 的规则不存在：" + key : "要 on 的规则不存在：" + key, r.raw));
+							continue;
+						}
+						t.off = r.adaptOff;
+						t.file = r.file;
+						t.line = r.line;
+						continue;
+					}
+					if ("drop".equals(r.action)) {
+						adapts.remove(key);
+						droppedAdapts.add(key);
+						continue;
+					}
+					String host = trHost(r, ks, alias, expandIssues);
+					if (host == null) {
+						continue;
+					}
+					Adapt prev = adapts.get(key);
+					if (prev == null && adaptCount(kind, host) >= ADAPT_PER_HOST_MAX) {
+						expandIssues.add(exp(r.file, r.line, "host=" + host + " 的 " + kind
+								+ " 适配已经挂满 " + ADAPT_PER_HOST_MAX + " 条，这条没进（先 drop 掉不要的）", r.raw));
+						continue;
+					}
+					Adapt a = prev == null ? new Adapt() : prev;
+					a.kind = kind;
+					a.id = norm(r.id);
+					a.host = host;
+					a.path = r.adaptPath == null ? "" : r.adaptPath;
+					a.data = r.adaptData;
+					a.url = r.adaptUrl == null ? "" : r.adaptUrl;
+					a.sha = r.adaptSha == null ? "" : r.adaptSha;
+					a.size = r.adaptSize;
+					a.order = r.order;
+					a.scope = r.adaptScope.length() == 0 ? "site" : r.adaptScope;
+					a.force = r.adaptForce;
+					a.once = r.adaptOnce;
+					a.name = r.name == null ? "" : r.name;
+					a.desc = r.desc == null ? "" : r.desc;
+					a.file = r.file;
+					a.line = r.line;
+					a.raw = r.raw;
+					adapts.put(key, a);
+					droppedAdapts.remove(key);
 					continue;
 				}
 				if ("tr".equals(r.verb)) {
@@ -940,8 +1227,19 @@ public final class FeatureCatalog {
 			Set<String> seenCatId = new HashSet<>();
 			for (int i = 0; i < lines.length; i++) {
 				int lineNo = i + 1;
-				String line = trimComment(lines[i]).trim();
-				if (line.length() == 0 || line.charAt(0) == '#' || line.charAt(0) == '@') {
+				String rawLine = lines[i].trim();
+				if (rawLine.length() == 0 || rawLine.charAt(0) == '#' || rawLine.charAt(0) == '@') {
+					continue;
+				}
+				/*
+				 * CSS / JS 这两类不按 ';' 切注释：正文里满是分号（body{margin:0;padding:0}），
+				 * 一刀切下去就变成"配置发了、页面没反应"那种最难查的错。
+				 * 所以适配行的说明只能写在行首 # 的独立注释里，末尾不接分号注释。
+				 */
+				String verb0 = splitDirective(rawLine)[0].toLowerCase(Locale.ROOT);
+				boolean adaptLine = "css".equals(verb0) || "js".equals(verb0);
+				String line = adaptLine ? rawLine : trimComment(lines[i]).trim();
+				if (line.length() == 0) {
 					continue;
 				}
 				String[] hv = splitDirective(line);
@@ -1323,6 +1621,14 @@ public final class FeatureCatalog {
 			String k = lower(firstVal(f, "key", "id", "name"));
 			String v = firstVal(f, "to", "value", "val");
 			/*
+			 * {@code to=true} 这种写法，通用取值会把它当成"字段名本身"退回来（返回 "to"）——
+			 * 于是 {@code FLAG key=js_on to=true} 存下的值是 "to"，开关看起来没反应。
+			 * 这里按作者本意还原成 true；真要一个字母值的，写 to=1 一样有效。
+			 */
+			if ("to".equals(v) || "value".equals(v) || "val".equals(v)) {
+				v = "true";
+			}
+			/*
 			 * 两种写法都认：
 			 *   FLAG key=ui_glass to=0      （规范写法）
 			 *   FLAG set ui_glass=0         （简写：键就是那个字段名，值就是它的值）
@@ -1370,6 +1676,31 @@ public final class FeatureCatalog {
 			}
 			rule.wlList = lk == null ? LoginPolicy.ANY : lk;
 			rule.id = key;
+			r.rules.add(rule);
+			return null;
+		}
+
+		if ("pkg".equals(verb)) {
+			String pkg = firstVal(f, "pkg", "包名", "id");
+			if (pkg.length() == 0) {
+				return "PKG 缺 pkg=（写应用包名，如 com.tencent.mm）";
+			}
+			if (!com.mineways.guardlink.GuardShell.safePkg(pkg)) {
+				return "PKG 的包名写法不对：" + pkg + "（只能是字母数字和 . _ -，且至少两段）";
+			}
+			if (!"add".equals(action) && !"drop".equals(action)) {
+				return "PKG 需要 add|drop";
+			}
+			rule.id = pkg;
+			if ("add".equals(action)) {
+				String lv = pkgLevelOf(firstVal(f, "level", "档"));
+				if (lv == null) {
+					return "PKG level 不认识：" + firstVal(f, "level", "档")
+							+ "（可写 " + PKG_EVIDENCE + " / " + PKG_RANK + " / " + PKG_IRREVERSIBLE + "）";
+				}
+				rule.pkgLevel = lv;
+				rule.name = firstVal(f, "name", "名字");
+			}
 			r.rules.add(rule);
 			return null;
 		}
@@ -1472,7 +1803,7 @@ public final class FeatureCatalog {
 			}
 			String preset = lower(firstVal(f, "preset", "name", "id"));
 			if (!THEMES.containsKey(preset)) {
-				return "THEME preset 不认识（可用：default/ember/frost/ink/mono）：" + preset;
+				return "THEME preset 不认识（可用：default/ember/frost/ink/mono/full/simple）：" + preset;
 			}
 			addThemeFlags(r, preset, rule);
 			String radiusOv = firstVal(f, "radius");
@@ -1530,7 +1861,269 @@ public final class FeatureCatalog {
 			return null;
 		}
 
+		if ("css".equals(verb) || "js".equals(verb)) {
+			return collectAdapt(r, rule, f, action, id, sel);
+		}
+
 		return "指令不认识：" + verb;
+	}
+
+	/**
+	 * 网页适配指令 {@code CSS} / {@code JS}：给某个页面的版式与行为打补丁，让不支持手机端的网站也能用。
+	 *
+	 * <p>正文来源三选一，按"当场能核对"和"能长大"分工：
+	 * <ul>
+	 *   <li>内联引号 {@code css="body{margin:0}"} —— 几条覆盖规则，配置里一眼看得完；</li>
+	 *   <li>内联 base64 {@code js=b64:dmFyIGE...} —— 绕开分词器：JS 里的空格、引号、分号都会把
+	 *       {@code key=value} 拆词拆坏，那种正文不该裸写在配置里；</li>
+	 *   <li>外链 {@code url=https://… sha256=…} —— 大脚本不进配置，配置只带摘要，拉回来先验哈希。</li>
+	 * </ul>
+	 *
+	 * <p>命中范围：{@code host=}（域名或 {@code *}）+ 可选 {@code path=} 前缀；
+	 * 也可以只写 {@code site=站点id}，主机名由那个站点的网址推（和 {@code TR} 同一套）。
+	 */
+	private static String collectAdapt(Result r, Rule rule, Map<String, String> f, String action,
+			String id, String sel) {
+		String kind = rule.verb;                 // css | js
+		String K = kind.toUpperCase(Locale.ROOT);
+		rule.adaptSite = lower(firstVal(f, "site"));
+
+		if ("clear".equals(action)) {
+			rule.adaptDropAll = true;
+			r.rules.add(rule);
+			return null;
+		}
+		// 紧急下线一条但不删它：off / on（运维时"先停一停"比 drop 好，回来只要把 off 删掉）
+		if ("off".equals(action) || "on".equals(action)) {
+			if (id.length() == 0) {
+				return K + " " + action + " 缺 id=（要停用/启用哪一条）";
+			}
+			if ("off".equals(action)) {
+				rule.adaptOff = true;
+			} else {
+				rule.adaptOn = true;
+			}
+			r.rules.add(rule);
+			return null;
+		}
+		if ("drop".equals(action)) {
+			if (isAll(sel) || "true".equals(f.get("all"))) {
+				rule.adaptDropAll = true;
+				r.rules.add(rule);
+				return null;
+			}
+			if (id.length() == 0 && rule.adaptSite.length() == 0) {
+				return K + " drop 缺 id=（撤哪一条；整类撤光写 drop all 或 clear）";
+			}
+			if (id.length() == 0) {
+				// add 时用 site= 起键，drop 就得用同一种写法找回那条
+				rule.id = rule.adaptSite;
+			}
+			r.rules.add(rule);
+			return null;
+		}
+		if (action.length() > 0 && !"add".equals(action)) {
+			return K + " 只认 add|drop|clear|off|on：" + action;
+		}
+
+		// —— 命中范围 ——
+		if (rule.host.length() == 0 && id.length() == 0 && rule.adaptSite.length() == 0) {
+			return K + " add 要写 host=（具体域名，或 * 表示所有网页）；也可以写 site=已收录站点的 id";
+		}
+		if (rule.host.length() > 0 && !isAllowableHost(rule.host)) {
+			return K + " host 写法不对（只准域名或 *；路径请用 path= 单独写）：" + rule.host;
+		}
+		String path = firstVal(f, "path");
+		if (path.length() > 0) {
+			if (!path.startsWith("/") || path.length() > 200
+					|| path.indexOf('"') >= 0 || !path.equals(path.trim())) {
+				return K + " path 要以 / 开头、不含空格和引号、长度不超过 200：" + path;
+			}
+			rule.adaptPath = path;
+		}
+		/*
+		 * 生效范围明写成 scope=：page（只这一页）/ site（整站）/ all（所有网页）。
+		 * 不写就按写法推：host=* 是 all，写了 path 是 page，其余是 site ——
+		 * 推出来的范围和写出来的一致，所以 scope= 只是给他一个"我到底作用多大"的确认口。
+		 */
+		String scope = lower(firstVal(f, "scope"));
+		String auto = "*".equals(rule.host) ? "all" : (rule.adaptPath.length() > 0 ? "page" : "site");
+		if (scope.length() == 0) {
+			scope = auto;
+		} else if (!"page".equals(scope) && !"site".equals(scope) && !"all".equals(scope)) {
+			return K + " scope 只能是 page|site|all：" + scope;
+		}
+		if ("all".equals(scope) && !"*".equals(rule.host)) {
+			return K + " scope=all 必须配 host=*（现在写的是 host=" + rule.host + "）";
+		}
+		if ("page".equals(scope) && rule.adaptPath.length() == 0) {
+			return K + " scope=page 必须配 path=/…（不然跟 site 没区别）";
+		}
+		if (!"page".equals(scope) && rule.adaptPath.length() > 0) {
+			return K + " 写了 path= 就是逐页限定，scope 得写 page（现在写的是 " + scope + "）";
+		}
+		if (!"all".equals(scope) && "*".equals(rule.host)) {
+			return K + " host=* 就是全局生效，scope 请写 all（现在写的是 " + scope + "）";
+		}
+		rule.adaptScope = scope;
+		rule.adaptForce = actOn(f, "force", action);
+		rule.adaptOnce = actOn(f, "once", action);
+
+		// —— 正文：内联 与 外链 二选一 ——
+		String semi = unquotedSemi(rule.raw);
+		if (semi != null) {
+			/*
+			 * 适配行的 ';' 一律当场拦下来，不放行也不切掉：
+			 * 切掉的话 {@code css=body{margin:0;padding:0}} 会变成"配置发了、页面只改了一半"；
+			 * 不切的话 {@code css="a{b:1}";说明} 又把说明当成正文注进页面。
+			 * 两种都太难查，所以只许一种写法：正文整体加双引号，说明写在上一行的 # 注释里。
+			 */
+			return K + " 这一行引号外面出现了 ';'（" + semi
+					+ "）：正文请整体用双引号包住，说明另起一行写 #，不要分号注释";
+		}
+		if (countChar(rule.raw, '"') % 2 != 0) {
+			// 引号少打一个，后面所有字段都会被当成正文吃进去 —— 那条 {@code order=} 就 quietly 没了
+			return K + " 这一行的双引号是单数（没闭合）：正文要整体用双引号包住";
+		}
+		String body = firstVal(f, "css", "js", "style", "code", "data", "适配");
+		String url = rule.url;
+		if (body.length() > 0 && url.length() > 0) {
+			return K + " 只能给一种正文：内联（" + kind + "=…）或外链（url=…），不能都写";
+		}
+		if (body.length() == 0 && url.length() == 0) {
+			return K + " add 缺正文。内联写 " + kind + "=\"…\"（JS 用 " + kind + "=b64:…），"
+					+ "大篇写 url=https://… sha256=…";
+		}
+		if (url.length() > 0) {
+			if (!isSafeUrl(url)) {
+				return K + " url 非法（必须 https，且不含空白/引号）";
+			}
+			String sha = lower(firstVal(f, "sha256", "sha"));
+			if (sha.length() != 64 || !sha.matches("[0-9a-f]{64}")) {
+				return K + " 外链正文必须带 sha256=（64 位十六进制）：注入页面的脚本要能确认没被镜像换过";
+			}
+			int size = intOf(firstVal(f, "size"), 0);
+			if (size < 0 || size > ADAPT_FETCH_MAX) {
+				return K + " size= 要写在 0…" + ADAPT_FETCH_MAX + " 之间（0 = 不声明）：" + firstVal(f, "size");
+			}
+			rule.adaptUrl = url;
+			rule.adaptSha = sha;
+			rule.adaptSize = size;
+		} else {
+			String data = body;
+			String head = data.length() >= 4 ? data.substring(0, 4).toLowerCase(Locale.ROOT) : "";
+			if ("b64:".equals(head)) {
+				String dec = decodeB64(data.substring(4));
+				if (dec == null) {
+					return K + " 的 b64: 正文解不出 base64（检查是不是完整的一串，末尾 = 别丢）";
+				}
+				data = dec;
+			} else if ("js".equals(kind)) {
+				// JS 裸写在配置行里太容易出事：正文里的空格会打断取值、双引号会提前收尾，
+				// 切坏了的脚本注进页面只是"没反应"，很难查。这里直接要求 b64:（tools/adapt-b64.py 一条命令生成）。
+				return K + " 的内联正文必须写成 b64:（base64 的 UTF-8 源码），不能裸写："
+						+ "JS 里的空格和引号会被配置的拆词切坏";
+			} else {
+				int open = 0;
+				int close = 0;
+				for (int i = 0; i < data.length(); i++) {
+					char c = data.charAt(i);
+					if (c == '{') {
+						open++;
+					} else if (c == '}') {
+						close++;
+					}
+				}
+				if (open != close) {
+					return K + " 内联 CSS 的 { } 不成对（" + open + " 对 " + close
+							+ "）：正文多半是被空格或引号切断了，整条不执行";
+				}
+			}
+			int cap = "css".equals(kind) ? CSS_INLINE_MAX : JS_INLINE_MAX;
+			if (data.trim().length() == 0) {
+				return K + " 正文是空的";
+			}
+			if (data.length() > cap) {
+				return K + " 内联正文 " + data.length() + " 字符，超过上限 " + cap
+						+ "（这么大的东西请走 url=+sha256=，配置是整包分发的）";
+			}
+			rule.adaptData = data;
+		}
+
+		// —— 规则键：没写 id= 就用「域名+路径」拼一个稳定的，重写同一条是覆盖而不是重复 ——
+		if (id.length() == 0) {
+			rule.id = rule.adaptSite.length() > 0 ? rule.adaptSite
+					: adaptSlug(rule.host, rule.adaptPath);
+		}
+		r.rules.add(rule);
+		return null;
+	}
+
+	/** 自动规则键：{@code appassets.androidplatform.net} + {@code /assets/snowstorm} → {@code appassets…-assets-snowstorm}。 */
+	private static String adaptSlug(String host, String path) {
+		StringBuilder sb = new StringBuilder();
+		String base = (host == null ? "" : host) + (path == null ? "" : path);
+		for (int i = 0; i < base.length(); i++) {
+			char c = Character.toLowerCase(base.charAt(i));
+			sb.append((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-'
+					? c : '-');
+		}
+		while (sb.length() > 0 && sb.charAt(sb.length() - 1) == '-') {
+			sb.deleteCharAt(sb.length() - 1);
+		}
+		String s = sb.toString();
+		return s.length() == 0 ? "anon" : (s.length() > 120 ? s.substring(0, 120) : s);
+	}
+
+	/** 数一行里某个字符出现了几次（引号配对检查用）。 */
+	private static int countChar(String s, char c) {
+		int n = 0;
+		for (int i = 0; i < s.length(); i++) {
+			if (s.charAt(i) == c) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** 引号外的第一个 {@code ;}：适配行里出现它就是歧义写法，返回它开头的一小段用于报错。 */
+	private static String unquotedSemi(String line) {
+		if (line == null) {
+			return null;
+		}
+		boolean q = false;
+		for (int i = 0; i < line.length(); i++) {
+			char c = line.charAt(i);
+			if (c == '"') {
+				q = !q;
+			} else if (c == ';' && !q) {
+				return line.substring(i, Math.min(line.length(), i + 24));
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * base64 解码：标准、MIME（能带换行）、URL 安全三种口径挨个试，都不成就返回 null。
+	 * 配置里的手写正文经常差一点点，与其猜哪一种，不如三种都认，失败就明确报出来。
+	 */
+	private static String decodeB64(String s) {
+		String t = s == null ? "" : s.trim();
+		if (t.length() == 0) {
+			return null;
+		}
+		java.util.Base64.Decoder[] decoders = {
+				java.util.Base64.getDecoder(),
+				java.util.Base64.getMimeDecoder(),
+				java.util.Base64.getUrlDecoder()};
+		for (java.util.Base64.Decoder d : decoders) {
+			try {
+				return new String(d.decode(t), java.nio.charset.StandardCharsets.UTF_8);
+			} catch (IllegalArgumentException ignore) {
+				// 换下一个口径
+			}
+		}
+		return null;
 	}
 
 	private static boolean isAll(String sel) {
@@ -1571,7 +2164,10 @@ public final class FeatureCatalog {
 		return uniq;
 	}
 
-	/** TR 词条挂在哪个站点上：写了 host= 直接用，只写 site=/id= 就拿这个站点的网址去推主机名。 */
+	/**
+	 * 挂在哪个站点上：写了 host= 直接用，只写 site=/id= 就拿这个站点的网址去推主机名。
+	 * {@code TR} 与 {@code CSS}/{@code JS} 共用这一条推导，两边写法一致才不会记混。
+	 */
 	private static String trHost(Rule r, KeySpace ks, Map<String, String> alias, List<Issue> issues) {
 		if (r.host != null && r.host.length() > 0) {
 			return r.host;
@@ -1584,7 +2180,7 @@ public final class FeatureCatalog {
 		String host = hostOf(url);
 		if (host.length() == 0) {
 			issues.add(exp(r.file, r.line,
-					"site=" + r.id + " 查不到网址，TR 不知道该挂到哪个站点；改写 host= 吧", r.raw));
+					"site=" + r.id + " 查不到网址，这条不知道该挂到哪个站点；改写 host= 吧", r.raw));
 			return null;
 		}
 		return host;
@@ -2174,11 +2770,26 @@ public final class FeatureCatalog {
 	static {
 		java.util.Map<String, java.util.Map<String, String>> m = new java.util.HashMap<>();
 		m.put("default", themeFlags("ui_accent=#FFFFFF", "ui_radius=20",
-				"ui_blur=2", "ui_refract=32"));
+				"ui_blur=2", "ui_refract=32",
+				"ui_show_nav=1", "ui_show_topbar=1", "ui_show_search=1", "ui_show_ai=1",
+				"ui_show_quick=1", "ui_show_cats=1", "ui_show_intro=1", "ui_show_footer=1",
+				"ui_show_story=1", "ui_show_video=1", "ui_show_empty=1", "ui_show_pageglass=1",
+				"ui_hide_desc=0"));
 		m.put("ember",   themeFlags("ui_accent=#E8582A", "ui_radius=22"));
 		m.put("frost",   themeFlags("ui_accent=#9CC8FF", "ui_radius=16", "ui_blur=4"));
 		m.put("ink",     themeFlags("ui_accent=#C9B6FF"));
 		m.put("mono",    themeFlags("ui_accent=#FFFFFF"));
+		// 高级联动：一条 THEME 就能切换“完整/极简”界面，不必逐个写 FLAG
+		m.put("full", themeFlags(
+				"ui_show_nav=1", "ui_show_topbar=1", "ui_show_search=1", "ui_show_ai=1",
+				"ui_show_quick=1", "ui_show_cats=1", "ui_show_intro=1", "ui_show_footer=1",
+				"ui_show_story=1", "ui_show_video=1", "ui_show_empty=1", "ui_show_pageglass=1",
+				"ui_hide_desc=0"));
+		m.put("simple", themeFlags(
+				"ui_show_quick=0", "ui_show_cats=0", "ui_show_story=0", "ui_show_video=0",
+				"ui_show_footer=0", "ui_hide_desc=1",
+				"ui_show_nav=1", "ui_show_topbar=1", "ui_show_search=1", "ui_show_ai=1",
+				"ui_show_intro=1", "ui_show_empty=1"));
 		THEMES = java.util.Collections.unmodifiableMap(m);
 	}
 
@@ -2247,7 +2858,7 @@ public final class FeatureCatalog {
 
 	private static String verbAction(Map<String, String> f) {
 		for (String k : new String[]{"add", "drop", "set", "reset", "clear", "user", "tier", "hide", "show",
-				"disable", "enable", "pin", "unpin"}) {
+				"disable", "enable", "pin", "unpin", "off", "on"}) {
 			if ("true".equals(f.get(k))) {
 				return k;
 			}

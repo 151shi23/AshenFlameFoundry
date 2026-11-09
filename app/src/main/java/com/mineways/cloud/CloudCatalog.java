@@ -47,8 +47,10 @@ import java.util.Set;
  * 不一致就重建 —— 不依赖"拉取恰好赶在界面活着的时候完成"。
  *
  * <p>安全：清单哈希挡"文件被动过"（含手机本地被改），正文 @hmac 挡"镜像投毒"，
- * 版本号只升不降挡"拿旧文件冒充新的"。密钥在包里，挡篡改不挡逆向——
- * 真正的红线是这套东西只吃数据、永远不下发可执行代码。
+ * 版本号只升不降挡"拿旧文件冒充新的"。密钥在包里，挡篡改不挡逆向。
+ * 2026-10-24 起 {@code CSS}/{@code JS} 会下发网页适配正文（见 {@link WebAdapt}）：
+ * 信任根从"配置里没有代码"换成了"只有我这份 HMAC 密钥签过的配置才被认"，
+ * 外加 {@code js_on=1} 才启用、{@code js_off=1} 一键停、外链正文还要再过一道 sha256。
  */
 public final class CloudCatalog {
 
@@ -93,12 +95,32 @@ public final class CloudCatalog {
 	 * 每次拉取先陪它等一轮。jsdelivr 会缓存 {@code index.txt} 的问题，由
 	 * {@link #fetchWithMirrors} 给清单加的时间戳破缓存解决。
 	 */
+	/*
+	 * 镜像顺序：**jsDelivr 与 raw 都不放第一**（他的明确要求：这两条在手机上都不稳）。
+	 * 第一梯队用 GitHub 加速代理，jsD/raw 退到中段，ghproxy.net 最后。
+	 * 注：2026-10-23 我曾因一次 403 把 jsD 判死，十分钟后复测又全好 —— 单次结果不作数。
+	 */
 	private static final String[] MIRROR_ROOTS = {
+			"https://gh-proxy.com/https://raw.githubusercontent.com/" + REPO + "/" + BRANCH + "/",
+			"https://ghfast.top/https://raw.githubusercontent.com/" + REPO + "/" + BRANCH + "/",
 			"https://cdn.jsdelivr.net/gh/" + REPO + "@" + BRANCH + "/",
 			"https://raw.githubusercontent.com/" + REPO + "/" + BRANCH + "/",
 			"https://ghproxy.net/https://raw.githubusercontent.com/" + REPO + "/" + BRANCH + "/",
 	};
-	private static final String[] MIRROR_NAMES = {"jsdelivr", "raw", "ghproxy"};
+	private static final String[] MIRROR_NAMES = {"gh-proxy", "ghfast", "jsdelivr", "raw", "ghproxy"};
+
+	/**
+	 * 镜像顺序给同包的网页适配正文拉取（{@link AdaptScript}）复用。
+	 * 这张表只能有一处：两边各抄一份，改天就会有一条镜像在一边失效、另一边还在等超时。
+	 */
+	public static String[] mirrorRoots() {
+		return MIRROR_ROOTS.clone();
+	}
+
+	/** 配置仓的分支名，跨镜像换算「仓内相对路径」要用它当标记。 */
+	public static String branch() {
+		return BRANCH;
+	}
 
 	private static volatile FeatureGate gate = new FeatureGate(null, false);
 	private static volatile String status = "尚未拉取";
@@ -283,6 +305,8 @@ public final class CloudCatalog {
 	public static void init(Context context) {
 		final Context app = context.getApplicationContext();
 		lastApp = app;
+		// 机型/包名条件与 ui_hide_*_pkgs 都靠它；必须在任何 gate 条件求值之前注入。
+		PkgProbe.init(app);
 		if (context instanceof Activity) {
 			currentActivity = (Activity) context;
 		}
@@ -567,6 +591,15 @@ public final class CloudCatalog {
 		}
 	}
 
+	/**
+	 * 安装/卸载应用后刷新包名探针并重建当前界面：
+	 * {@code ui_hide_*_pkgs} 这类规则要在用户装上目标应用后立刻生效，不能等下次重启。
+	 */
+	public static void onPackagesChanged() {
+		PkgProbe.invalidate();
+		recreateUi();
+	}
+
 	/** 单条地址按镜像顺序试；detail 非空时把每个镜像的结果写进去（失败提示要能说清卡在哪）。 */
 	private static String fetchWithMirrors(String relPath, StringBuilder detail) {
 		for (int i = 0; i < MIRROR_ROOTS.length; i++) {
@@ -578,6 +611,10 @@ public final class CloudCatalog {
 				url += "?t=" + (System.currentTimeMillis() / 60000L);
 			}
 			String body = httpGet(url);
+			if ((body == null || body.trim().length() == 0) && MANIFEST.equals(relPath)) {
+				// 同源再试一次：jsDelivr 偶发边缘 403，换个缓存键往往立刻就好
+				body = httpGet(url + "&r=" + (System.nanoTime() % 1000));
+			}
 			if (body != null && body.trim().length() > 0) {
 				return body;
 			}
@@ -893,6 +930,9 @@ public final class CloudCatalog {
 			@Override
 			public boolean test(String expr, Map<String, String> extraVars) {
 				Map<String, String> vars = new HashMap<>(AnnouncementCenter.vars(app));
+				// 已安装包名（逗号分隔）与数量：规则里写 if="'com.xxx' 在 packages"
+				vars.put("packages", PkgProbe.csv(app));
+				vars.put("pkg_count", String.valueOf(PkgProbe.count()));
 				for (String id : AnnouncementCenter.seenIds(app)) {
 					vars.put("seen_" + id, "1");
 				}
