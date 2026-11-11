@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    安全守护的无障碍声明。三个刻意的选择：
+      · canRetrieveWindowContent=false —— 只收事件时序，不读屏幕上有什么字，隐私面最小；
+      · 事件类型只要触摸与窗口变化，不订阅 CONTENT_CHANGED（刷视频会产生海量噪声事件）；
+      · feedbackType=generic + 不响铃不振动：本服务不产生任何用户可感知的反馈。
+    能力面（performGlobalAction 踢回主界面）是无障碍自带的，不依赖 Shizuku。
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeTouchInteractionStart|typeTouchInteractionEnd|typeViewClicked|typeViewLongClicked|typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/guard_a11y_description"
+    android:notificationTimeout="100" />

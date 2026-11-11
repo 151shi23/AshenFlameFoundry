@@ -1,0 +1,554 @@
+# 安全守护内置豁免名单：包名|展示名|档位|出处
+# 档位 evidence=不算证据 / rank=不进推举榜 / irreversible=不许断网·冻结·卸载
+# 由 tools/guard-trust-list.py 从真实商店数据核对生成，手打的包名一律不收
+# 生成时间 rules@2026-11-07，数据源 mnixry/direct-android-ruleset
+com.baidu.input|百度输入法|evidence|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.google.android.inputmethod.pinyin|谷歌拼音输入法|evidence|实时核实：两家商店详情页（应用宝、豌豆荚）
+com.iflytek.inputmethod|讯飞输入法|evidence|direct-android-ruleset rules@2026-11-07：应用汇、小米
+com.sohu.inputmethod.sogou|搜狗输入法|evidence|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.tencent.wetype|微信输入法|evidence|实时核实：两家商店详情页（应用宝、豌豆荚）
+# ---- AI Agent 类（用户指定 2026-11-07）：这类应用受语音/远程指令驱动，界面自走与远控同形，
+# ---- 必须不算证据；档位仍给足保护：不进榜 + 不许断网/冻结/卸载，冒名包照样被反向识别拦下
+com.zhipuai.qingyan|智谱清言（含 AutoGLM）|evidence|实时核实：ROM之家/当快/脚本之家详情页一致（厂商：北京智谱华章）
+com.bytedance.trae.cn|TRAE（国内版）|evidence|实时核实：小米应用商店详情页（开发者：北京引力弹弓科技）
+com.bytedance.trae.overseas|TRAE（海外版）|evidence|实时核实：trae.ai 官方 assetlinks.json 包名声明
+com.tencent.workbuddy.app|WorkBuddy（腾讯 AI 办公智能体）|evidence|实时核实：脚本之家/华军软件园详情页一致（厂商：腾讯云计算）
+air.tv.douyu.android|斗鱼|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+cmb.pb|招商银行|rank|direct-android-ruleset rules@2026-11-07：应用宝
+cn.wps.moffice_eng|WPS Office|rank|direct-android-ruleset rules@2026-11-07：应用汇
+com.achievo.vipshop|唯品会|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.alibaba.android.rimet|钉钉|rank|direct-android-ruleset rules@2026-11-07：应用汇
+com.alibaba.wireless|1688|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.aliyun.tongyi|通义千问|rank|direct-android-ruleset rules@2026-11-07：应用宝
+com.android.bankabc|中国农业银行|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.anjuke.android.app|安居客|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.autonavi.minimap|高德地图|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.baidu.BaiduMap|百度地图|rank|direct-android-ruleset rules@2026-11-07：应用汇
+com.baidu.netdisk|百度网盘|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.baidu.searchbox|百度|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.bankcomm.Bankcomm|交通银行|rank|direct-android-ruleset rules@2026-11-07：应用汇
+com.cainiao.wireless|菜鸟|rank|direct-android-ruleset rules@2026-11-07：应用宝
+com.chinamobile.mcloud|和彩云|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.chinamworld.main|中国建设银行|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.ct.client|中国电信|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.dianping.v1|大众点评|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+com.dragon.read|番茄免费小说|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+com.duowan.kiwi|虎牙直播|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+com.eg.android.AlipayGphone|支付宝|rank|direct-android-ruleset rules@2026-11-07：应用汇
+com.greenpoint.android.mc10086.activity|中国移动|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.happyelements.AndroidAnimal|开心消消乐|rank|direct-android-ruleset rules@2026-11-07：应用汇、小米
+com.hpbr.bosszhipin|BOSS直聘|rank|direct-android-ruleset rules@2026-11-07：应用宝
+com.hunantv.imgo.activity|芒果TV|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.hypergryph.arknights|明日方舟|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、TapTap
+com.hypergryph.endfield|明日方舟：终末地|rank|direct-android-ruleset rules@2026-11-07：应用宝、TapTap
+com.icbc|中国工商银行|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.jd.jrapp|京东金融|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.jingdong.app.mall|京东|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.ktcp.video|云视听极光|rank|实时核实：两家商店详情页（应用宝、豌豆荚）
+com.kuaishou.nebula|快手极速版|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.kurogame.haru.hero|战双帕弥什|rank|direct-android-ruleset rules@2026-11-07：TapTap
+com.kurogame.mingchao|鸣潮|rank|direct-android-ruleset rules@2026-11-07：应用宝、TapTap
+com.lemon.lv|剪映专业版|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.lilithgames.rok.offical.cn|万国觉醒|rank|direct-android-ruleset rules@2026-11-07：B站游戏、应用宝
+com.m4399.gamecenter|4399游戏盒|rank|direct-android-ruleset rules@2026-11-07：应用宝
+com.miHoYo.enterprise.NGHSoD|崩坏3|rank|direct-android-ruleset rules@2026-11-07：应用汇
+com.miHoYo.hkrpg|崩坏：星穹铁道|rank|direct-android-ruleset rules@2026-11-07：应用宝
+com.miHoYo.Nap|绝区零|rank|direct-android-ruleset rules@2026-11-07：应用宝
+com.miHoYo.Yuanshen|原神|rank|direct-android-ruleset rules@2026-11-07：应用汇
+com.minitech.miniworld|迷你世界|rank|direct-android-ruleset rules@2026-11-07：应用汇
+com.MobileTicket|铁路12306|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.netease.cloudmusic|网易云音乐|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+com.netease.dhxy|大话西游|rank|direct-android-ruleset rules@2026-11-07：B站游戏、应用宝
+com.netease.dwrg|第五人格|rank|direct-android-ruleset rules@2026-11-07：应用汇、TapTap
+com.netease.l22|永劫无间手游|rank|direct-android-ruleset rules@2026-11-07：B站游戏
+com.netease.moba|决战！平安京|rank|direct-android-ruleset rules@2026-11-07：TapTap
+com.netease.my|梦幻西游|rank|实时核实：两家商店详情页（应用宝、豌豆荚）
+com.netease.newsreader.activity|网易新闻|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.netease.onmyoji|阴阳师|rank|实时核实：两家商店详情页（应用宝、豌豆荚）
+com.netease.party|蛋仔派对|rank|direct-android-ruleset rules@2026-11-07：应用汇
+com.papegames.lysk.cn|恋与深空|rank|direct-android-ruleset rules@2026-11-07：应用宝
+com.qihoo.browser|360浏览器|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.qiyi.video|爱奇艺|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+com.qq.reader|QQ阅读|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.qqgame.hlddz|欢乐斗地主|rank|direct-android-ruleset rules@2026-11-07：应用汇、B站游戏、应用宝
+com.quark.browser|夸克|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+com.qunar|去哪儿旅行|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.sankuai.meituan|美团|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.sdu.didi.psnger|滴滴出行|rank|direct-android-ruleset rules@2026-11-07：应用汇
+com.sina.weibo|微博|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+com.sinovatech.unicom.ui|中国联通|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.smile.gifmaker|快手|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.sofunny.Sausage|香肠派对|rank|direct-android-ruleset rules@2026-11-07：TapTap
+com.ss.android.article.lite|今日头条极速版|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.ss.android.article.news|今日头条|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.ss.android.article.video|西瓜视频|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.ss.android.lark|飞书（另一包名）|rank|direct-android-ruleset rules@2026-11-07：小米
+com.ss.android.ugc.aweme|抖音|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.ss.android.ugc.aweme.lite|抖音极速版|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.ss.android.ugc.live|抖音火山版|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.suning.mobile.ebuy|苏宁易购|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+com.taobao.idlefish|闲鱼|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.taobao.live|淘宝直播|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.taobao.taobao|手机淘宝|rank|direct-android-ruleset rules@2026-11-07：应用汇、小米
+com.taobao.trip|飞猪旅行|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.tencent.androidqqmail|QQ邮箱|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.tencent.docs|腾讯文档|rank|实时核实：两家商店详情页（应用宝、豌豆荚）
+com.tencent.jkchess|金铲铲之战|rank|direct-android-ruleset rules@2026-11-07：B站游戏、应用宝、小米
+com.tencent.letsgo|元梦之星|rank|direct-android-ruleset rules@2026-11-07：应用汇、B站游戏、应用宝
+com.tencent.lolm|英雄联盟手游|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、TapTap、小米
+com.tencent.map|腾讯地图|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.tencent.mm|微信|rank|direct-android-ruleset rules@2026-11-07：应用汇
+com.tencent.mobileqq|QQ|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.tencent.mtt|QQ浏览器|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.tencent.news|腾讯新闻|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+com.tencent.qqlive|腾讯视频|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+com.tencent.qqmusic|QQ音乐|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+com.tencent.tim|TIM|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.tencent.tmgp.cf|穿越火线：枪战王者|rank|direct-android-ruleset rules@2026-11-07：B站游戏、应用宝、小米
+com.tencent.tmgp.dfm|三角洲行动|rank|direct-android-ruleset rules@2026-11-07：应用汇、B站游戏、应用宝
+com.tencent.tmgp.pubgmhd|和平精英|rank|direct-android-ruleset rules@2026-11-07：B站游戏、应用宝、小米
+com.tencent.tmgp.sgame|王者荣耀|rank|direct-android-ruleset rules@2026-11-07：应用宝、TapTap、小米
+com.tencent.tmgp.speedmobile|QQ飞车手游|rank|direct-android-ruleset rules@2026-11-07：应用宝、小米
+com.tencent.wemeet.app|腾讯会议|rank|direct-android-ruleset rules@2026-11-07：应用宝
+com.tencent.wework|企业微信|rank|实时核实：两家商店详情页（应用宝、豌豆荚）
+com.tmall.wireless|天猫|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.UCMobile|UC浏览器|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.unionpay|云闪付|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.xingin.xhs|小红书|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.xunlei.downloadprovider|迅雷|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.xunmeng.pinduoduo|拼多多|rank|direct-android-ruleset rules@2026-11-07：应用宝
+com.youku.phone|优酷|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+com.zhihu.android|知乎|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+ctrip.android.view|携程旅行|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝
+me.ele|饿了么|rank|direct-android-ruleset rules@2026-11-07：小米
+tv.danmaku.bili|哔哩哔哩|rank|direct-android-ruleset rules@2026-11-07：应用汇、应用宝、小米
+android.zhibo8|直播吧|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+app.artronauction|雅昌拍卖图录|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+bubei.tingshu|懒人听书|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cmccwm.mobilemusic|咪咕音乐|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.banshenggua.aichang|爱唱|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.buding.martin|微车|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.cj.pe|139邮箱|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.cntv|央视影音|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.cntvnews|央视新闻|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.colorv|彩视|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.com.enorth.jinyun|津云|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.com.qlwb.qiluyidian|齐鲁壹点|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.com.sina.finance|新浪财经|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.com.sina.sports|新浪体育|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.com.spdb.mobilebank.per|浦发银行|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.damai|大麦|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.dxy.medicinehelper|用药助手|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.eclicks.drivingtest|车轮驾考通|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.eclicks.wzsearch|车轮|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.emagsoftware.gamehall|咪咕游戏|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.etouch.ecalendar|中华万年历|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.guancha.app|观察者网|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.jj|JJ斗地主|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.jsb.china|江苏银行|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.kuwo.player|酷我音乐|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.ledongli.ldl|乐动力|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.opda.a.phonoalbumshoushou|百度手机卫士|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.poco.jane|简拼|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.shuangshuangfei|找对象|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.soulapp.android|Soul|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.vcinema.cinema|南瓜电影|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.xiaochuankeji.tieba|最右|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.xuexi.android|学习强国|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+cn.youth.news|中青看点|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+co.runner.app|悦跑圈|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+co.welab.wolaidai|我来数科|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.aheading.news.lanzhourb|奔流新闻|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.alibaba.|阿里|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 5 个包（厂商前缀）
+com.android.dazhihui|大智慧|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.android56|56视频|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.antutu.abenchmark|安兔兔评测|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.app.hero.ui|K歌达人|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.autohome.usedcar|二手车之家|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.babytree.apps.lama|宝宝树小时光|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.babytree.apps.pregnancy|宝宝树孕育|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.baidu.|百度|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 20 个包（厂商前缀）
+com.baihe|百合网|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.bankcomm.maidanba|买单吧|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.benqu.wuta|无他相机|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.bilibili.|哔哩哔哩|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 20 个包（厂商前缀）
+com.black.unique|全球购骑士特权|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.bly.dkplat|小X分身|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.boohee.one|薄荷健康|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.booking|Booking.com缤客|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.brianbaek.popstar|消灭星星全新版|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.btime.bjtime|北京时间|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.budejie.www|百思漂流瓶|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.by.butter.camera|黄油相机|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.campmobile.snowcamera|B612咔叽|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.carrot.carrotfantasy|保卫萝卜|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.carrot.iceworld|保卫萝卜2|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.cat.readall|悟空浏览器|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.changba|唱吧|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.chaozh.ireaderfree|掌阅|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.china3s.android|春秋航空|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.chinaamc.mainactivityamc|华夏基金管家|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.chinamworld.bocmbci|中国银行|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.chinatelecom.bestpayclient|翼支付|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.chineseall.singlebook|中文书城|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.cliff|藏书馆|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.clov4r.android.nil|MoboPlayer|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.cmcc.cmvideo|咪咕视频|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.cns.mc.activity|中国新闻网|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.comic.manhuatai|漫画台|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.csii.gdnx.mobilebank|广东农信|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.cubic.autohome|汽车之家|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.cubic.choosecar|汽车报价|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.dailyyoga.cn|每日瑜伽|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.dalongtech.cloud|云电脑|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.dangdang.buy2|当当|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.dangdang.reader|当当云阅读|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.daofeng.zuhaowan|租号玩|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.deepseek.chat|DeepSeek|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.devuni.flashlight|超级手电筒|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.dewmobile.kuaiya|快牙|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.dingtai.wxhn.activity|新湖南|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.dingyz.dingyzwater|微脉水印相机|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.dongqiudi.news|懂球帝|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.douban.book.reader|豆瓣阅读|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.douban.frodo|豆瓣|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.douguo.recipe|豆果美食|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.dp.android.elong|艺龙旅行|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.duitang.main|堆糖|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.duoduo.child.story|儿歌多多|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.duokan.phone.remotecontroller|万能遥控|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.duowan.mobile|YY|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.duxiaoman.umoney|有钱花|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.duxiaoman.wallet|度小满|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.dz.hmjc|河马剧场|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.dzwww.sd.android|海报新闻|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.eastmoney.android.berlin|东方财富|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.eastmoney.android.fund|天天基金|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ebnews|亿邦|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.eno.android|国海金探号|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.eno.android.cj.page|长江e号|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.eno.xyzq.page|知己理财|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.excean.gspace|OurPlay|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.excelliance.dualaid|双开助手多开分身|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.faloo.bookreader4android|飞卢小说|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.fanli.android.apps|返利|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.fenbi.android.gaozhong|猿题库|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.fenbi.android.servant|粉笔|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.fenqile.fenqile|分期乐|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.financial.quantgroup|羊小咩|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.fivehundredpx.viewer.main|500px中国版|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.flightmanager.view|航班管家|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.founder.qujing|掌上曲靖|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.foundersc.app.xf|小方|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.fullgoal.android|富国富钱包|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.funshion.video.mobile|风行视频|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.galaxy.stock|中国银河证券|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.gamestar.perfectpiano|完美钢琴|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.gamestar.pianoperfect|随身乐队|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ganji.android|赶集招聘|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.gbits.atm.leiting|问道|irreversible|同时收录于 2 家商店（B站游戏、应用汇）：direct-android-ruleset rules@2026-11-07
+com.gdczu.memory|C族记忆宫殿|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.gf.client|广发易淘金|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.glodon.drawingexplorer|CAD快速看图|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.gorgeous.lite|轻颜|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.got.china|奔奔王国|irreversible|同时收录于 2 家商店（TapTap、应用宝）：direct-android-ruleset rules@2026-11-07
+com.gstarmc.android|CAD看图王|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.gtgj.view|高铁管家|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.guosen.android|国信金太阳|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.guotai.dazhihui|国泰海通君弘|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.gwsoft.imusic.controller|爱音乐|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.hanweb.android.sdzwfw.activity|爱山东|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.happyelements.|乐元素|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 7 个包（厂商前缀）
+com.happyteam.dubbingshow|配音秀|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.hermes.mk|初音未来：缤纷舞台|irreversible|同时收录于 2 家商店（TapTap、应用汇）：direct-android-ruleset rules@2026-11-07
+com.hexin.plat.android|同花顺|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.hexin.plat.android.zhongyuansecurity|中原证券|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.hf|中国天气|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.hipu.yidian|一点资讯|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.hlg.daydaytobusiness|稿定设计|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.hnzx.hnrb|河南日报|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.hottagames.yh.laohu|异环|irreversible|同时收录于 2 家商店（TapTap、应用宝）：direct-android-ruleset rules@2026-11-07
+com.htinns|华住会|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.huajiao|花椒直播|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.huawei.hwid|HMS Core|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.huitouche.android.app|省省货主|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.hundsun.winner.pazq|平安证券|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.huodao.hdphone|找靓机|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.hupu.games|虎扑|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.hypergryph.|鹰角|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 3 个包（厂商前缀）
+com.ibox.flashlight|多多手电筒|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ifeimo.videoeditor|视频剪辑大师|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ifeng.news2|凤凰新闻|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ifeng.newvideo|凤凰视频|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.iflytek.ringdiyclient|酷音铃声|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ifreetalk.ftalk|派派|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ihope.hbdt|冀时新闻|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.imangi.templerun2|神庙逃亡2|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.immomo.momo|MOMO陌陌|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.imusic.iting|爱听|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.intsig.camscanner|扫描全能王|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.iqiyi.qixiu|奇秀|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ishansong|闪送员|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.ishowedu.child.peiyin|少儿趣配音|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.itcode.reader|漫漫漫画|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.jd.|京东|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 10 个包（厂商前缀）
+com.jesson.meishi|美食杰家常菜谱大全|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.jf.lkrj|花生日记|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.jiayuan|世纪佳缘|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.jiemian.news|界面新闻|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.jifen.qukan|趣头条|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.jingdian.tianxiameishi.android|美食天下|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.jingdong.|京东|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 3 个包（厂商前缀）
+com.jingxiu.xjdzm|仙界大掌门|irreversible|同时收录于 2 家商店（B站游戏、TapTap）：direct-android-ruleset rules@2026-11-07
+com.jiongji.andriod.card|百词斩|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.jjwxc.reader|晋江小说阅读|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.job.android|前程无忧51Job|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.joygo|忘忧围棋|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.jsbc.lznews|荔枝新闻|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.juejinchain.android|掘金宝|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.jxedt|驾校一点通|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.jzyd.coupon|省钱快报|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kekeclient_|可可英语|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kiloo.subwaysurf|地铁跑酷|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kingdee.express|快递100|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kingsoft|金山词霸|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kmxs.reader|七猫免费小说|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.koudai.weidian.buyer|微店|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.koudai.weishop|微店店长版|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kuaikan.comic|快看漫画|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kuangxiangciweimao.novel|刺猬猫阅读|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kugou.android|酷狗音乐|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kugou.android.lite|酷狗概念版|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kugou.android.ringtone|酷狗铃声|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kugou.fanxing|酷狗直播|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.kurogame.|库洛|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 3 个包（厂商前缀）
+com.kwai.|快手海外|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 7 个包（厂商前缀）
+com.lanjinger.choiassociatedpress|财联社|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.lanjingren.ivwen|美篇|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.laoyuegou.android|捞月狗|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.lechuan.mdwz|米读极速版|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.lechuan.midunovel|米读小说|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.lehai.ui|乐嗨直播|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.leixun.taofen8|淘粉吧|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.lemon.faceu|Faceu激萌|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.leqi.idpicture|智能证件照|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.lilith.palmon.android.cn|帕萌战斗日记|irreversible|同时收录于 2 家商店（B站游戏、应用宝）：direct-android-ruleset rules@2026-11-07
+com.lilithgame.|莉莉丝|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 5 个包（厂商前缀）
+com.lilithgames.|莉莉丝|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 6 个包（厂商前缀）
+com.lingan.seeyou|美柚|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.lingyue.zebraloan|洋钱罐借款|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.liulishuo.engzo|流利说|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.lltskb.lltskb|路路通|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.lofter.android|网易LOFTER|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.lt.lighting|来电闪光|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.luna.music|汽水音乐|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.luojilab.player|得到|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.maka.app|MAKA设计|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.meelive.ingkee|映客直播|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.meitu.meipaimv|美拍|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.meitu.meiyancamera|美颜相机|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.meitu.poster|美图设计室|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.meitu.wink|Wink|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.miHoYo.|米哈游|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 14 个包（厂商前缀）
+com.mogujie|蘑菇街|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.moji.mjweather|墨迹天气|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.mosheng|爱聊|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.mt.mtxx.mtxx|美图秀秀|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.mtime|时光网|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.mx.browser|傲游浏览器|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.mybank.android.phone|网商银行|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.mygolbs.mybus|掌上公交|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.mymoney|随手记|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.mymoney.sms|卡牛信用管家|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.mysteel.android.steelphone|我的钢铁|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.n1studio.empress|盛世天下：女帝篇|irreversible|同时收录于 2 家商店（B站游戏、应用宝）：direct-android-ruleset rules@2026-11-07
+com.naiyoubz.main|奶油桌面|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.nd.android.pandareader|熊猫看书|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.netease.|网易|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 84 个包（厂商前缀）
+com.nfdaily.nfplus|南方Plus|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.nice.main|nice|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ninexiu.sixninexiu|九秀直播|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.njh.biubiu|biubiu加速器|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.nxy.sc|四川农信手机银行|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.octinn.birthdayplus|生日管家|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ophone.reader.ui|咪咕悦看|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.oupeng.mini.android|欧朋浏览器|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.outfit7.mytalkingtomfree|我的汤姆猫|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.p1.mobile.putong|探探|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.pa.health|平安乐健康|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.paem|平安融易|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.paic.zhifu.wallet.activity|壹钱包|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.papegames.|叠纸|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 8 个包（厂商前缀）
+com.parallel.odyssey|猫箱|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.pdragon.hd1010|方块合合乐|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.peopledailychina.activity|人民日报|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.phoenix.read|红果免费短剧|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.pi.czrxdfirst|超自然行动组|irreversible|同时收录于 2 家商店（B站游戏、应用宝）：direct-android-ruleset rules@2026-11-07
+com.pigeongames.phigros|Phigros 测试版|irreversible|同时收录于 2 家商店（TapTap、应用汇）：direct-android-ruleset rules@2026-11-07
+com.pingan.paces.ccms|平安口袋银行|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ppdai.loan|拍拍贷借款|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.pplive.androidphone|PP视频|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.pplive.androidphone.sport|PP体育|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.qidian.qdreader|起点读书|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.qihoo.camera|360摄像机|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.qihoo.cleandroid_cn|360清理大师|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.qihoo.loan|奇富借条|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.qihoo360.mobilesafe|360手机卫士|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.qiyi.video.pad|爱奇艺PAD|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.qlscupgrade|中泰齐富通|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.qq.ac.android|腾讯动漫|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.qq.qcloud|腾讯微云|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.qqgame.|腾讯游戏|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 3 个包（厂商前缀）
+com.quanleimu.activity|百姓网|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.qzone|QQ空间|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.renren.mobile.android|人人直播|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.rong360.app|融360|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.rumtel.mobiletv|影评大全看看|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.samoyed.credit|省呗|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sankuai.|美团|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 6 个包（厂商前缀）
+com.screeclibinvoke|录屏大师|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sec.android.easymover|S 换机助手|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.secoo|寺库奢侈品|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.seetong.app.seetong|Seetong|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sf.activity|顺丰速运|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sgcc.wsgw.cn|网上国网|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.shanbay.sentence|扇贝单词英语版|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.shizhuang.duapp|得物|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.shoujiduoduo.ringtone|铃声多多|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.shuqi.controller|书旗小说|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sichuanol.cbgc|川观新闻|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sina.|新浪|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 6 个包（厂商前缀）
+com.sing.client|5sing音乐|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sinyee.babybus.abc|宝宝巴士英语|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sinyee.babybus.babyhospital|宝宝医院|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sinyee.babybus.cake|奇妙蛋糕店|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.sinyee.babybus.chef|宝宝小厨房|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sinyee.babybus.foodstreet|宝宝美食街|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sinyee.babybus.kindergarten|宝宝欢乐教室|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sinyee.babybus.number|宝宝玩数字|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sinyee.babybus.organized|宝宝大扫除|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sinyee.babybus.seaworld|宝宝钓鱼|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sinyee.babybus.talk2kiki|宝宝巴士奇妙屋|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.sinyee.babybus.travelsafety|宝宝出行安全|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sixrpg.opalyer|橙光阅读器|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.skyplatanus.crucio|快点阅读|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.slanissue.apps.mobile.erge|贝瓦儿歌|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sloth.removelogo|视频去水印全能王|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.smzdm.client.android|什么值得买|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.snda.wifilocating|WiFi万能钥匙|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sohu.infonews|搜狐资讯|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sohu.newsclient|搜狐新闻|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sohu.sohuvideo|搜狐视频|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sohu.tv|搜狐视频Pad|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ss.android.|字节跳动|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 10 个包（厂商前缀）
+com.sskj.flashlight|随手电筒|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.suning.mobile.epa|星图金融|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.sup.android.superb|皮皮虾|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.szzc|神州租车|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.taobao.|阿里|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 8 个包（厂商前缀）
+com.tencent.|腾讯|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 894 个包（厂商前缀）
+com.tencent.tmgp.|腾讯应用宝渠道游戏|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 765 个包（厂商前缀）
+com.thestore.main|1号会员店|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ting.mp3.android|千千音乐|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.tinmanarts.jojosherlock|叫叫识字|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.tiqiaa.icontrol|遥控精灵|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.tongcheng.android|同程旅行|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.tripadvisor.tripadvisor.daodao|Tripadvisor猫途鹰|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.tudou.android|土豆|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.tujia.hotel|途家民宿|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.tuniu.app.ui|途牛旅游|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.twentyfirstcbh.epaper|21财经|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ucmobile.lite|UC浏览器极速版|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.umaman.laiyifen|来伊份社区购|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ume.browser|微米浏览器|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.umetrip.android.msky.app|航旅纵横|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ushaqi.zhuishushenqi|追书神器|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ushaqi.zhuishushenqi.adfree|追书神器免费版|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ustwo.monumentvalleyzz|纪念碑谷|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.videogo|萤石云视频|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.vivo.space|vivo 官网|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.wacai365|挖财记账|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.wallstreetcn.news|华尔街见闻|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.wandafilm.app|万达影城|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.wedobest.llk|连连看|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.wedobest.shudu|数独|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.welove520.welove|微爱|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.when.coco|365日历|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.whizen.iptv.activity|万视达|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.wm.dmall|多点|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.wondertek.paper|澎湃新闻|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.wuba|58同城|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.wuba.zhuanzhuan|转转|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.wudaokou.hippo|盒马|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xhey.xcamera|今日水印相机|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xiachufang|下厨房|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xiaobanlong.main|小伴龙|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xiaoenai.app|小恩爱|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xiaomi.mitv.phone.tvassistant|小米电视助手|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xiaomi.shop|小米商城|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xiaomi.smarthome|米家|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xiaomi.youpin|小米有品|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xiaoying.cardloan|小赢卡贷|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ximalaya.ting.android|喜马拉雅|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xingluo.mpa|魔力相册|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xm4399.|4399|irreversible|direct-android-ruleset rules@2026-11-07：前缀命中 10 个包（厂商前缀）
+com.xs.fm|番茄畅听|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xs.fm.lite|番茄音乐|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xt.retouch|醒图|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xtuone.android.syllabus|超级课程表|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xueqiu.android|雪球|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xunmeng.merchant|拼多多商家版|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.xvideostudio.videoeditor|乐秀视频剪辑视频编辑|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yek.android.kfc.activitys|肯德基|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ygkj.chelaile.standard|车来了|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yibasan.lizhifm|荔枝|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yicai.news|第一财经|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yiche.autoeasy|易车|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yiche.price|易车汽车报价|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yingyonghui.market|应用汇|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yipiao|智行火车票|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yitong.mbank|江苏·农商行|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yitong.mbank.psbc|邮储银行|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yiwang|1药网|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.yixia.videoeditor|秒拍|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yixianghua|宜享花|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yiyou.ga|TT语音|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ymatou.shop|洋码头|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.ymt360.app.mass|一亩田|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.yoloho.dayima|大姨妈|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.youdao.dict|网易有道词典|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.youdao.note|有道云笔记|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yumc.phsuperapp|必胜客|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+com.yx|有信|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.yy.huanju|Hello|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.zhangdan.app|51信用卡管家|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.zhaopin.social|智联招聘|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+com.zhenai.android|珍爱|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+flipboard.cn|红板报|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+fm.qingting.qtradio|蜻蜓FM|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+hg.zp.ui|天眼新闻|irreversible|同时收录于 2 家商店（小米、应用宝）：direct-android-ruleset rules@2026-11-07
+howbuy.android.piggy|储蓄罐|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+im.weshine.keyboard|KK键盘|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+im.xingzhe|行者|irreversible|同时收录于 2 家商店（小米、应用汇）：direct-android-ruleset rules@2026-11-07
+longbin.helloworld|计算管家|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+me.chunyu.chunyudoctor|春雨医生|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+me.yidui|伊对|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+net.xinhuamm.mainclient|新华社|irreversible|同时收录于 3 家商店（小米、应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+oms.mmc.app.almanac_inland|老黄历万年历顺历|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+sh.lilith.dgame.lemon|小冰冰传奇|irreversible|同时收录于 2 家商店（B站游戏、应用宝）：direct-android-ruleset rules@2026-11-07
+sina.mobile.tianqitong|天气通|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+sogou.mobile.explorer|搜狗浏览器极速版|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+tv.acfundanmaku.video|AcFun|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+tv.pps.mobile|爱奇艺随刻|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+vstudio.android.camera360|相机360|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+vz.com|飞常准|irreversible|同时收录于 2 家商店（应用宝、应用汇）：direct-android-ruleset rules@2026-11-07
+# ---- 用户复核 2026-11-07：截图「重新推举」里被标成嫌疑，逐个确认均为正常软件，误报修正。
+# ---- 统一给 rank（不进推举榜）：这些能力来自用户主动授权的产品功能，不能当嫌疑人再允许断网/卸载。
+# ---- 系统包（小米健康/播放器/邮件/录屏）已在采集阶段按 FLAG_SYSTEM|FLAG_UPDATED_SYSTEM_APP 跳过。
+bin.mt.plus|MT管理器|rank|用户复核 2026-11-07：文件管理器，装包/删包均需用户确认
+com.larus.nova|夸克|rank|用户复核 2026-11-07：浏览器，装包/悬浮窗属产品功能
+com.hisen.se.mi.flv2lv||rank|用户复核 2026-11-07：预装组件，功能正常
+com.mashiongallery.emag||rank|用户复核 2026-11-07：图库应用，功能正常
+com.yadea.smartmoto|雅迪智行|rank|用户复核 2026-11-07：车机配套应用，功能正常
+com.netease.uremore|网易云音乐（U-More）|rank|用户复核 2026-11-07：音乐应用，功能正常
+com.kugou.android|酷狗音乐|rank|用户复核 2026-11-07：主流音乐应用，覆盖前一条 irreversible
