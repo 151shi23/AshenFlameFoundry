@@ -1,6 +1,7 @@
 package com.mineways;
 
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.res.AssetManager;
@@ -9,7 +10,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.MediaStore;import android.view.Gravity;
+import android.provider.MediaStore;import android.text.TextUtils;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -22,7 +25,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -30,8 +35,12 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+
+import com.mineways.assets.AssetPacks;
+import com.mineways.assets.PackProgressDialog;
 import androidx.webkit.WebViewAssetLoader;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -97,6 +106,122 @@ public class OpenCutActivity extends AppCompatActivity {
     private View customView;
     private WebChromeClient.CustomViewCallback customCallback;
 
+    /** 顶部素材版本条：让「装的是哪一版、有没有新版」一眼可见。 */
+    private TextView packBar;
+    private volatile boolean packCheckRunning;
+    private volatile AssetPacks.Pack latestPack;
+
+    /**
+     * 下载版素材目录：{@code filesDir/assets/opencut}。
+     *
+     * <p>和 {@code AssetPacks.installDir()} 算出来的路径必须一致 —— 素材包解压后的
+     * 顶层目录就叫 {@code opencut}，所以这里直接拼。
+     */
+    private File packDir() {
+        return new File(new File(getFilesDir(), "assets"), "opencut");
+    }
+
+    // ------------------------------------------------------------ 素材版本条
+
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    /** 已安装素材版本；用 APK 内置素材（没写过 .installed）时返回空串。 */
+    private String installedPackVersion() {
+        File stamp = new File(packDir(), ".installed");
+        if (!stamp.isFile()) return "";
+        try (InputStream in = new FileInputStream(stamp)) {
+            byte[] data = new byte[(int) Math.min(stamp.length(), 64)];
+            int n = in.read(data);
+            return n <= 0 ? "" : new String(data, 0, n, StandardCharsets.UTF_8).trim();
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    private TextView buildPackBar() {
+        TextView bar = new TextView(this);
+        bar.setSingleLine(true);
+        bar.setEllipsize(TextUtils.TruncateAt.END);
+        bar.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+        bar.setTextColor(0xFFB9C0CC);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(dp(12), 0, dp(12), 0);
+        bar.setBackgroundColor(0xFF0E1013);
+        bar.setClickable(true);
+        bar.setOnClickListener(v -> onPackBarClick());
+        return bar;
+    }
+
+    private void setPackBar(String text, boolean highlight) {
+        runOnUiThread(() -> {
+            if (packBar == null) return;
+            packBar.setText(text);
+            packBar.setTextColor(highlight ? 0xFF8AB4F8 : 0xFFB9C0CC);
+        });
+    }
+
+    private void refreshPackBarIdle() {
+        String version = installedPackVersion();
+        if (version.isEmpty()) {
+            setPackBar(hasBundledAssets()
+                    ? "剪辑素材：APK 内置 · 点此检查更新"
+                    : "剪辑素材：未安装 · 点此下载", false);
+        } else {
+            setPackBar("剪辑素材 v" + version + " · 点此检查更新", false);
+        }
+    }
+
+    private boolean hasBundledAssets() {
+        try (InputStream ignored = getAssets().open(ASSET_ROOT + "index.html")) {
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** 素材更新后换 query，避免 WebView 继续用上一版 HTML。 */
+    private String entryUrl() {
+        String version = installedPackVersion();
+        return ENTRY_URL + (version.isEmpty() ? "" : "?pack=" + Uri.encode(version));
+    }
+
+    private void onPackBarClick() {
+        String current = installedPackVersion();
+        AssetPacks.Pack latest = latestPack;
+        if (latest != null && !current.isEmpty()
+                && AssetPacks.compareVersion(current, latest.version) < 0) {
+            showUpdateDialog(current, latest);
+            return;
+        }
+        if (packCheckRunning) {
+            Toast.makeText(this, "正在检查更新…", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, "正在检查更新…", Toast.LENGTH_SHORT).show();
+        maybeCheckPackUpdate(true);
+    }
+
+    private void showUpdateDialog(String current, AssetPacks.Pack pack) {
+        String extra = pack.notes == null || pack.notes.trim().isEmpty()
+                ? "" : "\n\n更新内容：" + pack.notes.trim();
+        String from = current.isEmpty()
+                ? (hasBundledAssets() ? "APK 内置素材" : "尚未安装素材")
+                : "当前 v" + current;
+        new AlertDialog.Builder(this)
+                .setTitle(current.isEmpty() ? "下载剪辑素材" : "剪辑素材有新版本")
+                .setMessage(from + " → 新版本 v" + pack.version
+                        + "\n体积 " + pack.sizeText()
+                        + "\n\n更新后剪辑器会用到新素材和新功能；现在这页可以照常用。"
+                        + extra)
+                .setPositiveButton("更新", (d, w) -> startPackDownload(pack, true))
+                .setNegativeButton("稍后", (d, w) -> {
+                    if (!current.isEmpty()) rememberUpdateSkipped(pack.version);
+                })
+                .show();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -106,13 +231,19 @@ public class OpenCutActivity extends AppCompatActivity {
                 // 在线下载的字体落在私有目录，按站内路径发回页面（同源，省掉跨域与 blob 落盘）
                 .addPathHandler("/res-fonts/", new DirPathHandler(
                         new File(getFilesDir(), FONT_STORE_DIR)))
-                .addPathHandler("/", new AssetsRootHandler(getAssets()))
+                .addPathHandler("/", new AssetsRootHandler(getAssets(), packDir()))
                 .build();
 
         root = new FrameLayout(this);
         root.setBackgroundColor(BG);
 
         webView = new WebView(this);
+        android.net.Uri openUri = com.mineways.open.OpenInbox.take(this);
+        if (openUri != null) {
+            com.mineways.open.WebOpenBridge.setPending(openUri,
+                    com.mineways.open.OpenInbox.nameOf(this, openUri),
+                    com.mineways.open.OpenInbox.mimeOf(this, openUri));
+        }
         webView.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         root.addView(webView);
@@ -131,14 +262,276 @@ public class OpenCutActivity extends AppCompatActivity {
         fullscreenLayer.setVisibility(View.GONE);
         root.addView(fullscreenLayer);
 
-        setContentView(root);
+        LinearLayout shell = new LinearLayout(this);
+        shell.setOrientation(LinearLayout.VERTICAL);
+        shell.setBackgroundColor(BG);
+        packBar = buildPackBar();
+        shell.addView(packBar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(24)));
+        root.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        shell.addView(root);
+        setContentView(shell);
+        refreshPackBarIdle();
         setupWebView(assetLoader);
         goImmersive();
 
         // 剪辑是长活儿：亮着屏免得中途息屏被打断
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        webView.loadUrl(ENTRY_URL);
+        loadOrFetch();
+    }
+
+    /**
+     * 素材在不在？
+     *
+     * <p>先看下载版（{@code filesDir/assets/opencut}），再看 APK 内置的
+     * {@code assets/opencut} —— 老包里素材还打在 APK 内，这里直接放行，不用下载。
+     */
+    private boolean localAssetsReady() {
+        if (new File(packDir(), "index.html").isFile()) return true;
+        try (InputStream in = getAssets().open(ASSET_ROOT + "index.html")) {
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /**
+     * 素材没装就先下载，装好再加载页面。
+     *
+     * <p>不下载的话页面会 404 白屏，用户只会觉得「这个功能坏了」，所以必须拦在前面。
+     */
+    private void loadOrFetch() {
+        if (localAssetsReady()) {
+            refreshPackBarIdle();
+            webView.loadUrl(entryUrl());
+            maybeCheckPackUpdate(false);
+            return;
+        }
+        new Thread(() -> {
+            final String[] mirror = new String[1];
+            java.util.List<AssetPacks.Pack> packs;
+            try {
+                packs = AssetPacks.fetchManifest(mirror);
+            } catch (Throwable t) {
+                runOnUiThread(() -> showPackError("拿不到资源清单", t.getMessage()));
+                return;
+            }
+            AssetPacks.Pack found = null;
+            for (AssetPacks.Pack p : packs) {
+                if ("opencut".equals(p.id)) {
+                    found = p;
+                    break;
+                }
+            }
+            if (found == null) {
+                runOnUiThread(() -> showPackError("资源清单里没有 opencut", ""));
+                return;
+            }
+            final AssetPacks.Pack pack = found;
+            runOnUiThread(() -> confirmPack(pack, mirror[0]));
+        }, "pack-manifest").start();
+    }
+
+    /** 先问一句再下 —— 108 MB 不打招呼就吃掉流量会挨骂。 */
+    private void confirmPack(AssetPacks.Pack pack, String mirror) {
+        String msg = "视频剪辑的素材（贴纸、3D 模型、语音转写模型）不随安装包分发，"
+                + "需要单独下载一次。\n\n"
+                + "体积：" + pack.sizeText() + "（解压后约 "
+                + AssetPacks.unpackedMb(pack) + " MB）\n"
+                + "来源：" + (mirror == null ? "GitHub" : mirror) + "\n\n"
+                + "下载一次就够了，之后不用联网。";
+        new AlertDialog.Builder(this)
+                .setTitle("需要下载素材包")
+                .setMessage(msg)
+                .setPositiveButton("下载", (d, w) -> startPackDownload(pack, false))
+                .setNegativeButton("返回", (d, w) -> finish())
+                .setCancelable(false)
+                .show();
+    }
+
+    /** 下载 + 解压，全程一个大号进度框（首装与更新共用）。 */
+    private void startPackDownload(AssetPacks.Pack pack, boolean isUpdate) {
+        final boolean[] cancel = {false};
+        final PackProgressDialog progress = PackProgressDialog.show(this,
+                isUpdate ? "正在更新剪辑素材" : "正在下载剪辑素材",
+                () -> cancel[0] = true);
+
+        new Thread(() -> {
+            try {
+                // 下载线程比页面活得久：装完就把 Activity 扔掉，进度回调里再判断在不在前台
+                AssetPacks.install(getApplicationContext(), pack, new AssetPacks.Progress() {
+                    @Override
+                    public void onProgress(String stage, long done, long total) {
+                        runOnUiThread(() -> {
+                            if (isFinishing() || isDestroyed() || !progress.isAlive()) return;
+                            progress.update(stage, done, total);
+                        });
+                    }
+
+                    @Override
+                    public boolean isCancelled() {
+                        return cancel[0];
+                    }
+                });
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    progress.dismiss();
+                    // 装完再确认一次入口文件真的在：结构不对就当场报错，别让页面 404 白屏
+                    if (!new File(packDir(), "index.html").isFile()) {
+                        showPackError("素材包结构不对",
+                                "解压完成，但没有找到 index.html。\n目录：" + packDir());
+                        return;
+                    }
+                    Toast.makeText(this,
+                            isUpdate ? "素材已更新到 " + pack.version : "素材已就绪",
+                            Toast.LENGTH_SHORT).show();
+                    if (isUpdate) clearUpdateSkipped();
+                    latestPack = null;
+                    webView.clearCache(true);
+                    refreshPackBarIdle();
+                    setPackBar("剪辑素材 v" + pack.version + " · 已更新", false);
+                    webView.loadUrl(entryUrl());
+                });
+            } catch (Throwable t) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    progress.dismiss();
+                    String m = t.getMessage();
+                    if (m != null && m.contains("已取消")) {
+                        Toast.makeText(this, isUpdate ? "已取消更新" : "已取消下载",
+                                Toast.LENGTH_SHORT).show();
+                        // 取消更新时页面已经在用旧素材，留在原地；首装取消才退出
+                        if (!isUpdate) finish();
+                    } else {
+                        if (isUpdate) showUpdateError(m, pack);
+                        else showPackError("下载失败", m);
+                    }
+                });
+            }
+        }, "pack-dl").start();
+    }
+
+    /**
+     * 素材搬出 APK 之后，剪辑器本身的更新也跟着素材包走。
+     *
+     * <p>页面先用已装的素材正常打开，后台问一次清单；只有已装的<b>下载版</b>素材比清单旧时才弹窗
+     * （用 APK 内置素材的老包不参与，否则会白白催一次下载）。拿不到清单就安静跳过 ——
+     * 离线用户不该被一个网络错误挡住编辑。
+     *
+     * <p>「稍后」会记住这个版本 24 小时，期间不再打断；发了更新的版本会重新提示。
+     */
+    private void maybeCheckPackUpdate(final boolean manual) {
+        if (packCheckRunning) {
+            if (manual) Toast.makeText(this, "正在检查更新…", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final String current = installedPackVersion();
+        if (current.isEmpty() && !manual) {
+            // 用 APK 内置素材的老包不主动催下载；版本条点一下可以查。
+            return;
+        }
+        packCheckRunning = true;
+        final String currentLabel = current.isEmpty()
+                ? (hasBundledAssets() ? "（内置）" : "（未安装）")
+                : " v" + current;
+        setPackBar("剪辑素材" + currentLabel + " · 正在检查更新…", false);
+        new Thread(() -> {
+            try {
+                java.util.List<AssetPacks.Pack> packs = AssetPacks.fetchManifest(null);
+                AssetPacks.Pack found = null;
+                for (AssetPacks.Pack p : packs) {
+                    if ("opencut".equals(p.id)) {
+                        found = p;
+                        break;
+                    }
+                }
+                if (found == null) {
+                    setPackBar("剪辑素材" + currentLabel + " · 清单里没有 opencut", false);
+                    if (manual) {
+                        runOnUiThread(() -> Toast.makeText(this,
+                                "资源清单里没有 opencut", Toast.LENGTH_LONG).show());
+                    }
+                    return;
+                }
+                latestPack = found;
+                if (!current.isEmpty()
+                        && AssetPacks.compareVersion(current, found.version) >= 0) {
+                    setPackBar("剪辑素材 v" + current + " · 已是最新", false);
+                    if (manual) {
+                        runOnUiThread(() -> Toast.makeText(this,
+                                "剪辑素材已是最新（v" + current + "）", Toast.LENGTH_SHORT).show());
+                    }
+                    return;
+                }
+                setPackBar("剪辑素材" + currentLabel
+                        + " → v" + found.version + " · 点此更新", true);
+                if (manual || shouldPromptUpdate(found.version)) {
+                    final AssetPacks.Pack pack = found;
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        showUpdateDialog(current, pack);
+                    });
+                }
+            } catch (Throwable t) {
+                setPackBar("剪辑素材" + currentLabel + " · 检查失败，点此重试", false);
+                if (manual) {
+                    runOnUiThread(() -> Toast.makeText(this,
+                            "检查失败：" + (t.getMessage() == null ? "网络不通" : t.getMessage()),
+                            Toast.LENGTH_LONG).show());
+                }
+            } finally {
+                packCheckRunning = false;
+            }
+        }, "pack-update").start();
+    }
+
+    private static final String PREF_PACK = "opencut_pack";
+    private static final String PREF_SKIP_VERSION = "skip_version";
+    private static final String PREF_SKIP_AT = "skip_at";
+    /** 「稍后」按得再勤，一天最多提醒一次；换版本会重新提。 */
+    private static final long SKIP_COOLDOWN_MS = 24L * 60 * 60 * 1000;
+
+    private boolean shouldPromptUpdate(String version) {
+        android.content.SharedPreferences sp = getSharedPreferences(PREF_PACK, MODE_PRIVATE);
+        if (!version.equals(sp.getString(PREF_SKIP_VERSION, ""))) return true;
+        return System.currentTimeMillis() - sp.getLong(PREF_SKIP_AT, 0) >= SKIP_COOLDOWN_MS;
+    }
+
+    private void rememberUpdateSkipped(String version) {
+        getSharedPreferences(PREF_PACK, MODE_PRIVATE).edit()
+                .putString(PREF_SKIP_VERSION, version)
+                .putLong(PREF_SKIP_AT, System.currentTimeMillis())
+                .apply();
+    }
+
+    private void clearUpdateSkipped() {
+        getSharedPreferences(PREF_PACK, MODE_PRIVATE).edit()
+                .remove(PREF_SKIP_VERSION)
+                .remove(PREF_SKIP_AT)
+                .apply();
+    }
+
+    /** 更新失败：页面还能用，重试针对「更新」而不是重新加载。 */
+    private void showUpdateError(String detail, AssetPacks.Pack pack) {
+        new AlertDialog.Builder(this)
+                .setTitle("更新失败")
+                .setMessage(detail == null || detail.isEmpty() ? "请检查网络后重试" : detail)
+                .setPositiveButton("重试", (d, w) -> startPackDownload(pack, true))
+                .setNegativeButton("稍后", (d, w) -> rememberUpdateSkipped(pack.version))
+                .setCancelable(false)
+                .show();
+    }
+
+    private void showPackError(String title, String detail) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(detail == null || detail.isEmpty() ? "请检查网络后重试" : detail)
+                .setPositiveButton("重试", (d, w) -> loadOrFetch())
+                .setNegativeButton("返回", (d, w) -> finish())
+                .setCancelable(false)
+                .show();
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -149,6 +542,8 @@ public class OpenCutActivity extends AppCompatActivity {
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
+        // 素材更新会整目录替换；WebView 缓存住旧 HTML 时，用户会以为「更新没生效」。
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
@@ -176,6 +571,15 @@ public class OpenCutActivity extends AppCompatActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return !DOMAIN.equals(request.getUrl().getHost());
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                if (com.mineways.open.WebOpenBridge.hasPending()) {
+                    view.postDelayed(() -> com.mineways.open.WebOpenBridge.tryAutoTrigger(view), 800);
+                }
+                AdaptInject.apply(OpenCutActivity.this, view, url);
             }
 
             @Override
@@ -213,6 +617,7 @@ public class OpenCutActivity extends AppCompatActivity {
                 fullscreenLayer.addView(view);
                 fullscreenLayer.setVisibility(View.VISIBLE);
                 webView.setVisibility(View.GONE);
+                if (packBar != null) packBar.setVisibility(View.GONE);
                 WindowInsetsControllerCompat fc = WindowCompat.getInsetsController(
                         getWindow(), getWindow().getDecorView());
                 if (fc != null) {
@@ -237,6 +642,10 @@ public class OpenCutActivity extends AppCompatActivity {
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
                                              FileChooserParams params) {
+                if (com.mineways.open.WebOpenBridge.consume(
+                        params == null ? null : params.getAcceptTypes(), callback)) {
+                    return true;
+                }
                 if (fileCallback != null) {
                     fileCallback.onReceiveValue(null);
                 }
@@ -291,6 +700,7 @@ public class OpenCutActivity extends AppCompatActivity {
         customView = null;
         fullscreenLayer.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
+        if (packBar != null) packBar.setVisibility(View.VISIBLE);
         if (customCallback != null) {
             try {
                 customCallback.onCustomViewHidden();
@@ -1015,24 +1425,25 @@ public class OpenCutActivity extends AppCompatActivity {
         });
     }
 
-    /** 成品收进相册：视频进 Movies/OpenCut、图片进 Pictures/OpenCut；相册写不进就退回应用目录并扫库。 */
+    /** 成品收进相册：视频进 Movies/OpenCut、图片进 Pictures/OpenCut、纯音频导出进 Music/OpenCut；相册写不进就退回应用目录并扫库。 */
     private String publish(File src, String name) {
         final String ext = extOf(name);
         final boolean image = isImage(ext);
+        final boolean audio = "wav".equals(ext);
         final String mime = mimeOf(ext);
         final String dir = "OpenCut";
         if (Build.VERSION.SDK_INT >= 29) {
             try {
                 ContentValues cv = new ContentValues();
-                cv.put(image ? MediaStore.Images.Media.DISPLAY_NAME
-                        : MediaStore.Video.Media.DISPLAY_NAME, name);
-                cv.put(image ? MediaStore.Images.Media.MIME_TYPE
-                        : MediaStore.Video.Media.MIME_TYPE, mime);
+                cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+                cv.put(MediaStore.MediaColumns.MIME_TYPE, mime);
                 cv.put(MediaStore.MediaColumns.RELATIVE_PATH,
-                        (image ? Environment.DIRECTORY_PICTURES : Environment.DIRECTORY_MOVIES)
-                                + "/" + dir);
+                        (image ? Environment.DIRECTORY_PICTURES
+                                : audio ? Environment.DIRECTORY_MUSIC
+                                : Environment.DIRECTORY_MOVIES) + "/" + dir);
                 cv.put(MediaStore.MediaColumns.IS_PENDING, 1);
                 Uri base = image ? MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                        : audio ? MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
                         : MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
                 Uri uri = getContentResolver().insert(base, cv);
                 if (uri == null) {
@@ -1048,7 +1459,9 @@ public class OpenCutActivity extends AppCompatActivity {
             }
         }
         File out = new File(getExternalFilesDir(
-                image ? Environment.DIRECTORY_PICTURES : Environment.DIRECTORY_MOVIES), name);
+                image ? Environment.DIRECTORY_PICTURES
+                        : audio ? Environment.DIRECTORY_MUSIC
+                        : Environment.DIRECTORY_MOVIES), name);
         try {
             copy(src, new FileOutputStream(out));
         } catch (Throwable t) {
@@ -1119,8 +1532,27 @@ public class OpenCutActivity extends AppCompatActivity {
 
         private final AssetManager assets;
 
-        AssetsRootHandler(AssetManager assets) {
+        /**
+         * 下载版素材目录（{@code filesDir/assets/opencut}）。为空表示只认 APK 内置的那份。
+         *
+         * <p>素材包已经从这个 APK 里移走了（344 MB 压在 28606 个文件里，只有用剪辑的人需要），
+         * 改成第一次打开这个页面时按需下载。为了兼容老包（素材还在 APK 里），
+         * 查找顺序是<b>外部优先、内置回落</b> —— 老包照常跑，新包下完就用新包。
+         */
+        private final File extRoot;
+        private final String extRootPath;
+
+        AssetsRootHandler(AssetManager assets, File extRoot) {
             this.assets = assets;
+            this.extRoot = extRoot;
+            String p = null;
+            if (extRoot != null) {
+                try {
+                    p = extRoot.getCanonicalPath();
+                } catch (Throwable ignored) {
+                }
+            }
+            this.extRootPath = p;
         }
 
         @Override
@@ -1206,6 +1638,18 @@ public class OpenCutActivity extends AppCompatActivity {
         }
 
         private InputStream tryOpen(String key) {
+            // 下载版优先。key 形如 "opencut/xxx"，去掉前缀就是相对 extRoot 的路径。
+            if (extRootPath != null && key.startsWith(ASSET_ROOT)) {
+                try {
+                    File f = new File(extRoot, key.substring(ASSET_ROOT.length()))
+                            .getCanonicalFile();
+                    if (f.getPath().startsWith(extRootPath + File.separator) && f.isFile()) {
+                        return new BufferedInputStream(new FileInputStream(f), 64 * 1024);
+                    }
+                } catch (Throwable ignored) {
+                    // 落到内置那份
+                }
+            }
             try {
                 return assets.open(key);
             } catch (Throwable t) {
@@ -1231,6 +1675,7 @@ public class OpenCutActivity extends AppCompatActivity {
         if ("ico".equals(ext)) return "image/x-icon";
         if ("mp4".equals(ext)) return "video/mp4";
         if ("webm".equals(ext)) return "video/webm";
+        if ("wav".equals(ext)) return "audio/wav";
         if ("woff".equals(ext) || "woff2".equals(ext) || "ttf".equals(ext)
                 || "otf".equals(ext) || "eot".equals(ext)) return "font/" + ext;
         if ("xml".equals(ext) || "txt".equals(ext)) return "text/plain";

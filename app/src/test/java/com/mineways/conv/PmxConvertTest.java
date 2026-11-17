@@ -56,6 +56,32 @@ public class PmxConvertTest {
         assertTrue(conv.summary().contains("骨骼"));
     }
 
+    @Test
+    public void boneNodesComposeBackToPmxAbsolutePositions() throws Exception {
+        InputStream in = getClass().getResourceAsStream("/pmx/weapon.pmx");
+        assertNotNull(in);
+        byte[] bytes = readAll(in);
+        Pmx2Glb conv = new Pmx2Glb();
+        Pmx2Glb.PmxModel model = conv.prepare(bytes);
+        assertTrue(model.bones.size() > 0);
+        for (int i = 0; i < model.bones.size(); i++) {
+            Pmx2Glb.Bone b = model.bones.get(i);
+            float[] sum = {0f, 0f, 0f};
+            int cur = i;
+            int guard = 0;
+            while (cur >= 0 && guard++ < model.bones.size() + 1) {
+                float[] t = conv.boneTranslation(cur);
+                sum[0] += t[0];
+                sum[1] += t[1];
+                sum[2] += t[2];
+                cur = model.bones.get(cur).parent;
+            }
+            assertEquals("bone " + i + " x", b.pos[0], sum[0], 0.0005f);
+            assertEquals("bone " + i + " y", b.pos[1], sum[1], 0.0005f);
+            assertEquals("bone " + i + " z", -b.pos[2], sum[2], 0.0005f);
+        }
+    }
+
     private static byte[] readAll(InputStream in) throws Exception {
         java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
         byte[] buf = new byte[8192];

@@ -157,6 +157,19 @@ public class LandscapeEnhanceActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(build());
+        android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            acceptIncoming(open);
+        }
+    }
+
+    /** 外部「打开方式」：单张进预览，与页内单选同一条路。 */
+    private void acceptIncoming(android.net.Uri uri) {
+        queue.clear();
+        produced.clear();
+        batchReport.setLength(0);
+        resetOutputArea();
+        loadSource(uri);
     }
 
     // ---------------------------------------------------------------- 界面

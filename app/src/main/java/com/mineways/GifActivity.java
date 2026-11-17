@@ -94,6 +94,15 @@ public class GifActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(build());
         selectMode(0);
+        android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            acceptIncoming(open);
+        }
+    }
+
+    /** 外部「打开方式」：走自动模式（按 MIME 认视频 / GIF / 图片）。 */
+    private void acceptIncoming(Uri u) {
+        run(4, u, null);
     }
 
     // ---------------------------------------------------------------- 界面骨架

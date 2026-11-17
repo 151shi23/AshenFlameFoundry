@@ -49,6 +49,11 @@ public final class PhraseStore {
     private static final String K_HIDDEN = "hidden_builtin";
     private static final String K_HOMO = "homo_overrides";
     private static final String K_RANDOM = "homo_random_max";
+    /** Pro Max：收藏、最近使用、使用次数，全在本机。 */
+    private static final String K_FAVORITES = "favorites";
+    private static final String K_RECENT = "recent";
+    private static final String K_USAGE = "usage";
+    private static final int RECENT_MAX = 60;
     private static final String ASSET_PHRASES = "phrase/phrases.json";
     private static final String ASSET_HOMO = "phrase/homophones.json";
 
@@ -161,6 +166,97 @@ public final class PhraseStore {
     /** 恢复被隐藏的内置串词。 */
     public static void restoreBuiltin(Context ctx) {
         prefs(ctx).edit().remove(K_HIDDEN).apply();
+    }
+
+    // ------------------------------------------------------------------ Pro Max：收藏 / 最近 / 次数
+
+    /** 收藏的条目 id（只存 id，内置和用户条目通用）。 */
+    public static java.util.Set<String> favorites(Context ctx) {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        try {
+            JSONArray arr = new JSONArray(prefs(ctx).getString(K_FAVORITES, "[]"));
+            for (int i = 0; i < arr.length(); i++) {
+                String id = arr.optString(i, "");
+                if (id.length() > 0) out.add(id);
+            }
+        } catch (Throwable ignored) {
+        }
+        return out;
+    }
+
+    public static boolean isFavorite(Context ctx, String id) {
+        return id != null && favorites(ctx).contains(id);
+    }
+
+    /** 返回切换后的状态：true = 已收藏。 */
+    public static boolean toggleFavorite(Context ctx, String id) {
+        if (id == null || id.length() == 0) return false;
+        java.util.LinkedHashSet<String> ids = new java.util.LinkedHashSet<>(favorites(ctx));
+        boolean now;
+        if (ids.remove(id)) {
+            now = false;
+        } else {
+            ids.add(id);
+            now = true;
+        }
+        JSONArray arr = new JSONArray();
+        for (String s : ids) arr.put(s);
+        prefs(ctx).edit().putString(K_FAVORITES, arr.toString()).apply();
+        return now;
+    }
+
+    /** 最近使用 id，最新在前。 */
+    public static List<String> recentIds(Context ctx) {
+        List<String> out = new ArrayList<>();
+        try {
+            JSONArray arr = new JSONArray(prefs(ctx).getString(K_RECENT, "[]"));
+            for (int i = 0; i < arr.length(); i++) {
+                String id = arr.optString(i, "");
+                if (id.length() > 0) out.add(id);
+            }
+        } catch (Throwable ignored) {
+        }
+        return out;
+    }
+
+    public static int useCount(Context ctx, String id) {
+        if (id == null) return 0;
+        try {
+            return new JSONObject(prefs(ctx).getString(K_USAGE, "{}")).optInt(id, 0);
+        } catch (Throwable t) {
+            return 0;
+        }
+    }
+
+    /** 复制 / 出图成功后记一次：最近使用置顶，累计次数 +1。 */
+    public static void markUsed(Context ctx, String id) {
+        if (id == null || id.length() == 0) return;
+        try {
+            List<String> recent = recentIds(ctx);
+            recent.remove(id);
+            recent.add(0, id);
+            while (recent.size() > RECENT_MAX) recent.remove(recent.size() - 1);
+            JSONArray arr = new JSONArray();
+            for (String s : recent) arr.put(s);
+
+            JSONObject usage;
+            try {
+                usage = new JSONObject(prefs(ctx).getString(K_USAGE, "{}"));
+            } catch (Throwable t) {
+                usage = new JSONObject();
+            }
+            usage.put(id, Math.min(999999, usage.optInt(id, 0) + 1));
+            prefs(ctx).edit()
+                    .putString(K_RECENT, arr.toString())
+                    .putString(K_USAGE, usage.toString())
+                    .apply();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** 清空最近使用记录（不动使用次数和收藏）。 */
+    public static void clearRecent(Context ctx) {
+        prefs(ctx).edit().remove(K_RECENT).apply();
     }
 
     // ------------------------------------------------------------------ 谐音表

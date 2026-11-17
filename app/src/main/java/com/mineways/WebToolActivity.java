@@ -73,6 +73,8 @@ public class WebToolActivity extends AppCompatActivity {
     private TextView i18nButton;
     private String host = "";
     private boolean i18nOn;
+    /** 代理首屏失败后是否已经用直连重载过一次（只重载一次，避免循环）。 */
+    private boolean proxyRetried;
     private int i18nReplaced;
     private int i18nMissed;
     /** 注入脚本全文，进程内读一次就够（同一份给所有站点用）。 */
@@ -90,7 +92,8 @@ public class WebToolActivity extends AppCompatActivity {
         setContentView(buildUi());
         host = FeatureCatalog.hostOf(homeUrl);
         i18nOn = i18nWanted();
-        web.loadUrl(homeUrl);
+        // 先让代理就绪（自检通过才接管），再加载页面；失败/不支持会立刻回调，不会卡住
+        com.mineways.net.WebViewProxy.prepare(this, () -> web.loadUrl(homeUrl));
     }
 
     /**
@@ -201,8 +204,28 @@ public class WebToolActivity extends AppCompatActivity {
 
             @Override
             public void onPageFinished(WebView view, String url) {
+                com.mineways.net.WebViewProxy.onPageLoaded();
                 injectDarkHint(view);
                 applyI18n(false);
+                // 同一批规则再注一次是安全的：脚本按规则 id 打标记，重复注入只会补缺，不会叠层
+                AdaptInject.apply(WebToolActivity.this, view, view.getUrl());
+            }
+
+            /**
+             * 首屏失败时如果代理还没验证过，撤掉接管、用直连重载一次。
+             * 这是"代理不可用不能把整页掐死"的兜底：只重载一次，之后本次进程不再尝试代理。
+             */
+            @Override
+            public void onReceivedError(WebView view, android.webkit.WebResourceRequest request,
+                                        android.webkit.WebResourceError error) {
+                super.onReceivedError(view, request, error);
+                if (request == null || !request.isForMainFrame()) return;
+                if (proxyRetried) return;
+                proxyRetried = true;
+                com.mineways.net.WebViewProxy.fallbackIfUnverified(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    view.loadUrl(homeUrl);
+                });
             }
         });
 

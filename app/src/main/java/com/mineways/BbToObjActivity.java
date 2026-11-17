@@ -171,6 +171,10 @@ public class BbToObjActivity extends AppCompatActivity {
 
         setupWebView();
         updateButtons();
+        android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            readInput(open);
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -206,6 +210,7 @@ public class BbToObjActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                AdaptInject.apply(BbToObjActivity.this, view, url);
                 if (readyRequested) {
                     return;
                 }

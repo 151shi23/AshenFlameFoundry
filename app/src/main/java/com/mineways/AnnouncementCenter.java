@@ -160,12 +160,13 @@ public final class AnnouncementCenter {
                  * （2.5MB 的链，几十到几百毫秒），放主线程就是启动卡顿。
                  */
                 com.mineways.cloud.FeatureGate gate = com.mineways.cloud.CloudCatalog.gate();
-                if ("1".equals(gate.flag("notice_off", ""))) {
+                if (com.mineways.cloud.CloudFlags.bool(gate, "notice_off", false)) {
                     return;                    // 总闸：整层公告停发
                 }
-                final String onlyIds = gate.flag("notice_ids", "");
-                final String muteIds = gate.flag("notice_mute", "");
-                int mx = (int) safeNum(gate.flag("notice_max", ""), MAX_PER_LAUNCH);
+                final String onlyIds = com.mineways.cloud.CloudFlags.str(gate, "notice_ids", "");
+                final String muteIds = com.mineways.cloud.CloudFlags.str(gate, "notice_mute", "");
+                int mx = (int) safeNum(com.mineways.cloud.CloudFlags.str(gate, "notice_max", ""),
+                        MAX_PER_LAUNCH);
                 if (mx < 1 || mx > MAX_PER_LAUNCH) {
                     mx = MAX_PER_LAUNCH;       // 只能往小调，不给你放大到轰炸
                 }

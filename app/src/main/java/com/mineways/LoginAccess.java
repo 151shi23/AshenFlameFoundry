@@ -55,7 +55,7 @@ public final class LoginAccess {
 
             @Override
             public String flag(String key, String def) {
-                return CloudCatalog.gate().flag(key, def);
+                return com.mineways.cloud.CloudFlags.str(key, def);
             }
         };
     }

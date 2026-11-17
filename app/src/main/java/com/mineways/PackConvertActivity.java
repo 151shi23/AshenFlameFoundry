@@ -114,6 +114,10 @@ public class PackConvertActivity extends Activity {
         applyDirection();
         probeKernel();
         useAiDir();
+        android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            acceptIncoming(open);
+        }
     }
 
     /** 选完目录：能还原成真实路径就直接用，还原不了就把原因写在界面上（不假装成功）。 */
@@ -264,32 +268,12 @@ public class PackConvertActivity extends Activity {
         btnPick.setText(toBedrock ? "选择 Java 材质包（.zip / 目录）" : "选择 .mcpack / .zip");
         if (toBedrock) {
             tvTitle.setText("Java 材质包转基岩");
-            tvSub.setText("Java 版材质包（.zip / 已解包目录）→ 基岩版 .mcpack（离线，不联网）\n"
-                    + "改名表反查 + 横排/网格动画帧重排成基岩竖条 + lang 反写 texts/*.lang"
-                    + " + sounds.json 连音频一起搬；基岩没有对应机制的条目进「降级清单」，不假装成功");
-            tvNote.setText("\n实测口径（对账基准 = 上游 node 实现里那 958 条权威改名规则）：\n"
-                    + "· 2131 个真实 Java 原版命名的压测包：进包 2140 张，改名表里适用的 744 条规则"
-                    + "产物 100% 逐条吻合，0 条走偏；\n"
-                    + "· 原版 Java 包（3272 个条目）：进包 3229 张、动画 11 组，横排帧与"
-                    + " sprite_width/height 网格都会自动重排成基岩要求的竖条；\n"
-                    + "· 上游那套 node 工具漏掉的三件事这里补上了：.mcmeta 反写 flipbook_textures.json、"
-                    + "lang 反写 texts/*.lang、sounds.json 连音频本体进包；\n"
-                    + "· Java 特有机制（blockstates、模型 json、TTF 字体提供器、shader、overlay）"
-                    + "基岩没有对应，逐类列进降级清单 —— 它自己的产物只有 textures + manifest。");
+            tvSub.setText("Java 材质包 → 基岩版 .mcpack");
+            tvNote.setText("");
         } else {
             tvTitle.setText("基岩材质包转 Java");
-            tvSub.setText(".mcpack / .zip / 已解包目录 → Java 版材质包（离线，内核 libpackcore.so）\n"
-                    + "贴图无损搬入（.png 直搬、.tga/.jpg 重编码成 .png）+ flipbook 拆帧并按 "
-                    + "ticks_per_frame 写帧速 + .lang 转小写 JSON 且改写成 Java 键 + 声音定义连音频本体一起搬；"
-                    + "Java 侧没有对应机制的条目进「降级清单」，不假装成功");
-            tvNote.setText("\n实测口径（Faithful 64x，1851 张）：\n"
-                    + "· 进包率 100%（能搬的一张不落）；方块 92.8%、实体+粒子 100%、"
-                    + "物品图标 64.3%（未命中回落原版图标，游戏功能无损）；\n"
-                    + "· 结构性降级：models/entity 193、animations 143、particles 192、fogs 80、ui 207"
-                    + " —— 这些 Java 原版材质包体系里没有对应机制；\n"
-                    + "· pack.mcmeta 的 pack_format 按包自己的 min_engine_version 推（1.21→34、1.21.40→42、"
-                    + "1.21.60→46、1.21.80→55、1.21.90→60、1.22→64），不再一律写死 34；CEM 实体模型那部分"
-                    + "需要 Optifine/Iris 模组加载，这一版不生成模型文件。");
+            tvSub.setText("基岩材质包 → Java 材质包");
+            tvNote.setText("");
         }
         renderInfo();
         btnDegrade.setEnabled(lastDegrade != null && !lastDegrade.isEmpty());
@@ -443,7 +427,11 @@ public class PackConvertActivity extends Activity {
         if (req != REQ_PICK || data.getData() == null) {
             return;
         }
-        final Uri uri = data.getData();
+        acceptIncoming(data.getData());
+    }
+
+    /** 外部「打开方式」与页内选择器共用同一条载入路径（单个包体文件）。 */
+    private void acceptIncoming(final Uri uri) {
         status("正在读入…");
         new Thread(() -> {
             String msg;

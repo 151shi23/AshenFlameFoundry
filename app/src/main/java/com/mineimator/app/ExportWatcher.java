@@ -9,31 +9,34 @@ import com.mineways.MediaPublisher;
 
 import java.io.File;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * <b>导出自动接管</b>：工作室里点「导出」后，内核（自带 FFmpeg，H.264+AAC+MP4）会把成品写到应用私有目录；
- * 这里盯着新出现的视频/图片，一旦写稳就自动送进系统相册并提示 —— 用户不需要再手动保存。
+ * 这里盯着新出现/被覆盖的视频与图片，一旦写稳就自动送进系统相册并提示 —— 用户不需要再手动保存。
  *
  * <p>实现要点：进入工作室时先把已有文件登记为"已知"（避免把旧作品重复推一次）；
- * 之后每 2.5 秒扫一次，文件大小连续两次不变才算写稳（防止推到半个文件）。
+ * 之后每 2.5 秒扫一次，文件签名（长度 + 修改时间）连续两次一致才算写稳。同名覆盖导出也会被重新识别。
  */
 public final class ExportWatcher {
 
     private static final long INTERVAL_MS = 2500L;
 
-    private static final String[] MEDIA_EXT = {"mp4", "mov", "mkv", "webm", "gif", "png", "jpg", "jpeg"};
+    private static final String[] MEDIA_EXT = {"mp4", "mov", "mkv", "webm", "wmv", "avi", "gif", "png", "jpg", "jpeg"};
 
     /** 引擎解包出来的资源树与导入源文件不算作品。 */
     private static final String[] SKIP_DIRS = {"assets", "imports", "Data", "Sprites", "Compiled"};
 
     private final Activity activity;
     private final java.util.List<File> roots;
-    private final Set<String> known = new HashSet<>();
-    private final Map<String, Long> sizes = new HashMap<>();
+    /**
+     * 已处理过的媒体：path → 文件签名（长度 + 修改时间）。
+     * 用签名而不是只记路径，同名覆盖导出（Movie.mp4）也能再次识别。
+     */
+    private final Map<String, String> known = new HashMap<>();
+    /** 等待“连续两次扫描不变”的候选签名。 */
+    private final Map<String, String> pending = new HashMap<>();
     private final Handler handler = new Handler(Looper.getMainLooper());
     private volatile boolean running = true;
     private boolean enabled = true;
@@ -95,7 +98,7 @@ public final class ExportWatcher {
                     collectExisting(f, depth + 1);
                 }
             } else if (isMedia(f)) {
-                known.add(f.getAbsolutePath());
+                known.put(f.getAbsolutePath(), signature(f));
             }
         }
     }
@@ -115,31 +118,45 @@ public final class ExportWatcher {
                 }
                 continue;
             }
-            if (!isMedia(f) || known.contains(f.getAbsolutePath())) {
+            if (!isMedia(f)) {
                 continue;
             }
-            final long size = f.length();
-            final Long last = sizes.get(f.getAbsolutePath());
-            if (size <= 0) {
+            if (f.length() <= 0) {
                 continue;
             }
-            if (last == null || last != size) {
-                // 还在写：记住当前大小，下一轮再看
-                sizes.put(f.getAbsolutePath(), size);
+            final String path = f.getAbsolutePath();
+            final String sig = signature(f);
+            if (sig.equals(known.get(path))) {
+                pending.remove(path);
                 continue;
             }
-            // 大小连续两轮不变 = 写稳了
-            known.add(f.getAbsolutePath());
-            publish(f);
+            // 新文件或同名覆盖：等“连续两轮签名一致”再推，防止把半个文件送进相册。
+            if (sig.equals(pending.get(path))) {
+                known.put(path, sig);
+                pending.remove(path);
+                publish(f);
+            } else {
+                pending.put(path, sig);
+            }
         }
+    }
+
+    /** 长度 + 修改时间；同名覆盖后修改时间会变，签名也就变了。 */
+    private static String signature(File f) {
+        return f.length() + ":" + f.lastModified();
     }
 
     private void publish(final File f) {
         final String message = MediaPublisher.publish(activity, f);
+        final boolean saved = message.startsWith("已保存");
         handler.post(new Runnable() {
             @Override
             public void run() {
-                Toast.makeText(activity, "导出完成 · " + message, Toast.LENGTH_LONG).show();
+                Toast.makeText(activity,
+                        saved ? "导出完成 · " + message
+                                : "导出文件已生成，但入相册失败：" + message
+                                + "\n可从 ☰ →「我的作品」再保存一次",
+                        Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -171,7 +188,8 @@ public final class ExportWatcher {
             return false;
         }
         final boolean video = "mp4".equals(ext) || "mov".equals(ext) || "mkv".equals(ext)
-                || "webm".equals(ext) || "gif".equals(ext);
+                || "webm".equals(ext) || "wmv".equals(ext) || "avi".equals(ext)
+                || "gif".equals(ext);
         // 小图多为工程贴图，不当作品自动推；视频一律管
         return video || f.length() >= 32 * 1024L;
     }

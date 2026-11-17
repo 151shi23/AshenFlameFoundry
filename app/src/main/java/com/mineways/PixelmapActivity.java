@@ -142,13 +142,6 @@ public class PixelmapActivity extends Activity {
         head.addView(title);
         root.addView(head);
 
-        TextView sub = new TextView(this);
-        sub.setText("点卡片看详情 · 可下载的地图包存进「下载/" + SAVE_DIR + "」");
-        sub.setTextColor(DIM);
-        sub.setTextSize(11.5f);
-        sub.setPadding(0, dp(6), 0, dp(10));
-        root.addView(sub);
-
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);

@@ -115,13 +115,6 @@ public class SeedMapActivity extends AppCompatActivity {
         title.setTextColor(TEXT);
         col.addView(title);
 
-        TextView sub = new TextView(this);
-        sub.setText("按种子推算群系、结构、要塞、出生点，全程离线（内核 cubiomes）。");
-        sub.setTextSize(12.5f);
-        sub.setTextColor(DIM);
-        sub.setPadding(0, dp(6), 0, dp(14));
-        col.addView(sub);
-
         // 种子
         col.addView(label("种子（数字或文字都行，文字按游戏规则换算成数字）"));
         etSeed = input("例如 12345 或 我的世界");
@@ -244,7 +237,7 @@ public class SeedMapActivity extends AppCompatActivity {
         tvResult.setPadding(dp(12), dp(12), dp(12), dp(12));
         tvResult.setBackground(round(PANEL, 12));
         tvResult.setTextIsSelectable(true);
-        tvResult.setText("还没有地图。填好种子后点「生成地图」。");
+        tvResult.setText("");
         col.addView(tvResult);
 
         return sv;

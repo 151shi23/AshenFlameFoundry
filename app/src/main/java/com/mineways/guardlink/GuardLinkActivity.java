@@ -141,6 +141,10 @@ public class GuardLinkActivity extends Activity implements GuardRuntime.UiSink {
         // 最近任务隐藏：本页是栈顶时把这条卡片摘掉，回到 App 内别的页面再挂回去
         syncRecents();
         recentsHook = GuardRecents.watchForRestore(this);
+        android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            acceptIncoming(open);
+        }
     }
 
     @Override
@@ -641,7 +645,11 @@ public class GuardLinkActivity extends Activity implements GuardRuntime.UiSink {
                 || data.getData() == null) {
             return;
         }
-        final android.net.Uri uri = data.getData();
+        acceptIncoming(data.getData());
+    }
+
+    /** 外部「打开方式」：apk 直接进安装包审计。 */
+    private void acceptIncoming(final android.net.Uri uri) {
         String seg = uri.getLastPathSegment();
         lastAuditName = seg == null ? "" : seg;
         auditRunning = true;

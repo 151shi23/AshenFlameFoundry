@@ -51,12 +51,7 @@ public final class GlassPolicy {
     }
 
     private static String flag(String key, String def) {
-        try {
-            String v = CloudCatalog.gate().flag(key, def);
-            return v == null ? def : v.trim();
-        } catch (Throwable t) {
-            return def;
-        }
+        return com.mineways.cloud.CloudFlags.str(key, def);
     }
 
     /** 本机命中的那条规则（没命中返回 null）。 */
@@ -125,11 +120,7 @@ public final class GlassPolicy {
         if (!GlassRules.DEEP.equals(action())) {
             return -1;
         }
-        try {
-            return Integer.parseInt(flag("ui_glass_deep_blur", "1").trim());
-        } catch (Throwable t) {
-            return 1;
-        }
+        return com.mineways.cloud.CloudFlags.num("ui_glass_deep_blur", 1, 0, 32);
     }
 
     /** 大幅度时折射强度（默认 0 = 关折射）；不适用时返回 -1。 */

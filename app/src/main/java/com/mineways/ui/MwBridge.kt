@@ -117,6 +117,10 @@ interface MwUiHost {
 
         /** 「关于 → 云端配置」里网页适配（CSS/JS）的本机总闸开关。 */
         const val ACTION_ADAPT_TOGGLE = 14
+
+        /** 关于页「设置分享」：导出 / 导入分享码。 */
+        const val ACTION_SHARE_EXPORT = 15
+        const val ACTION_SHARE_IMPORT = 16
     }
 
     /** 界面参数（云控可覆盖）。 */

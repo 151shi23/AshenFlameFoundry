@@ -1,0 +1,35 @@
+/*
+ * 手机适配层（最后加载）。
+ * MSCD 在 ≤900px 时**自带一套手机布局**（侧栏变底部导航、播放栏自适应）。
+ * 之前我强改 .layout 的栅格与播放栏结构，把这套布局压坏了 —— 所以这里只做三件事：
+ * 去掉桌面用的 0.9 缩放、收紧左右边距、藏掉音量条。结构一律交给站点自己。
+ */
+:root {
+    --page-zoom: 1 !important;
+    --content-pad-x: 12px !important;
+}
+
+html,
+body {
+    zoom: 1 !important;
+    -webkit-text-size-adjust: 100%;
+}
+
+.top-bar {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
+
+.content-area {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+}
+
+/* 手机用系统音量键；音量条在窄屏只会挤掉歌名 */
+.volume-wrap {
+    display: none !important;
+}
+
+.ena-modal__panel {
+    max-width: calc(100vw - 16px) !important;
+}

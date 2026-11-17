@@ -40,6 +40,7 @@ public final class EngineLogOverlay {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private volatile boolean running = true;
     private volatile boolean expanded = false;
+    private boolean pollingStarted = false;
     private String lastText = "";
 
     public EngineLogOverlay(Activity activity) {
@@ -61,7 +62,17 @@ public final class EngineLogOverlay {
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
         lp.gravity = Gravity.TOP;
         view.setLayoutParams(lp);
+        // 默认不显示：收起状态也还是整条浮层，会挡住顶部的按钮。
+        // 需要看引擎日志时从「Mine-imator 动画工作室」菜单打开。
+        view.setVisibility(View.GONE);
 
+        // 默认隐藏时不跑 logcat；真要排查时打开日志条再开始轮询。
+        // logcat -d 会带上启动以来的缓冲，所以不会漏掉引擎早期日志。
+    }
+
+    private synchronized void ensurePolling() {
+        if (pollingStarted) return;
+        pollingStarted = true;
         Thread t = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -83,6 +94,22 @@ public final class EngineLogOverlay {
     /** 供菜单调用：展开 / 收起日志。 */
     public void toggle() {
         expanded = !expanded;
+        render(lastText);
+    }
+
+    public boolean isShowing() {
+        return view.getVisibility() == View.VISIBLE;
+    }
+
+    /** 菜单入口：显示时直接展开到最新日志；再点一次隐藏，不占触控区域。 */
+    public void toggleVisibility() {
+        if (isShowing()) {
+            view.setVisibility(View.GONE);
+            return;
+        }
+        expanded = true;
+        view.setVisibility(View.VISIBLE);
+        ensurePolling();
         render(lastText);
     }
 

@@ -109,6 +109,7 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             {"AstrBot 机器人", "一键部署 AstrBot（电脑最新版）+ QQ 桥，手机内运行", "astrbot", "free local", ""},
             // 免费功能：出厂不设激活码。要做限制只能由云控下发（FEATURE tier=limited）
             {"文件修复", "修 P3D 工程包（2.0/3.0）、ZIP、图片、音频、BB 导出格式", "repair", "limit local", ""},
+            {"文件保险箱", "口令 + 密钥双因子，任意文件 ⇄ 加密容器 .寂密，密码学全程离线", "vault", "free local", ""},
             {"日志诊断", "把日志包扔进来：自动认出是谁的日志（MC / 安卓 / Windows / Linux / macOS / Gradle），再出中文诊断报告", "logan", "free local", ""},
             {"安全守护", "检测「没人碰屏幕但界面自己在动」：远程操控 / 自动点击器一露头就 Lockdown，先只掐它自己的联网，真人按压才确认处置", "guard", "free local", ""},
             {"格式转换", "图片、音频、模型互转；支持 PMX → GLB、.blend、OBJ、STL", "fmtconv", "free local", ""},
@@ -2192,6 +2193,21 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
     public java.util.List<com.mineways.ui.MwBlock> aboutBlocks() {
         java.util.List<com.mineways.ui.MwBlock> out = new ArrayList<>();
 
+        // 设置分享：新 Compose 关于页的入口（旧页面在 pageAbout() 里已有同样的卡片）。
+        java.util.List<com.mineways.ui.MwCell> shares = new ArrayList<>();
+        com.mineways.ui.MwCell shareOut = new com.mineways.ui.MwCell();
+        shareOut.title = "导出分享码";
+        shareOut.actionLabel = "生成";
+        shareOut.action = com.mineways.ui.MwUiHost.ACTION_SHARE_EXPORT;
+        shareOut.primary = true;
+        shares.add(shareOut);
+        com.mineways.ui.MwCell shareIn = new com.mineways.ui.MwCell();
+        shareIn.title = "导入分享码";
+        shareIn.actionLabel = "粘贴";
+        shareIn.action = com.mineways.ui.MwUiHost.ACTION_SHARE_IMPORT;
+        shares.add(shareIn);
+        out.add(mwTextBlock("设置分享", null, shares));
+
         // 登录：三档身份合成一个入口。以前「社区授权登录」和「白名单账号登录」并排两行，
         // 两个按钮各说各的登录态，用户要自己猜点哪个才算登录成功。
         java.util.List<com.mineways.ui.MwCell> accounts = new ArrayList<>();
@@ -2448,6 +2464,20 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
                 com.mineways.AdaptInject.setUserOff(this, !com.mineways.AdaptInject.userOff(this));
                 toast(com.mineways.AdaptInject.lastDiag());
                 recreate();
+                break;
+            case com.mineways.ui.MwUiHost.ACTION_SHARE_EXPORT:
+                mwFx();
+                startActivity(new android.content.Intent(this,
+                        com.mineways.share.ShareActivity.class)
+                        .putExtra(com.mineways.share.ShareActivity.EXTRA_MODE,
+                                com.mineways.share.ShareActivity.MODE_EXPORT));
+                break;
+            case com.mineways.ui.MwUiHost.ACTION_SHARE_IMPORT:
+                mwFx();
+                startActivity(new android.content.Intent(this,
+                        com.mineways.share.ShareActivity.class)
+                        .putExtra(com.mineways.share.ShareActivity.EXTRA_MODE,
+                                com.mineways.share.ShareActivity.MODE_IMPORT));
                 break;
             default:
                 break;

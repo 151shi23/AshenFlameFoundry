@@ -564,6 +564,9 @@ public final class HomeIndex {
 		if ("ysm".equals(k)) {
 			return R.drawable.ic_ysm;
 		}
+		if ("vault".equals(k)) {
+			return R.drawable.ic_vault;
+		}
 		return R.drawable.ic_tools;
 	}
 
@@ -649,6 +652,9 @@ public final class HomeIndex {
 		if ("repair".equals(k)) {
 			return new Intent(ctx, FileRepairActivity.class);
 		}
+		if ("vault".equals(k)) {
+			return new Intent(ctx, com.mineways.vault.VaultActivity.class);
+		}
 		if ("logan".equals(k)) {
 			return new Intent(ctx, com.mineways.logan.LogAnalyzerActivity.class);
 		}
@@ -718,7 +724,7 @@ public final class HomeIndex {
 				"CloudTrainActivity", "OpenCutActivity", "BrandScrubActivity", "PngToModelActivity",
 				"BbToObjActivity", "ObjPreviewActivity", "FileRepairActivity", "P3DConvertActivity",
 				"RealWorldActivity", "ExportActivity", "FormatConvertActivity", "BlenderActivity",
-				"PackConvertActivity", "StoryWallActivity", "PanoActivity",
+				"PackConvertActivity", "StoryWallActivity", "PanoActivity", "VaultActivity",
 		};
 		boolean named = false;
 		for (String a : allowed) {
@@ -730,7 +736,7 @@ public final class HomeIndex {
 		if (!named) {
 			return null;
 		}
-		String[] prefixes = {"com.mineways.", "com.mineways.conv.", "com.mineways.blender.", "com.mineways.vr."};
+		String[] prefixes = {"com.mineways.", "com.mineways.conv.", "com.mineways.blender.", "com.mineways.vr.", "com.mineways.vault."};
 		for (String p : prefixes) {
 			try {
 				Class<?> c = Class.forName(p + simpleName);

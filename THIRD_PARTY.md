@@ -14,6 +14,7 @@ the one shipped in the upstream project and/or in the file headers listed below.
 | 网易存档解密适配 | `app/src/main/java/com/mineways/NeteaseDecryptor.java` | 本项目 / 源码内声明 | GPL-3.0（源码头部已声明） |
 | three.js r134（OBJ 预览渲染）<br>+ OBJLoader / MTLLoader / OrbitControls | `app/src/main/assets/objviewer/lib/**` | mrdoob/three.js | MIT |
 | Blockbench（内置网页版） | `app/src/main/assets/blockbench/**` | JannisX11/blockbench | MIT |
+| 3D Pen（Blockbench 内置插件） | `app/src/main/assets/blockbench/plugins/pen_3d/**` | PuddingKC / Null-K | MIT |
 | Snowstorm（内置网页版，镜像自上游 master） | `app/src/main/assets/snowstorm/**` | JannisX11/snowstorm | GPL-3.0-or-later |
 | Snowstorm 汉化字典与适配脚本（本项目自研，非上游）：`zh-dict.js`（英→中对照表）、`hans.js`（注入式安全翻译 + 导出接管），另 `index.html` 相对上游增加了两个脚本标签与中文标题 | `app/src/main/assets/snowstorm/zh-dict.js`、`hans.js`、`index.html` | MinewaysMobile | GPL-3.0（与本仓库一致）|
 | lodepng（PNG 读写） | `app/src/main/cpp/core/lodepng.*` | lvandeve/lodepng | zlib |
@@ -34,6 +35,11 @@ the one shipped in the upstream project and/or in the file headers listed below.
 | Arnis 内核（真实世界地图生成，v3.2.0 关掉桌面 GUI 后交叉编译） | `app/src/main/jniLibs/arm64-v8a/libarnis.so`、`RealWorldActivity.java` | louis-e/arnis | **Apache-2.0**（生成算法未改动，界面/参数在本项目侧） |
 | 地图底图数据（非代码，但必须署名） | 运行期网络请求 | © OpenStreetMap contributors（Overpass API / OSM 瓦片）、Overture Maps、AWS Terrain Tiles | **ODbL** / 各家服务条款；离线包内**不含**任何底图数据 |
 | PureLandscape 风景增强引擎（纯 Java，零第三方依赖） | `app/src/main/java/com/zeus/landscape/**`（33 个文件原样引入） | 用户提供的 `PureLandscape_java.zip`（包名 `com.zeus.landscape`，自述「手搓全部算法」） | ⚠ **压缩包内未附 LICENSE**（默认保留全部权利）：按用户提供源码原样内置；若要再分发/商用请先与权利人确认。本项目侧只补了安卓平台桥 `platform/AndroidLandscapeCodec.java`，并**未**引入桌面专属的 `Main/ImgIO/Watermark/Trace` |
+| MCBE-4DGen（4D 皮肤生成，Vite 静态导出） | **不打进 APK**：首次打开时按需下载到 `filesDir/assets/4dgen`（`AshenFlameAssets` 的 `4dgen` 包，压缩 3.4 MB / 解压 13 MB），App 侧只有 `FourDGenActivity` | XiaoYangx666/MCBE-4DGen | **GPL-3.0-only**。资源包内随附 `LICENSE`（许可全文）与 `SOURCE.txt`（上游仓库 + 构建提交 `9ce2923` + 从源码重建本产物的命令，并声明本项目**未改动其源码**）—— 分发构建产物就得把许可和对应源码指针一起给出去 |
+| MSCD（音乐播放页整站） | `app/src/main/assets/music/**`（41 个文件 / 1.36 MB，含上游 `LICENSE`） | ENA-QWQ/MSCD（`LICENSE` 内署名 Copyright (c) 2026 Enashpinal） | **MIT**。本项目另加：`window.Audio` 换成本地原生播放代理、`mw-boot.js` / `lx-shim.js` / `mw-mobile.css`（队列、歌词、界面逻辑沿用上游） |
+| Backdrop · shapes（液态玻璃 UI 库，Kotlin Multiplatform） | Gradle 依赖 `io.github.kyant0:backdrop:2.0.0` + `io.github.kyant0:shapes:1.2.0` | Kyant0/AndroidLiquidGlass | **Apache-2.0**（已核两个构件 POM 的 `<licenses>`；`compileSdk` 侧的取舍见 `app/build.gradle.kts` 注释） |
+| jszip（网页侧 ZIP 读写） | 打进 `assets/opencut/**`、`assets/music/**`、`4dgen` 包的 JS bundle | Stuk/jszip | **MIT / GPL-3.0 双许可**（此处按 MIT 使用） |
+| OpenAI Whisper（onnx-community 导出的 base 模型） | `app/src/main/assets/opencut/models/onnx-community/whisper-base/**`（剪辑器语音转写，权重随素材包分发） | openai/whisper → onnx-community（Hugging Face 导出） | 上游代码 **MIT**；**模型权重按其模型页条款**（本仓库不改动权重；再分发前请核对 huggingface.co/onnx-community/whisper-base） |
 
 ### 云间列车（`app/src/main/assets/cloudtrain/`）
 

@@ -33,7 +33,7 @@ import java.util.Locale;
 public class MineImatorWorksActivity extends Activity {
 
     private static final String[] MEDIA_EXT = {
-            "mp4", "mov", "mkv", "webm", "gif", "png", "jpg", "jpeg"
+            "mp4", "mov", "mkv", "webm", "wmv", "avi", "gif", "png", "jpg", "jpeg"
     };
 
     /** 引擎解包出来的资源树与导入源文件不算作品，列出来会淹没结果。 */
@@ -51,7 +51,22 @@ public class MineImatorWorksActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(buildUi());
+        requestLegacyStorageIfNeeded();
         refresh();
+    }
+
+    /** Android 8/9 写公共相册需要运行时权限；10+ 走 MediaStore 不需要。 */
+    private void requestLegacyStorageIfNeeded() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.P
+                    && checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{
+                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 72);
+            }
+        } catch (Throwable ignored) {
+            // 没授权时保存会返回失败文案，不影响浏览作品
+        }
     }
 
     @Override
@@ -75,15 +90,6 @@ public class MineImatorWorksActivity extends Activity {
         title.setTextSize(22f);
         root.addView(title);
 
-        final TextView sub = new TextView(this);
-        sub.setText("动画工作室导出的视频 / 图片会出现在这里，点「保存到相册」就能在系统相册里看到。\n"
-                + "还没作品？进工作室后点右上角 ☰ →「怎么导出视频？」看步骤。");
-        sub.setTextColor(DIM);
-        sub.setTextSize(13f);
-        sub.setLineSpacing(dp(4), 1f);
-        sub.setPadding(0, dp(10), 0, dp(14));
-        root.addView(sub);
-
         final LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
 
@@ -104,7 +110,8 @@ public class MineImatorWorksActivity extends Activity {
         crash.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                CrashReport.show(MineImatorWorksActivity.this);
+                AppLog.show(MineImatorWorksActivity.this,
+                        AppLog.bundle(MineImatorWorksActivity.this), "日志记录");
             }
         });
         actions.addView(crash);
@@ -192,7 +199,8 @@ public class MineImatorWorksActivity extends Activity {
             return false;
         }
         final boolean video = "mp4".equals(ext) || "mov".equals(ext) || "mkv".equals(ext)
-                || "webm".equals(ext) || "gif".equals(ext);
+                || "webm".equals(ext) || "wmv".equals(ext) || "avi".equals(ext)
+                || "gif".equals(ext);
         // 小图多半是工程里的贴图，不算"作品"；视频一律列出
         return video || size >= 32 * 1024L;
     }
@@ -315,6 +323,12 @@ public class MineImatorWorksActivity extends Activity {
         }
         if (n.endsWith(".mkv")) {
             return "video/x-matroska";
+        }
+        if (n.endsWith(".wmv")) {
+            return "video/x-ms-wmv";
+        }
+        if (n.endsWith(".avi")) {
+            return "video/x-msvideo";
         }
         if (n.endsWith(".gif")) {
             return "image/gif";

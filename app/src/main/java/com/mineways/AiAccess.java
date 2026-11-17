@@ -151,11 +151,6 @@ public final class AiAccess {
 
     /** 读一条云控旗标（{@link AiClient} 也用它取 {@code ai_system} 人设）。 */
     static String flag(String key, String def) {
-        try {
-            String v = CloudCatalog.gate().flag(key, def);
-            return v == null ? def : v.trim();
-        } catch (Throwable t) {
-            return def;
-        }
+        return com.mineways.cloud.CloudFlags.str(key, def);
     }
 }

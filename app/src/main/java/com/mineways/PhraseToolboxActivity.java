@@ -46,10 +46,13 @@ import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 串词工具箱（纯本地）。
@@ -76,6 +79,15 @@ public class PhraseToolboxActivity extends Activity {
     private TextView tvStatus;
 
     private String keyword = "";
+    /** Pro Max：0 全部 / 1 收藏 / 2 最近。 */
+    private int filterMode;
+    private boolean batchMode;
+    private final Set<String> selectedIds = new HashSet<>();
+    private final List<PhraseStore.Item> shownItems = new ArrayList<>();
+    private String lastRandomId = "";
+    private Button btnAll, btnFav, btnRecent, btnBatch;
+    private LinearLayout batchBar;
+    private Button btnBatchCopy, btnBatchShare, btnBatchSelect;
 
     /** 受限功能的记账：主界面带过来的 token，用掉一次就 confirm，没用上就 release。 */
     private String activationToken;
@@ -90,6 +102,10 @@ public class PhraseToolboxActivity extends Activity {
         activationFeature = from == null ? null : from.getStringExtra("activation_feature");
         setContentView(buildRoot());
         reload();
+        android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            doImport(open, importMode);
+        }
     }
 
     /** 完成一次实际使用（复制 / 出图 / 导入成功）→ 扣 1 次；进来啥也没干就退出 → 不扣。 */
@@ -120,20 +136,12 @@ public class PhraseToolboxActivity extends Activity {
         head.setGravity(Gravity.CENTER_VERTICAL);
         // 页头那枚「‹ 返回」（点了就 finish）已经去掉：系统返回键在手，它只是占第一行又容易误触
         TextView title = new TextView(this);
-        title.setText("串词工具箱");
+        title.setText("串词工具箱 PRO MAX");
         title.setTextColor(TEXT);
         title.setTextSize(19);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         head.addView(title);
         root.addView(head);
-
-        TextView sub = new TextView(this);
-        sub.setText("点卡片=复制 · 开谐音就换成谐音写法 · 存表情包=出图直接发\n"
-                + "支持导入外部 txt 串词 / 谐音表 · v" + BuildConfig.VERSION_NAME);
-        sub.setTextColor(DIM);
-        sub.setTextSize(11.5f);
-        sub.setPadding(0, dp(6), 0, dp(10));
-        root.addView(sub);
 
         etSearch = new EditText(this);
         etSearch.setHint("搜串词（点卡片复制，或点「随机来一条」）");
@@ -208,6 +216,49 @@ public class PhraseToolboxActivity extends Activity {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         root.addView(act);
 
+        // Pro Max 过滤条：全部 / 收藏 / 最近 / 批量。
+        HorizontalScrollView filterScroll = new HorizontalScrollView(this);
+        filterScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout filters = new LinearLayout(this);
+        filters.setOrientation(LinearLayout.HORIZONTAL);
+        filters.setPadding(0, dp(8), 0, 0);
+        btnAll = smallBtn("全部");
+        btnAll.setOnClickListener(v -> setFilter(0));
+        btnFav = smallBtn("★ 收藏");
+        btnFav.setOnClickListener(v -> setFilter(1));
+        btnRecent = smallBtn("最近");
+        btnRecent.setOnClickListener(v -> setFilter(2));
+        btnRecent.setOnLongClickListener(v -> {
+            PhraseStore.clearRecent(PhraseToolboxActivity.this);
+            status("已清空最近使用记录");
+            reload();
+            return true;
+        });
+        btnBatch = smallBtn("批量");
+        btnBatch.setOnClickListener(v -> toggleBatch());
+        filters.addView(btnAll);
+        filters.addView(btnFav);
+        filters.addView(btnRecent);
+        filters.addView(btnBatch);
+        filterScroll.addView(filters);
+        root.addView(filterScroll);
+
+        batchBar = new LinearLayout(this);
+        batchBar.setOrientation(LinearLayout.HORIZONTAL);
+        batchBar.setGravity(Gravity.CENTER_VERTICAL);
+        batchBar.setPadding(0, dp(4), 0, 0);
+        batchBar.setVisibility(View.GONE);
+        btnBatchSelect = smallBtn("全选");
+        btnBatchSelect.setOnClickListener(v -> selectAllShown());
+        btnBatchCopy = smallBtn("复制所选");
+        btnBatchCopy.setOnClickListener(v -> copySelected());
+        btnBatchShare = smallBtn("分享所选");
+        btnBatchShare.setOnClickListener(v -> shareSelected());
+        batchBar.addView(btnBatchSelect);
+        batchBar.addView(btnBatchCopy);
+        batchBar.addView(btnBatchShare);
+        root.addView(batchBar);
+
         ScrollView sv = new ScrollView(this);
         listCol = new LinearLayout(this);
         listCol.setOrientation(LinearLayout.VERTICAL);
@@ -224,30 +275,137 @@ public class PhraseToolboxActivity extends Activity {
         return root;
     }
 
-    /** 重新渲染列表：不分分类，直接搜，或者点「随机来一条」。 */
+    /** 重新渲染列表：搜索 + 收藏 / 最近过滤 + 批量选择。 */
     private void reload() {
         listCol.removeAllViews();
         List<PhraseStore.Item> all = PhraseStore.list(this);
-        int shown = 0;
+        Set<String> favs = PhraseStore.favorites(this);
+        List<String> recent = PhraseStore.recentIds(this);
+        Map<String, Integer> recentRank = new HashMap<>();
+        for (int i = 0; i < recent.size(); i++) recentRank.put(recent.get(i), i);
+
+        String key = keyword.toLowerCase(Locale.ROOT);
+        shownItems.clear();
         for (PhraseStore.Item it : all) {
-            if (keyword.length() > 0 && !it.text.contains(keyword)) {
+            if (key.length() > 0
+                    && !it.text.toLowerCase(Locale.ROOT).contains(key)
+                    && !(it.cat != null && it.cat.toLowerCase(Locale.ROOT).contains(key))) {
                 continue;
             }
-            listCol.addView(card(it));
-            shown++;
+            if (filterMode == 1 && !favs.contains(it.id)) continue;
+            if (filterMode == 2 && !recentRank.containsKey(it.id)) continue;
+            shownItems.add(it);
         }
-        if (shown == 0) {
+        shownItems.sort((a, b) -> {
+            boolean fa = favs.contains(a.id), fb = favs.contains(b.id);
+            if (fa != fb) return fa ? -1 : 1;
+            if (filterMode == 2) {
+                Integer ra = recentRank.get(a.id), rb = recentRank.get(b.id);
+                return Integer.compare(ra == null ? Integer.MAX_VALUE : ra,
+                        rb == null ? Integer.MAX_VALUE : rb);
+            }
+            return 0;
+        });
+
+        for (PhraseStore.Item it : shownItems) {
+            listCol.addView(card(it));
+        }
+        if (shownItems.isEmpty()) {
             TextView empty = new TextView(this);
             empty.setText(all.isEmpty()
                     ? "这里还没内容。点「＋ 新增」自己写一条。"
+                    : filterMode == 1 ? "还没有收藏，长按任意一条加星。"
+                    : filterMode == 2 ? "最近还没用过；复制一条就会记在这里。"
                     : "没搜到，换个词试试。");
             empty.setTextColor(DIM);
             empty.setTextSize(13);
             empty.setPadding(0, dp(18), 0, 0);
             listCol.addView(empty);
         }
-        status("共 " + shown + " 条"
+
+        if (btnAll != null) {
+            btnAll.setText("全部 " + all.size());
+            btnFav.setText("★ " + favs.size());
+            btnRecent.setText("最近 " + recent.size());
+            btnBatch.setText(batchMode ? "退出批量" : "批量");
+            batchBar.setVisibility(batchMode ? View.VISIBLE : View.GONE);
+            btnBatchSelect.setText(selectedIds.size() >= shownItems.size()
+                    && !shownItems.isEmpty() ? "取消全选" : "全选");
+        }
+        status("共 " + shownItems.size() + " 条"
+                + (batchMode ? " · 已选 " + selectedIds.size() : "")
                 + (cbHomo.isChecked() ? " · 复制时换谐音（" + homoModeLabel() + "）" : ""));
+    }
+
+    private void setFilter(int mode) {
+        filterMode = mode;
+        selectedIds.clear();
+        if (batchMode) {
+            batchMode = false;
+        }
+        reload();
+    }
+
+    private void toggleBatch() {
+        batchMode = !batchMode;
+        selectedIds.clear();
+        reload();
+    }
+
+    private void selectAllShown() {
+        if (!batchMode) return;
+        if (selectedIds.size() >= shownItems.size() && !shownItems.isEmpty()) {
+            selectedIds.clear();
+        } else {
+            for (PhraseStore.Item it : shownItems) selectedIds.add(it.id);
+        }
+        reload();
+    }
+
+    private List<String> selectedTexts() {
+        List<String> out = new ArrayList<>();
+        for (PhraseStore.Item it : shownItems) {
+            if (selectedIds.contains(it.id)) {
+                out.add(homoText(it.text));
+                PhraseStore.markUsed(this, it.id);
+            }
+        }
+        return out;
+    }
+
+    private void copySelected() {
+        List<String> texts = selectedTexts();
+        if (texts.isEmpty()) {
+            status("先勾几条再复制");
+            return;
+        }
+        String joined = joinTexts(texts);
+        ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("串词", joined));
+        status("已复制所选 " + texts.size() + " 条");
+        finishActivation(true);
+        reload();
+    }
+
+    private void shareSelected() {
+        List<String> texts = selectedTexts();
+        if (texts.isEmpty()) {
+            status("先勾几条再分享");
+            return;
+        }
+        Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                .putExtra(Intent.EXTRA_TEXT, joinTexts(texts));
+        startActivity(Intent.createChooser(send, "分享所选串词"));
+        reload();
+    }
+
+    private static String joinTexts(List<String> texts) {
+        StringBuilder sb = new StringBuilder();
+        for (String t : texts) {
+            if (sb.length() > 0) sb.append("\n\n");
+            sb.append(t);
+        }
+        return sb.toString();
     }
 
     private View card(PhraseStore.Item it) {
@@ -260,12 +418,46 @@ public class PhraseToolboxActivity extends Activity {
         lp.bottomMargin = dp(10);
         c.setLayoutParams(lp);
 
-        if (!it.builtin) {
-            TextView tag = new TextView(this);
-            tag.setText("我的");
-            tag.setTextSize(10.5f);
-            tag.setTextColor(ACCENT);
-            c.addView(tag);
+        boolean fav = PhraseStore.isFavorite(this, it.id);
+        if (batchMode) {
+            CheckBox pick = new CheckBox(this);
+            pick.setText(fav ? "★" : "选");
+            pick.setTextColor(fav ? ACCENT : DIM);
+            pick.setTextSize(12f);
+            pick.setChecked(selectedIds.contains(it.id));
+            pick.setOnClickListener(v -> {
+                if (pick.isChecked()) selectedIds.add(it.id);
+                else selectedIds.remove(it.id);
+                reload();
+            });
+            c.addView(pick);
+        } else {
+            LinearLayout tags = new LinearLayout(this);
+            tags.setOrientation(LinearLayout.HORIZONTAL);
+            tags.setGravity(Gravity.CENTER_VERTICAL);
+            if (fav) {
+                TextView star = new TextView(this);
+                star.setText("★ 收藏");
+                star.setTextSize(10.5f);
+                star.setTextColor(ACCENT);
+                tags.addView(star);
+            }
+            if (!it.builtin) {
+                TextView tag = new TextView(this);
+                tag.setText(tags.getChildCount() > 0 ? " · 我的" : "我的");
+                tag.setTextSize(10.5f);
+                tag.setTextColor(ACCENT);
+                tags.addView(tag);
+            }
+            int used = PhraseStore.useCount(this, it.id);
+            if (used > 0) {
+                TextView cnt = new TextView(this);
+                cnt.setText((tags.getChildCount() > 0 ? " · " : "") + "用过 " + used + " 次");
+                cnt.setTextSize(10.5f);
+                cnt.setTextColor(DIM);
+                tags.addView(cnt);
+            }
+            if (tags.getChildCount() > 0) c.addView(tags);
         }
 
         TextView body = new TextView(this);
@@ -276,7 +468,7 @@ public class PhraseToolboxActivity extends Activity {
         body.setPadding(0, dp(6), 0, dp(8));
         c.addView(body);
 
-        if (cbHomo.isChecked()) {
+        if (!batchMode && cbHomo.isChecked()) {
             String h = homoText(it.text);
             if (!h.equals(it.text)) {
                 TextView pv = new TextView(this);
@@ -288,17 +480,26 @@ public class PhraseToolboxActivity extends Activity {
             }
         }
 
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        Button copy = smallBtn("复制");
-        copy.setOnClickListener(v -> copyItem(it));
-        row.addView(copy);
-        Button img = smallBtn("存表情包");
-        img.setOnClickListener(v -> saveSticker(it));
-        row.addView(img);
-        c.addView(row);
+        if (!batchMode) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            Button copy = smallBtn("复制");
+            copy.setOnClickListener(v -> copyItem(it));
+            row.addView(copy);
+            Button img = smallBtn("存表情包");
+            img.setOnClickListener(v -> saveSticker(it));
+            row.addView(img);
+            c.addView(row);
+        }
 
-        c.setOnClickListener(v -> copyItem(it));
+        c.setOnClickListener(v -> {
+            if (batchMode) {
+                if (!selectedIds.remove(it.id)) selectedIds.add(it.id);
+                reload();
+            } else {
+                copyItem(it);
+            }
+        });
         c.setOnLongClickListener(v -> {
             showItemMenu(it);
             return true;
@@ -315,8 +516,10 @@ public class PhraseToolboxActivity extends Activity {
         if (cm != null) {
             cm.setPrimaryClip(ClipData.newPlainText("串词", out));
         }
+        PhraseStore.markUsed(this, it.id);
         status((homo ? "已复制（谐音·" + homoModeLabel() + "）：" : "已复制：") + shortText(out));
         finishActivation(true);     // 复制成功即算用掉一次
+        if (filterMode == 2) reload();  // 最近列表顺序随使用刷新
     }
 
     private void saveSticker(PhraseStore.Item it) {
@@ -333,6 +536,7 @@ public class PhraseToolboxActivity extends Activity {
             status("存图失败（可能是没给存储权限）");
             return;
         }
+        PhraseStore.markUsed(this, it.id);
         status("已出图：" + bmp.getWidth() + "×" + bmp.getHeight()
                 + "，相册 Pictures/串词表情包（老系统退到应用目录）");
         finishActivation(true);     // 出图成功算用掉一次
@@ -446,48 +650,56 @@ public class PhraseToolboxActivity extends Activity {
         }
     }
 
-    /** 随机来一条：从当前（搜索后的）列表里抽一条直接复制，不用挑。 */
+    /** 随机来一条：从当前搜索 / 收藏 / 最近过滤后的池子里抽，尽量不连续重复。 */
     private void copyRandom() {
-        List<PhraseStore.Item> pool = new ArrayList<>();
-        for (PhraseStore.Item it : PhraseStore.list(this)) {
-            if (keyword.length() == 0 || it.text.contains(keyword)) {
-                pool.add(it);
-            }
-        }
-        if (pool.isEmpty()) {
-            status("没有可抽的串词");
+        if (shownItems.isEmpty()) {
+            status("当前筛选下没有可抽的串词");
             return;
         }
-        copyItem(pool.get((int) (Math.random() * pool.size())));
+        PhraseStore.Item pick = shownItems.get((int) (Math.random() * shownItems.size()));
+        for (int i = 0; i < 5 && shownItems.size() > 1 && pick.id.equals(lastRandomId); i++) {
+            pick = shownItems.get((int) (Math.random() * shownItems.size()));
+        }
+        lastRandomId = pick.id;
+        copyItem(pick);
     }
 
     // ------------------------------------------------------------------ 编辑 / 谐音表
 
     private void showItemMenu(PhraseStore.Item it) {
         AlertDialog.Builder b = new AlertDialog.Builder(this).setTitle(shortText(it.text));
+        final String favLabel = PhraseStore.isFavorite(this, it.id) ? "取消收藏" : "★ 收藏";
         if (it.builtin) {
-            b.setItems(new String[]{"隐藏这条（内置）", "复制", "存表情包"}, (d, w) -> {
+            b.setItems(new String[]{favLabel, "隐藏这条（内置）", "复制", "存表情包"}, (d, w) -> {
                 d.dismiss();
                 if (w == 0) {
+                    boolean now = PhraseStore.toggleFavorite(this, it.id);
+                    reload();
+                    status(now ? "已收藏，列表排在最前" : "已取消收藏");
+                } else if (w == 1) {
                     PhraseStore.remove(this, it);
                     reload();
                     status("已隐藏，点「恢复」可以放回来");
-                } else if (w == 1) {
+                } else if (w == 2) {
                     copyItem(it);
                 } else {
                     saveSticker(it);
                 }
             });
         } else {
-            b.setItems(new String[]{"编辑", "删除", "复制", "存表情包"}, (d, w) -> {
+            b.setItems(new String[]{favLabel, "编辑", "删除", "复制", "存表情包"}, (d, w) -> {
                 d.dismiss();
                 if (w == 0) {
-                    showEditDialog(it);
+                    boolean now = PhraseStore.toggleFavorite(this, it.id);
+                    reload();
+                    status(now ? "已收藏，列表排在最前" : "已取消收藏");
                 } else if (w == 1) {
+                    showEditDialog(it);
+                } else if (w == 2) {
                     PhraseStore.remove(this, it);
                     reload();
                     status("已删除");
-                } else if (w == 2) {
+                } else if (w == 3) {
                     copyItem(it);
                 } else {
                     saveSticker(it);

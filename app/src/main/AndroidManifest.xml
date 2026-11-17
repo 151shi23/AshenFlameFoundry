@@ -436,6 +436,36 @@
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
             android:theme="@style/Theme.MinewaysMobile" />
 
+        <!-- 外部「打开方式 / 分享」唯一入口（透明 trampoline）：QQ / 微信 / 文件管理器
+             对文件点「用其他应用打开」选 Mineways 后进这里，按扩展名路由到对应工具并自动载入。
+             多候选弹窗在 OpenWithActivity 里用自建 PrismDialog（系统 setSingleChoiceItems
+             在暗色主题下会空白）。只暴露这一个无 UI 页，其余工具页保持 exported=false。 -->
+        <activity
+            android:name=".open.OpenWithActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="用 Mineways 打开"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
         <!-- 浏览器授权后的回跳落点。只写 scheme 不写 host：Google 那类把回调登记成
              mineways:/oauth2redirect 的形态也要能落进来（host 写死了就会漏）。 -->
         <activity
@@ -489,6 +519,14 @@
         <!-- 串词工具箱（纯本地：内置串词库 / 复制时谐音替换 / 一键出图当表情包） -->
         <activity
             android:name=".PhraseToolboxActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"
+            android:theme="@style/Theme.MinewaysMobile" />
+
+        <!-- 文件保险箱（口令 + 密钥双因子：任意单文件 ⇄ .寂密 加密容器，密码学全程离线） -->
+        <activity
+            android:name=".vault.VaultActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden"

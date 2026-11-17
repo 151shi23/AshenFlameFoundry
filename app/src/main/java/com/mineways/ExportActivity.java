@@ -2212,9 +2212,7 @@ public class ExportActivity extends AppCompatActivity {
         rowPack.addView(btnPickPack);
         root.addView(rowPack);
         TextView packHint = new TextView(this);
-        packHint.setText("匹配规则：资源包 assets/minecraft/textures/block/ 下的同名贴图会打进图集 / 覆盖 tex/ 里的贴图"
-                + "（旧版 blocks/ 与基岩版 .mcpack 也认）；对不上名字的保持原版。"
-                + "「整幅大图（3 张马赛克）」与「单独纹理（每方块一张 PNG）」两种模式都生效。");
+        packHint.setText("同名贴图覆盖，对不上保持原版。");
         packHint.setTextSize(11);
         packHint.setTextColor(0xFF8A9099);
         root.addView(packHint);
@@ -2316,7 +2314,7 @@ public class ExportActivity extends AppCompatActivity {
             TextView modHint = new TextView(this);
             modHint.setTextSize(12);
             modHint.setTextColor(0xFF9AA0A6);
-            modHint.setText("支持 Forge/Fabric 模组 jar 与资源包；先导出一次看报告里的「模组方块清单」，再上传包含这些方块的模组。multipart 与连接性方块会降级为占位。");
+            modHint.setText("支持 Forge/Fabric jar；先导出看模组方块清单。");
             root.addView(modHint);
         }
 

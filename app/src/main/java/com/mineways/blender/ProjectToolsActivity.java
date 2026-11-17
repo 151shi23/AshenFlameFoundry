@@ -137,6 +137,10 @@ public class ProjectToolsActivity extends ComponentActivity {
             wrap.addView(box);
             setContentView(wrap);
         }
+        android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            importProject(open);
+        }
     }
 
     // ================================================================ 界面
@@ -278,7 +282,7 @@ public class ProjectToolsActivity extends ComponentActivity {
     private void refreshProject() {
         if (tvProject == null) return;
         if (project == null || !project.isFile()) {
-            tvProject.setText("还没选工程。可以先选本机 .blend，或到下面下一份第三方模板。");
+            tvProject.setText("还没选工程");
             return;
         }
         tvProject.setText("当前工程：" + project.getName()

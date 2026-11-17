@@ -22,7 +22,6 @@ import android.text.style.URLSpan;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -171,7 +170,7 @@ public class UpdateGateActivity extends Activity {
     private int timeoutMs = DEFAULT_TIMEOUT * 1000;
 
     private TextView tvTitle, tvDesc, tvNotice, tvMsg, tvContent, tvCountdown, tvRule;
-    private Button btnMain, btnGh, btnCopy, btnRetry, btnKeep, btnQq;
+    private TextView btnMain, btnGh, btnCopy, btnRetry, btnKeep, btnQq;
 
     private Decision decision;
     private int countdownLeft;
@@ -238,95 +237,121 @@ public class UpdateGateActivity extends Activity {
     // ---------------------------------------------------------------- UI
 
     private void buildUi() {
-        int pad = (int) (getResources().getDisplayMetrics().density * 22);
+        final int pad = dp(18);
+        final com.mineways.ui.MwViews.Style st = com.mineways.ui.MwViews.style(this);
+
+        ScrollView holder = new ScrollView(this);
+        holder.setFillViewport(true);
+        holder.setBackground(com.mineways.ui.MwViews.pageBackground(this));
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setBackgroundColor(Color.parseColor("#101418"));
-        root.setPadding(pad, pad, pad, pad);
+        root.setPadding(pad, dp(32), pad, dp(28));
+
+        TextView brand = new TextView(this);
+        brand.setText("M I N E W A Y S M O B I L E");
+        brand.setTextColor(0x59FFFFFF);
+        brand.setTextSize(10);
+        brand.setGravity(Gravity.CENTER);
+        brand.setLetterSpacing(0.18f);
+        root.addView(brand);
+
+        // 主卡：状态 + 说明，整页唯一的内容焦点
+        LinearLayout hero = new LinearLayout(this);
+        hero.setOrientation(LinearLayout.VERTICAL);
+        hero.setPadding(pad, dp(22), pad, dp(20));
+        hero.setBackground(com.mineways.ui.MwViews.glass(this, st, 24, 0x12FFFFFF, hero));
+        LinearLayout.LayoutParams heroLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        heroLp.topMargin = dp(18);
+        hero.setLayoutParams(heroLp);
 
         tvTitle = new TextView(this);
         tvTitle.setText("MinewaysMobile");
         tvTitle.setTextColor(Color.WHITE);
-        tvTitle.setTextSize(22);
+        tvTitle.setTextSize(24);
         tvTitle.setTypeface(Typeface.DEFAULT_BOLD);
         tvTitle.setGravity(Gravity.CENTER);
-        root.addView(tvTitle);
+        tvTitle.setLineSpacing(dp(2), 1.1f);
+        hero.addView(tvTitle, blockParams(0));
 
         tvDesc = new TextView(this);
-        tvDesc.setTextColor(Color.parseColor("#8FA3B5"));
-        tvDesc.setTextSize(14);
+        tvDesc.setTextColor(0x99FFFFFF);
+        tvDesc.setTextSize(13);
         tvDesc.setGravity(Gravity.CENTER);
         tvDesc.setVisibility(View.GONE);
-        root.addView(tvDesc);
+        hero.addView(tvDesc, blockParams(8));
 
         tvNotice = new TextView(this);
-        tvNotice.setTextColor(Color.parseColor("#7BE3C0"));
-        tvNotice.setTextSize(14);
+        tvNotice.setTextColor(0xFF9FE8C8);
+        tvNotice.setTextSize(13);
         tvNotice.setGravity(Gravity.CENTER);
-        tvNotice.setPadding(0, pad / 2, 0, 0);
         tvNotice.setVisibility(View.GONE);
-        root.addView(tvNotice);
+        hero.addView(tvNotice, blockParams(10));
 
         tvMsg = new TextView(this);
         tvMsg.setText("正在检查更新…");
-        tvMsg.setTextColor(Color.parseColor("#B9C4CF"));
-        tvMsg.setTextSize(15);
+        tvMsg.setTextColor(0xCCFFFFFF);
+        tvMsg.setTextSize(14);
         tvMsg.setGravity(Gravity.CENTER);
-        tvMsg.setPadding(0, pad, 0, pad);
-        root.addView(tvMsg);
+        tvMsg.setLineSpacing(dp(2), 1.35f);
+        hero.addView(tvMsg, blockParams(14));
 
         tvRule = new TextView(this);
-        tvRule.setTextColor(Color.parseColor("#FFB74D"));
-        tvRule.setTextSize(13);
+        tvRule.setTextColor(0xFFE0B44C);
+        tvRule.setTextSize(11);
         tvRule.setGravity(Gravity.CENTER);
         tvRule.setVisibility(View.GONE);
-        root.addView(tvRule);
+        hero.addView(tvRule, blockParams(10));
+
+        tvCountdown = com.mineways.ui.MwViews.pillButton(this, "", false, null);
+        tvCountdown.setVisibility(View.GONE);
+        LinearLayout.LayoutParams cdLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cdLp.topMargin = dp(14);
+        cdLp.gravity = Gravity.CENTER_HORIZONTAL;
+        hero.addView(tvCountdown, cdLp);
 
         tvContent = new TextView(this);
-        tvContent.setTextColor(Color.parseColor("#D6DEE6"));
-        tvContent.setTextSize(14);
-        tvContent.setLineSpacing(6f, 1f);
+        tvContent.setTextColor(0xB3FFFFFF);
+        tvContent.setTextSize(13);
+        tvContent.setLineSpacing(dp(4), 1.4f);
         tvContent.setTextIsSelectable(true);
         tvContent.setVisibility(View.GONE);
-        root.addView(tvContent, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        hero.addView(tvContent, blockParams(16));
 
-        tvCountdown = new TextView(this);
-        tvCountdown.setTextColor(Color.parseColor("#FFD54F"));
-        tvCountdown.setTextSize(14);
-        tvCountdown.setGravity(Gravity.CENTER);
-        tvCountdown.setPadding(0, pad / 2, 0, 0);
-        tvCountdown.setVisibility(View.GONE);
-        root.addView(tvCountdown);
+        root.addView(hero);
 
-        btnMain = new Button(this);
-        btnMain.setText("前往下载更新");
+        // 操作卡：主按钮整宽，次按钮描边，外链用文字
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.VERTICAL);
+        actions.setPadding(pad, dp(14), pad, dp(10));
+        actions.setBackground(com.mineways.ui.MwViews.glass(this, st, 24, 0x0AFFFFFF, actions));
+        LinearLayout.LayoutParams actLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        actLp.topMargin = dp(14);
+        actions.setLayoutParams(actLp);
+
+        btnMain = com.mineways.ui.MwViews.pillButton(this, "前往下载更新", true,
+                v -> openUrl(decision != null ? decision.downloadTarget() : PAGE));
         btnMain.setVisibility(View.GONE);
-        btnMain.setOnClickListener(v -> openUrl(decision != null ? decision.downloadTarget() : PAGE));
-        root.addView(btnMain, centerParams());
+        actions.addView(btnMain, blockParams(0));
 
-        btnCopy = new Button(this);
-        btnCopy.setText("复制提取码");
-        btnCopy.setVisibility(View.GONE);
-        btnCopy.setOnClickListener(v -> {
+        btnCopy = com.mineways.ui.MwViews.pillButton(this, "复制提取码", false, v -> {
             if (decision != null && decision.code != null) {
                 copyText(decision.code);
                 toast("提取码已复制：" + decision.code);
             }
         });
-        root.addView(btnCopy, centerParams());
+        btnCopy.setVisibility(View.GONE);
+        actions.addView(btnCopy, blockParams(10));
 
-        btnKeep = new Button(this);
-        btnKeep.setText("继续使用当前版本");
+        btnKeep = com.mineways.ui.MwViews.pillButton(this, "继续使用当前版本", false, v -> pass());
         btnKeep.setVisibility(View.GONE);
-        btnKeep.setOnClickListener(v -> pass());
-        root.addView(btnKeep, centerParams());
+        actions.addView(btnKeep, blockParams(10));
 
-        btnRetry = new Button(this);
-        btnRetry.setText("重试检查");
-        btnRetry.setVisibility(View.GONE);
-        btnRetry.setOnClickListener(v -> {
+        btnRetry = com.mineways.ui.MwViews.pillButton(this, "重试检查", false, v -> {
             btnRetry.setVisibility(View.GONE);
             btnMain.setVisibility(View.GONE);
             tvContent.setVisibility(View.GONE);
@@ -335,30 +360,42 @@ public class UpdateGateActivity extends Activity {
             tvCountdown.setVisibility(View.GONE);
             check(0);
         });
-        root.addView(btnRetry, centerParams());
+        btnRetry.setVisibility(View.GONE);
+        actions.addView(btnRetry, blockParams(10));
 
-        btnGh = new Button(this);
-        btnGh.setText("去 GitHub Release 页面");
-        btnGh.setOnClickListener(v -> openUrl(PAGE));
-        root.addView(btnGh, centerParams());
+        btnGh = link("GitHub Release 页面", v -> openUrl(PAGE));
+        actions.addView(btnGh, blockParams(14));
 
-        btnQq = new Button(this);
-        btnQq.setText("点击链接加入群聊【AshenFlame-No. 2】");
-        btnQq.setOnClickListener(v -> openUrl(QQ_GROUP));
-        root.addView(btnQq, centerParams());
+        btnQq = link("加入 QQ 群【AshenFlame-No. 2】", v -> openUrl(QQ_GROUP));
+        actions.addView(btnQq, blockParams(12));
 
-        ScrollView holder = new ScrollView(this);
-        holder.setBackgroundColor(Color.parseColor("#101418"));
+        root.addView(actions);
+
         holder.addView(root, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         setContentView(holder);
     }
 
-    private LinearLayout.LayoutParams centerParams() {
+    private LinearLayout.LayoutParams blockParams(int topDp) {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = (int) (getResources().getDisplayMetrics().density * 10);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(topDp);
         return lp;
+    }
+
+    private TextView link(String label, View.OnClickListener go) {
+        TextView t = new TextView(this);
+        t.setText(label);
+        t.setTextSize(12);
+        t.setTextColor(0x80FFFFFF);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(dp(4), dp(8), dp(4), dp(8));
+        t.setOnClickListener(go);
+        return t;
+    }
+
+    private int dp(int v) {
+        return (int) (v * getResources().getDisplayMetrics().density);
     }
 
     private void openUrl(String url) {
@@ -413,15 +450,15 @@ public class UpdateGateActivity extends Activity {
     private void readCloudSwitches() {
         try {
             com.mineways.cloud.FeatureGate g = com.mineways.cloud.CloudCatalog.gate();
-            cloudOff = "1".equals(g.flag("update_off", ""));
-            cloudForceOff = "1".equals(g.flag("update_force_off", ""));
-            cloudQuiet = "1".equals(g.flag("update_quiet", ""));
-            cloudBlock = g.flag("update_block", "");
-            cloudHold = g.flag("update_hold", "");
-            cloudHoldTo = g.flag("update_hold_to", "");
-            cloudHoldUrl = g.flag("update_hold_url", "");
-            cloudHoldNotice = g.flag("update_hold_notice", "");
-            int w = intOf(g.flag("update_max_wait", ""), 0);
+            cloudOff = com.mineways.cloud.CloudFlags.bool(g, "update_off", false);
+            cloudForceOff = com.mineways.cloud.CloudFlags.bool(g, "update_force_off", false);
+            cloudQuiet = com.mineways.cloud.CloudFlags.bool(g, "update_quiet", false);
+            cloudBlock = com.mineways.cloud.CloudFlags.str(g, "update_block", "");
+            cloudHold = com.mineways.cloud.CloudFlags.str(g, "update_hold", "");
+            cloudHoldTo = com.mineways.cloud.CloudFlags.str(g, "update_hold_to", "");
+            cloudHoldUrl = com.mineways.cloud.CloudFlags.str(g, "update_hold_url", "");
+            cloudHoldNotice = com.mineways.cloud.CloudFlags.str(g, "update_hold_notice", "");
+            int w = intOf(com.mineways.cloud.CloudFlags.str(g, "update_max_wait", ""), 0);
             // 越界（0 或离谱的数）当没配：宁可慢，也不能因为一个写错的数字把人挡在门外
             cloudMaxWait = (w >= 3 && w <= 60) ? w : 0;
         } catch (Throwable t) {
@@ -751,6 +788,17 @@ public class UpdateGateActivity extends Activity {
     // ---------------------------------------------------------------- 渲染
 
     private void render(Decision d) {
+        // 重试后要回到中性状态：上一次强更留下的红色标题/提示不能带到新结论里
+        tvTitle.setTextColor(Color.WHITE);
+        tvMsg.setTextColor(0xCCFFFFFF);
+        tvDesc.setVisibility(View.GONE);
+        tvNotice.setVisibility(View.GONE);
+        tvRule.setVisibility(View.GONE);
+        tvContent.setVisibility(View.GONE);
+        btnMain.setVisibility(View.GONE);
+        btnCopy.setVisibility(View.GONE);
+        btnKeep.setVisibility(View.GONE);
+
         tvTitle.setText(d.title != null ? d.title : (d.forced ? "必须更新" : "发现新版本"));
         if (d.desc != null) {
             tvDesc.setText(d.desc);

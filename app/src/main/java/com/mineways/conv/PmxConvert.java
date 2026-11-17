@@ -5,9 +5,13 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 格式转换页的 PMX（MikuMikuDance 模型）→ GLB 专用通道。
@@ -23,8 +27,10 @@ import java.util.Map;
 public final class PmxConvert {
 
     /** 单张贴图上限，防止 zip 炸弹/超大 PSD 混入把内存打满。 */
-    private static final long MAX_TEXTURE_BYTES = 64L * 1024 * 1024;
-    private static final int MAX_TEXTURES = 256;
+    private static final long MAX_TEXTURE_BYTES = 16L * 1024 * 1024;
+    private static final int MAX_TEXTURES = 128;
+    /** BMP 解码峰值更大，超过这个大小就不在低内存设备上转 PNG。 */
+    private static final long MAX_BMP_DECODE_BYTES = 8L * 1024 * 1024;
 
     public static final class Result {
         public final boolean ok;
@@ -48,24 +54,31 @@ public final class PmxConvert {
             if (!looksLikePmx(bytes)) {
                 return new Result(false, "不是有效的 PMX 文件（文件头应为 PMX 2.0）");
             }
-            Map<String, byte[]> textures = collectTextures(assetRoot);
+            Pmx2Glb conv = new Pmx2Glb();
+            // 先解析一次，按 PMX 实际引用的贴图去收文件；不再把目录里所有图片都读进内存。
+            Pmx2Glb.PmxModel model = conv.prepare(bytes);
+            Set<String> wanted = wantedTextures(conv.textureNames(model));
+            long budget = textureBudget();
+            Map<String, byte[]> textures = collectTextures(assetRoot, wanted, budget);
             // PMX 在子目录时，贴图引用通常相对 PMX 自己；再收一遍同目录，精确路径覆盖根目录候选。
             File pmxDir = pmx.getParentFile();
             if (pmxDir != null && assetRoot != null
                     && !pmxDir.getAbsoluteFile().equals(assetRoot.getAbsoluteFile())) {
-                textures.putAll(collectTextures(pmxDir));
+                textures.putAll(collectTextures(pmxDir, wanted, budget));
             }
             long t0 = System.currentTimeMillis();
-            Pmx2Glb conv = new Pmx2Glb();
-            byte[] glb = conv.convert(bytes, textures);
+            int textureCount = textures.size();
+            byte[] glb = conv.convertPrepared(model, textures);
+            // GLB 已写完，贴图源字节不再需要；尽早释放给低内存机。
+            textures.clear();
             if (glb == null || glb.length < 20) {
                 return new Result(false, "PMX 解析完成但没有生成有效 GLB");
             }
             writeAll(out, glb);
             long ms = System.currentTimeMillis() - t0;
             String msg = conv.summary()
-                    + (textures.isEmpty() ? "\n未找到贴图：只输出材质色；要保留贴图请把 PMX 和 tex 目录一起打成 zip 再选。"
-                    : "\n贴图目录：" + textures.size() + " 个候选文件")
+                    + (textureCount == 0 ? "\n未找到贴图：只输出材质色；要保留贴图请把 PMX 和 tex 目录一起打成 zip 再选。"
+                    : "\n贴图目录：" + textureCount + " 个候选文件")
                     + "\n耗时 " + ms + " ms · 输出 " + human(glb.length);
             return new Result(true, msg);
         } catch (OutOfMemoryError e) {
@@ -76,29 +89,94 @@ public final class PmxConvert {
         }
     }
 
+    /**
+     * PMX → FBX：先由 PMX 内核还原骨骼/蒙皮并生成 GLB，再交给 Assimp 的 FBX 导出器。
+     * 不直接把 PMX 丢给 Assimp（它没有 PMX 导入器），也不自己手写 FBX 的集群/绑定矩阵。
+     */
+    public static Result convertToFbx(File pmx, File out, File assetRoot) {
+        if (pmx == null || !pmx.isFile()) return new Result(false, "PMX 文件不存在");
+        File parent = out == null ? null : out.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            return new Result(false, "建不了输出目录");
+        }
+        File tmp = new File(parent == null ? new File(".") : parent,
+                (out == null ? "pmx" : out.getName()) + ".__pmx.glb");
+        try {
+            Result glb = convert(pmx, tmp, assetRoot);
+            if (!glb.ok) return glb;
+            FmtConv.Result r = FmtConv.convertModel(tmp.getAbsolutePath(), out.getAbsolutePath());
+            if (!r.ok) return new Result(false, "FBX 导出失败：" + r.message);
+            if (out == null || !out.isFile() || out.length() < 64) {
+                return new Result(false, "FBX 导出后没有有效产物");
+            }
+            return new Result(true, "PMX 骨骼/蒙皮已还原 → FBX\n"
+                    + r.message + "\n" + glb.message);
+        } catch (OutOfMemoryError e) {
+            return new Result(false, "内存不足：模型/贴图太大，建议先用 GLB 或压缩贴图");
+        } catch (Throwable t) {
+            String m = t.getMessage();
+            return new Result(false, "PMX → FBX 失败：" + (m == null || m.isEmpty() ? t.toString() : m));
+        } finally {
+            // 中间 GLB 只是给 Assimp 的输入，不留在产物目录。
+            try { if (tmp.isFile()) tmp.delete(); } catch (Throwable ignored) {
+            }
+        }
+    }
+
     private static boolean looksLikePmx(byte[] b) {
         return b != null && b.length >= 4 + 4 + 8
                 && b[0] == 'P' && b[1] == 'M' && b[2] == 'X' && b[3] == ' ';
     }
 
-    /**
-     * 递归收集贴图（只读内核能嵌入的 PNG/JPG/BMP）。
-     * key 用相对 {@code root} 的正斜杠路径；同名文件也由内核兜底匹配。
-     */
-    private static Map<String, byte[]> collectTextures(File root) {
-        Map<String, byte[]> out = new HashMap<>();
-        if (root == null || !root.isDirectory()) return out;
-        collect(root, "", out, new long[]{0});
+    /** PMX 实际引用的贴图名，规范成小写路径 + basename，供遍历时提前过滤。 */
+    private static Set<String> wantedTextures(List<String> names) {
+        Set<String> out = new HashSet<>();
+        if (names == null) return out;
+        for (String n : names) {
+            if (n == null || n.trim().isEmpty()) continue;
+            String k = normPath(n);
+            out.add(k);
+            int slash = k.lastIndexOf('/');
+            if (slash >= 0) out.add(k.substring(slash + 1));
+        }
         return out;
     }
 
-    private static void collect(File dir, String prefix, Map<String, byte[]> out, long[] total) {
+    private static String normPath(String p) {
+        String k = p.replace('\\', '/').trim();
+        while (k.startsWith("./")) k = k.substring(2);
+        while (k.startsWith("../")) k = k.substring(3);
+        return k.toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * 贴图预算按堆大小走：低内存机只留 24MB，高配最多 96MB。
+     * 这个值是「解码后字节」的硬上限，不是文件数量，避免多张 8K 图叠加把机器打挂。
+     */
+    private static long textureBudget() {
+        long max = Runtime.getRuntime().maxMemory();
+        return Math.min(96L * 1024 * 1024, Math.max(24L * 1024 * 1024, max / 4));
+    }
+
+    /**
+     * 递归收集被 PMX 引用的贴图（PNG/JPG/BMP）。
+     * 只读真正会被嵌入的文件，不再把目录里所有图片都读进内存。
+     */
+    private static Map<String, byte[]> collectTextures(File root, Set<String> wanted, long budget) {
+        Map<String, byte[]> out = new HashMap<>();
+        if (root == null || !root.isDirectory() || wanted == null || wanted.isEmpty()) return out;
+        collect(root, "", out, wanted, budget, new long[]{0});
+        return out;
+    }
+
+    private static void collect(File dir, String prefix, Map<String, byte[]> out,
+                                Set<String> wanted, long budget, long[] total) {
         File[] files = dir.listFiles();
         if (files == null) return;
         for (File f : files) {
-            if (out.size() >= MAX_TEXTURES || total[0] >= 512L * 1024 * 1024) return;
+            if (out.size() >= MAX_TEXTURES || total[0] >= budget) return;
             if (f.isDirectory()) {
-                collect(f, prefix + f.getName() + "/", out, total);
+                collect(f, prefix + f.getName() + "/", out, wanted, budget, total);
                 continue;
             }
             String name = f.getName().toLowerCase(Locale.ROOT);
@@ -106,7 +184,13 @@ public final class PmxConvert {
                     || name.endsWith(".bmp"))) {
                 continue;
             }
+            String rel = prefix + f.getName();
+            String key = normPath(rel);
+            int slash = key.lastIndexOf('/');
+            String base = slash >= 0 ? key.substring(slash + 1) : key;
+            if (!wanted.contains(key) && !wanted.contains(base)) continue;
             if (f.length() <= 0 || f.length() > MAX_TEXTURE_BYTES) continue;
+            if (total[0] + f.length() > budget) continue;
             try {
                 byte[] data = readAll(f);
                 // glTF 查看器对 image/bmp 支持很差：BMP 在进 GLB 前转成 PNG（失败就保留原字节）。
@@ -114,16 +198,25 @@ public final class PmxConvert {
                     byte[] png = bmpToPng(data);
                     if (png != null) data = png;
                 }
-                out.put(prefix + f.getName(), data);
+                if (total[0] + data.length > budget) continue;
+                out.put(rel, data);
                 total[0] += data.length;
             } catch (Throwable ignored) {
             }
         }
     }
 
-    /** BMP → PNG（GLB 查看器兼容）；解码失败返回 null，调用方保留原字节。 */
+    /** BMP → PNG（GLB 查看器兼容）；超大/超预算返回 null，调用方保留原字节。 */
     private static byte[] bmpToPng(byte[] bmp) {
+        if (bmp == null || bmp.length > MAX_BMP_DECODE_BYTES) return null;
         try {
+            android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeByteArray(bmp, 0, bmp.length, bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0
+                    || bounds.outWidth > 4096 || bounds.outHeight > 4096) {
+                return null;
+            }
             android.graphics.Bitmap bitmap = android.graphics.BitmapFactory
                     .decodeByteArray(bmp, 0, bmp.length);
             if (bitmap == null) return null;

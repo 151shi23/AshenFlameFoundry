@@ -95,13 +95,6 @@ public class RealWorldActivity extends Activity {
         title.setPadding(dp(20), dp(18), dp(20), dp(2));
         root.addView(title);
 
-        TextView sub = new TextView(this);
-        sub.setText("用真实地图数据生成 Minecraft 存档（Arnis 原项目内核）");
-        sub.setTextSize(12.5f);
-        sub.setTextColor(DIM);
-        sub.setPadding(dp(20), 0, dp(20), dp(12));
-        root.addView(sub);
-
         // ---- 参数区（可滚动，卡片式，留足间距）----
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
@@ -120,7 +113,7 @@ public class RealWorldActivity extends Activity {
         LinearLayout sizeRow = row(card1);
         etMeters = field(sizeRow, "范围（米）", "300");
         etScale = field(sizeRow, "缩放", "1.0");
-        addHint(card1, "300 米约 300×300 格；范围越大越慢，先小范围试。");
+        addHint(card1, "范围越大越慢。");
         addChips(card1, new String[]{"天安门", "上海外滩", "广州塔"}, new double[][]{
                 {39.9052, 116.3989}, {31.2395, 121.4900}, {23.1060, 113.3220}}, 300);
 

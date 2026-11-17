@@ -30,8 +30,6 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.webkit.WebViewAssetLoader;
 
-import com.google.android.material.appbar.MaterialToolbar;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
@@ -68,9 +66,40 @@ public class SnowstormActivity extends AppCompatActivity {
     /** 产物落盘目录（Download/MinewaysMobile/ 下）。 */
     private static final String SUBDIR = "粒子";
 
+    /** Intent 参数：本次打开只为抓取当前预设（关于页 → 设置分享 → 粒子动画）。 */
+    public static final String EXTRA_SHARE_CAPTURE = "ss_share_capture";
+
     private WebView webView;
     private ProgressBar progressBar;
     private TextView tvStatus;
+
+    /** 预设抓取 / 回灌状态。 */
+    private boolean shareCapture;
+    private boolean captureSent;
+    private boolean presetApplied;
+
+    /** 状态条是浮在网页上的覆盖层：报完 8 秒自己收回去，不长期挡页面。 */
+    private final Runnable hideStatus = () -> {
+        if (tvStatus != null) tvStatus.setVisibility(View.GONE);
+    };
+
+    private void showStatus(String msg) {
+        runOnUiThread(() -> {
+            tvStatus.setVisibility(View.VISIBLE);
+            tvStatus.setText(msg);
+            tvStatus.removeCallbacks(hideStatus);
+            tvStatus.postDelayed(hideStatus, 8000);
+        });
+    }
+
+    /** 弹窗或系统栏回来之后，重新按独占全屏收起（返回手势照样可用）。 */
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            EditorImmersive.hideBars(this);
+        }
+    }
     private WebViewAssetLoader assetLoader;
 
     private ValueCallback<Uri[]> filePathCallback;
@@ -100,14 +129,20 @@ public class SnowstormActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_snowstorm);
 
-        MaterialToolbar bar = findViewById(R.id.ss_toolbar);
-        setSupportActionBar(bar);
-        bar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material);
-        bar.setNavigationOnClickListener(v -> finish());
+        // 没有标题栏了：网页独占整块屏幕，退出只走系统返回手势/返回键
+        EditorImmersive.hideBars(this);
 
         webView = findViewById(R.id.ss_webview);
+        android.net.Uri openUri = com.mineways.open.OpenInbox.take(this);
+        if (openUri != null) {
+            com.mineways.open.WebOpenBridge.setPending(openUri,
+                    com.mineways.open.OpenInbox.nameOf(this, openUri),
+                    com.mineways.open.OpenInbox.mimeOf(this, openUri));
+        }
         progressBar = findViewById(R.id.ss_progress);
         tvStatus = findViewById(R.id.ss_status);
+        shareCapture = getIntent() != null
+                && getIntent().getBooleanExtra(EXTRA_SHARE_CAPTURE, false);
 
         assetLoader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
@@ -134,6 +169,8 @@ public class SnowstormActivity extends AppCompatActivity {
 
         // 原生保存桥（导出接管的目标；名字不要改，hans.js 按此调用）
         webView.addJavascriptInterface(new Bridge(), "SSAndroid");
+        // 设置分享：抓取 / 回灌 localStorage 预设（只在分享流程里被调用）
+        webView.addJavascriptInterface(new ShareBridge(), "MWPreset");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -150,7 +187,28 @@ public class SnowstormActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                tvStatus.setText(R.string.ss_status_ready);
+                if (com.mineways.open.WebOpenBridge.hasPending()) {
+                    view.postDelayed(() -> com.mineways.open.WebOpenBridge.tryAutoTrigger(view), 800);
+                }
+                // 加载好了就把这条覆盖层收掉 —— 独占全屏时它没有存在的必要，
+                // 留着只会常年压住页面底部
+                tvStatus.setVisibility(View.GONE);
+                AdaptInject.apply(SnowstormActivity.this, view, url);
+                if (shareCapture) {
+                    if (captureSent) return;
+                    captureSent = true;
+                    view.postDelayed(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        try {
+                            view.evaluateJavascript(
+                                    com.mineways.share.PresetBridge.captureScript(), null);
+                        } catch (Throwable t) {
+                            Log.w(TAG, "capture share preset failed", t);
+                        }
+                    }, 500);
+                } else if (!presetApplied) {
+                    applyPendingPreset(view);
+                }
             }
         });
 
@@ -172,6 +230,10 @@ public class SnowstormActivity extends AppCompatActivity {
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
                                              FileChooserParams params) {
+                if (com.mineways.open.WebOpenBridge.consume(
+                        params == null ? null : params.getAcceptTypes(), callback)) {
+                    return true;
+                }
                 if (filePathCallback != null) {
                     filePathCallback.onReceiveValue(null);
                 }
@@ -207,6 +269,44 @@ public class SnowstormActivity extends AppCompatActivity {
         webView.loadUrl(PAGE_URL);
     }
 
+    /** 导入预设的回灌：写回 localStorage 后重载一次，只做一次。 */
+    private void applyPendingPreset(WebView view) {
+        try {
+            String body = com.mineways.share.PresetBridge.takePending(
+                    this, com.mineways.share.PresetBridge.SNOWSTORM);
+            if (body == null) return;
+            presetApplied = true;
+            view.evaluateJavascript(com.mineways.share.PresetBridge.applyScript(body), value -> {
+                try {
+                    view.reload();
+                } catch (Throwable ignored) {
+                }
+            });
+        } catch (Throwable t) {
+            Log.w(TAG, "apply share preset failed", t);
+        }
+    }
+
+    /** 设置分享桥：抓取完成后带着预设回到分享页。 */
+    private final class ShareBridge {
+        @JavascriptInterface
+        public void deliver(final String json) {
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                Intent it = new Intent(SnowstormActivity.this, com.mineways.share.ShareActivity.class);
+                it.putExtra(com.mineways.share.ShareActivity.EXTRA_MODE,
+                        com.mineways.share.ShareActivity.MODE_EXPORT);
+                it.putExtra(com.mineways.share.ShareActivity.EXTRA_PRESET_ID,
+                        com.mineways.share.PresetBridge.SNOWSTORM);
+                it.putExtra(com.mineways.share.ShareActivity.EXTRA_PRESET_BODY,
+                        json == null ? "{}" : json);
+                it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startActivity(it);
+                finish();
+            });
+        }
+    }
+
     /**
      * 导出接管的落点。
      * <p>内容分两类：
@@ -239,12 +339,12 @@ public class SnowstormActivity extends AppCompatActivity {
                         data = (content == null ? "" : content).getBytes(StandardCharsets.UTF_8);
                     }
                     String where = writeFile(fileName, mime, data);
-                    tvStatus.setText(getString(R.string.ss_saved, where));
+                    showStatus(getString(R.string.ss_saved, where));
                     Toast.makeText(SnowstormActivity.this,
                             getString(R.string.ss_saved, where), Toast.LENGTH_LONG).show();
                 } catch (Throwable t) {
                     Log.w(TAG, "save failed", t);
-                    tvStatus.setText(getString(R.string.ss_save_failed, String.valueOf(t.getMessage())));
+                    showStatus(getString(R.string.ss_save_failed, String.valueOf(t.getMessage())));
                     Toast.makeText(SnowstormActivity.this,
                             getString(R.string.ss_save_failed, String.valueOf(t.getMessage())),
                             Toast.LENGTH_LONG).show();

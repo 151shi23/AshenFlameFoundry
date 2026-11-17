@@ -59,6 +59,10 @@ public class FileRepairActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(buildUi());
+        android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            acceptIncoming(open);
+        }
     }
 
     private View buildUi() {
@@ -74,22 +78,6 @@ public class FileRepairActivity extends Activity {
         title.setTextColor(TEXT);
         title.setTextSize(22f);
         root.addView(title);
-
-        final TextView sub = new TextView(this);
-        sub.setText("流程：先体检（识别类型 · 校验结构 · 核对数据）→ 有损坏直接修；"
-                + "没损坏会提示「本文件未损坏」，由你决定是否强制修复"
-                + "（强制修复 = 最大数据保留：不删条目、不改写内容字节）。\n\n支持五类：\n"
-                + "· Prisma3D 工程包（2.0 / 3.0）：修头、补 +0 快照与缩略图、重建容器；\n"
-                + "  缺内容文件（相机/光源等「打开是空的」常见原因）会按 project.proj 里的对象记录补全，只补不删；可转 2.0\n"
-                + "· ZIP 压缩包：中央目录坏了也能从本地头重建，重算 CRC\n"
-                + "· 图片：按魔数判真格式、补 PNG IEND / JPEG EOI、剥尾部垃圾、纠扩展名\n"
-                + "· 音频：WAV 长度字段重算、MP3 头修复、扩展名纠正\n"
-                + "· BB（Blockbench）导出：bbmodel JSON 修复、obj 补 mtllib、mtl 补 Kd");
-        sub.setTextColor(DIM);
-        sub.setTextSize(13f);
-        sub.setLineSpacing(dp(4), 1f);
-        sub.setPadding(0, dp(10), 0, dp(14));
-        root.addView(sub);
 
         final LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
@@ -131,7 +119,7 @@ public class FileRepairActivity extends Activity {
         root.addView(actions);
 
         tvInfo = new TextView(this);
-        tvInfo.setText("还没选文件。选一个文件后这里显示识别与修复报告。");
+        tvInfo.setText("");
         tvInfo.setTextColor(TEXT);
         tvInfo.setTextSize(12.5f);
         tvInfo.setTextIsSelectable(true);
@@ -173,6 +161,11 @@ public class FileRepairActivity extends Activity {
             return;
         }
         final Uri uri = dataIntent.getData();
+        acceptIncoming(uri);
+    }
+
+    /** 外部「打开方式」与页内选择器共用同一条载入路径。 */
+    private void acceptIncoming(Uri uri) {
         try {
             fileName = queryName(uri);
             data = readAll(uri);

@@ -63,6 +63,10 @@ public class YsmActivity extends Activity {
         if (!nativeReady) {
             tvState.setText("当前设备不支持（仅 arm64-v8a）");
         }
+        Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            acceptIncoming(open);
+        }
     }
 
     private boolean nativeReady() {
@@ -146,7 +150,11 @@ public class YsmActivity extends Activity {
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
         if (req != REQ_PICK || res != RESULT_OK || data == null || data.getData() == null) return;
-        final Uri uri = data.getData();
+        acceptIncoming(data.getData());
+    }
+
+    /** 外部「打开方式」与页内选择器共用同一条载入路径。 */
+    private void acceptIncoming(Uri uri) {
         final String name = queryName(uri);
         tvState.setText("正在读取…");
         new Thread(() -> {

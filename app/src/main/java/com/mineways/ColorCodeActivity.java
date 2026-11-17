@@ -90,14 +90,6 @@ public class ColorCodeActivity extends AppCompatActivity {
         title.setTextColor(TEXT);
         col.addView(title);
 
-        TextView sub = new TextView(this);
-        sub.setText("Java 和基岩通用的 § 颜色、格式代码。点一行就复制，"
-                + "聊天、告示牌、命名牌、书、命令都能用。");
-        sub.setTextSize(12.5f);
-        sub.setTextColor(DIM);
-        sub.setPadding(0, dp(6), 0, dp(10));
-        col.addView(sub);
-
         // 预览
         col.addView(section("预览"));
         tvPreview = new TextView(this);

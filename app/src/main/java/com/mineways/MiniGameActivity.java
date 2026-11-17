@@ -66,7 +66,8 @@ public class MiniGameActivity extends AppCompatActivity {
         progressBar = findViewById(R.id.mg_progress);
 
         assetLoader = new WebViewAssetLoader.Builder()
-                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .addPathHandler("/assets/",
+                        com.mineways.assets.PackAssets.handler(this, "minigame"))
                 .build();
 
         MaterialToolbar bar = findViewById(R.id.mg_toolbar);
@@ -85,7 +86,9 @@ public class MiniGameActivity extends AppCompatActivity {
         });
 
         setupWebView();
-        webView.loadUrl(ASSET_URL);
+        // 素材已移出 APK：老包直接加载，新包先确保资源就绪
+        com.mineways.assets.PackAssets.ensure(this, "minigame", "寂零快跑",
+                () -> webView.loadUrl(ASSET_URL));
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -118,6 +121,7 @@ public class MiniGameActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 progressBar.setVisibility(View.GONE);
+                AdaptInject.apply(MiniGameActivity.this, view, url);
             }
 
             @Override

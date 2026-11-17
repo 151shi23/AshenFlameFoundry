@@ -22,6 +22,9 @@ import androidx.appcompat.app.AlertDialog;
 import com.mineways.p3d.Mp;
 import com.mineways.p3d.P3DConvert;
 import com.mineways.p3d.P3DPack;
+import com.mineways.p3d.P3DToObj;
+import com.mineways.p3d.P3DToObj3;
+import com.mineways.p3d.P3d2Bb;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -30,6 +33,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * P3D 工程工具（纯本地）。
@@ -39,7 +43,8 @@ import java.util.Locale;
  * 数据全部是 MessagePack。
  *
  * <p>这一页目前提供确定性可靠的三件事：识别版本与内容、修复被改过的头部、解包到 Download，
- * 外加把内部数据结构导成文本报告（跨版本转换的字段核对就靠它）。
+ * 外加把内部数据结构导成文本报告（跨版本转换的字段核对就靠它）。两个模型出口是「转 OBJ」
+ * （Blender / 通用查看器）与「转 Blockbench」（静态版 / 骨骼版，内核见 {@link P3d2Bb}）。
  */
 public class P3DConvertActivity extends Activity {
 
@@ -60,6 +65,11 @@ public class P3DConvertActivity extends Activity {
     private Button btnUnpack;
     private Button btnReport;
     private Button btnConvert20;
+    private Button btnObj;
+    private Button btnBbStatic;
+    private Button btnBbRig;
+    /** 骨骼版但所有组轴心归零：Blockbench 把 origin 当位移时的保险选项。 */
+    private Button btnBbRigZero;
 
     private byte[] raw;
     private P3DPack.Pack pack;
@@ -78,6 +88,10 @@ public class P3DConvertActivity extends Activity {
         activationFeature = from == null ? null : from.getStringExtra("activation_feature");
         setContentView(buildRoot());
         refreshButtons();
+        android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            load(open);
+        }
     }
 
     /** 成功做出东西（修复包 / 解包 / 报告）→ 扣 1 次；进来啥也没干就退出 → 不扣。 */
@@ -116,14 +130,6 @@ public class P3DConvertActivity extends Activity {
         head.addView(title);
         root.addView(head);
 
-        TextView sub = new TextView(this);
-        sub.setText("Prisma3D 工程包（.prisma）：识别版本 · 修头 · 解包 · 数据报告\n"
-                + "2.0 = 标准 ZIP 单体工程　3.0 = 头部 60 4B + 按 UUID 拆分");
-        sub.setTextColor(DIM);
-        sub.setTextSize(11.5f);
-        sub.setPadding(0, dp(6), 0, dp(10));
-        root.addView(sub);
-
         Button pick = primaryBtn("选择 .prisma 工程包");
         pick.setOnClickListener(v -> pickFile());
         root.addView(pick);
@@ -140,31 +146,65 @@ public class P3DConvertActivity extends Activity {
         tvInfo.setPadding(dp(14), dp(12), dp(14), dp(12));
         col.addView(tvInfo);
 
+        // 主行动：转 OBJ 通栏大按钮（最常用，放最显眼的位置）
+        btnObj = primaryBtn("转 OBJ 模型（含贴图）");
+        btnObj.setOnClickListener(v -> doExportObj());
+        LinearLayout.LayoutParams ctaLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        ctaLp.topMargin = dp(12);
+        btnObj.setLayoutParams(ctaLp);
+        col.addView(btnObj);
+
+        // 工具按钮 2×2 等宽网格：行内两个按钮各占一半，中间留 8dp 缝
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setPadding(0, dp(12), 0, 0);
-
-        btnFix = smallBtn("修复头部另存");
+        row.setPadding(0, dp(10), 0, 0);
+        btnFix = gridBtn("修复头部另存", true);
         btnFix.setOnClickListener(v -> doFixHeader());
         row.addView(btnFix);
-
-        btnUnpack = smallBtn("解包到 Download");
+        btnUnpack = gridBtn("解包到 Download", false);
         btnUnpack.setOnClickListener(v -> doUnpack());
         row.addView(btnUnpack);
-
-        btnReport = smallBtn("导出数据报告");
-        btnReport.setOnClickListener(v -> doReport());
-        row.addView(btnReport);
-
         col.addView(row);
 
         LinearLayout row2 = new LinearLayout(this);
         row2.setOrientation(LinearLayout.HORIZONTAL);
-        row2.setPadding(0, dp(8), 0, 0);
-        btnConvert20 = smallBtn("转成 2.0 工程包（3.0 → 2.0）");
+        row2.setPadding(0, dp(10), 0, 0);
+        btnReport = gridBtn("导出数据报告", true);
+        btnReport.setOnClickListener(v -> doReport());
+        row2.addView(btnReport);
+        btnConvert20 = gridBtn("转 2.0 工程包", false);
         btnConvert20.setOnClickListener(v -> doConvert());
         row2.addView(btnConvert20);
         col.addView(row2);
+
+        // Blockbench 出口两个版本：静态（位置烘进顶点）与骨骼（部件可摆姿势）
+        LinearLayout row3 = new LinearLayout(this);
+        row3.setOrientation(LinearLayout.HORIZONTAL);
+        row3.setPadding(0, dp(10), 0, 0);
+        btnBbStatic = gridBtn("转 Blockbench 静态版", true);
+        btnBbStatic.setOnClickListener(v -> doExportBb(false, true));
+        row3.addView(btnBbStatic);
+        btnBbRig = gridBtn("转 Blockbench 骨骼版", false);
+        btnBbRig.setOnClickListener(v -> doExportBb(true, true));
+        row3.addView(btnBbRig);
+        col.addView(row3);
+
+        // 第三行：骨骼版的两个轴心选项各占一个按钮，点哪个就出哪个，不用先设开关。
+        LinearLayout row4 = new LinearLayout(this);
+        row4.setOrientation(LinearLayout.HORIZONTAL);
+        row4.setPadding(0, dp(8), 0, 0);
+        btnBbRigZero = gridBtn("骨骼版·轴心归零", true);
+        btnBbRigZero.setOnClickListener(v -> doExportBb(true, false));
+        row4.addView(btnBbRigZero);
+        TextView pivotHint = new TextView(this);
+        pivotHint.setText("← Blockbench 里整包位移时用这个");
+        pivotHint.setTextColor(DIM);
+        pivotHint.setTextSize(11f);
+        pivotHint.setPadding(dp(8), 0, 0, 0);
+        pivotHint.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row4.addView(pivotHint);
+        col.addView(row4);
 
         TextView note = new TextView(this);
         note.setText("\n说明：\n"
@@ -172,7 +212,18 @@ public class P3DConvertActivity extends Activity {
                 + "产出物可以直接用 MT 管理器 / 电脑解压看贴图和数据；\n"
                 + "· 「解包」按原目录结构导出全部条目（含 res/ 贴图）；\n"
                 + "· 「数据报告」把工程内部数据结构（MessagePack 结构树）导成 txt，"
-                + "跨版本转换的字段核对用它。");
+                + "跨版本转换的字段核对用它；\n"
+                + "· 「转 OBJ」把工程里的全部网格合成一个 model.obj（+ model.mtl 和贴图），"
+                + "坐标系按父级变换合成，可直接进 Blender / 3D 查看器；\n"
+                + "· 「转 Blockbench」出一个自包含的 .bbmodel（贴图内嵌在里面），2.0 / 3.0 都支持，"
+                + "三个出口按需选：\n"
+                + "  ① 静态版：世界位置烘进顶点，没有组变换，最不容易出问题；\n"
+                + "  ② 骨骼版：每个部件一条可摆姿势的组骨，关节位置写进组轴心，转骨时子部件绕关节摆动；\n"
+                + "  ③ 骨骼版·轴心归零：骨骼树一样有，但所有组轴心归零——某些 Blockbench 版本会把组的 "
+                + "origin 当成位移，导进去整包偏移时用这个，位置与静态版逐点相同。\n"
+                + "  蒙皮网格已按导出时的姿态逐顶点算过（权重和骨骼矩阵都参与），"
+                + "所以头发、四肢会贴回身上；蒙皮权重与动画 clip 不搬。\n"
+                + "  灯光转成 locator 记号（不是可渲染光源），环境光 / 背景色存在文件根字段里。");
         note.setTextColor(DIM);
         note.setTextSize(11.5f);
         col.addView(note);
@@ -197,6 +248,16 @@ public class P3DConvertActivity extends Activity {
         btnFix.setAlpha(ready ? 1f : 0.45f);
         btnUnpack.setAlpha(ready ? 1f : 0.45f);
         btnReport.setAlpha(ready ? 1f : 0.45f);
+        // OBJ 出口 2.0 / 3.0 都直接支持（3.0 走 P3DToObj3，不再置灰引导）
+        btnObj.setEnabled(ready);
+        btnObj.setAlpha(ready ? 1f : 0.45f);
+        // Blockbench 出口同样两版都吃（内核按 .pobject 自己判版本）
+        btnBbStatic.setEnabled(ready);
+        btnBbStatic.setAlpha(ready ? 1f : 0.45f);
+        btnBbRig.setEnabled(ready);
+        btnBbRig.setAlpha(ready ? 1f : 0.45f);
+        btnBbRigZero.setEnabled(ready);
+        btnBbRigZero.setAlpha(ready ? 1f : 0.45f);
         boolean v3 = ready && pack.version == P3DPack.V_300;
         btnConvert20.setEnabled(v3);
         btnConvert20.setAlpha(v3 ? 1f : 0.45f);
@@ -443,6 +504,124 @@ public class P3DConvertActivity extends Activity {
                 || name.endsWith(".pclip") || name.endsWith(".meta");
     }
 
+    /**
+     * 转 OBJ：工程里的全部网格合成一个 model.obj（+ model.mtl + 用到的贴图），
+     * 输出到 Download/P3D/obj/&lt;工程名&gt;/。
+     */
+    private void doExportObj() {
+        final P3DPack.Pack p = pack;
+        if (p == null) {
+            return;
+        }
+        status("正在转 OBJ…");
+        new Thread(() -> {
+            String msg;
+            boolean ok = false;
+            try {
+                P3DToObj.Result r = p.version == P3DPack.V_300
+                        ? P3DToObj3.convert(p) : P3DToObj.convert(p);
+                if (r == null) {
+                    msg = "包里没有可识别的工程数据（2.0 要有 .proj，3.0 要有 project.proj + *.pobject）";
+                } else {
+                    String root = "P3D/obj/" + stripExt(fileName);
+                    int written = 0;
+                    String whereObj = saveToDownloads(root, "model.obj", r.obj.getBytes("UTF-8"));
+                    if (whereObj != null) {
+                        written++;
+                    }
+                    String whereMtl = saveToDownloads(root, "model.mtl", r.mtl.getBytes("UTF-8"));
+                    if (whereMtl != null) {
+                        written++;
+                    }
+                    // 贴图与 model.obj 放同一目录（MTL 里只写文件名）。
+                    // 微软 3D 查看器对 res/ 这类相对子目录解析不稳，平铺最兼容。
+                    for (Map.Entry<String, byte[]> t : r.textures.entrySet()) {
+                        String zipPath = t.getKey().replace("\\", "/");
+                        String base = zipPath.substring(zipPath.lastIndexOf('/') + 1);
+                        if (saveToDownloads(root, base, t.getValue()) != null) {
+                            written++;
+                        }
+                    }
+                    ok = whereObj != null;
+                    msg = !ok ? "写入失败（检查存储空间）"
+                            : "OBJ 已导出：" + whereObj + "\n\n" + r.report()
+                            + "\n贴图等共 " + written + " 个文件 → Download/P3D/obj/"
+                            + stripExt(fileName) + "/";
+                }
+                if (ok) {
+                    finishActivation(true);
+                }
+            } catch (Throwable t) {
+                msg = "转换失败：" + (t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage());
+            }
+            final String out = msg;
+            final boolean done = ok;
+            runOnUiThread(() -> {
+                if (isFinishing()) {
+                    return;
+                }
+                if (done) {
+                    status("OBJ 导出完成，去 Download/P3D/obj/ 取文件");
+                } else {
+                    status("OBJ 导出失败");
+                }
+                new AlertDialog.Builder(this)
+                        .setTitle(done ? "OBJ 导出完成" : "OBJ 导出失败")
+                        .setMessage(out)
+                        .setPositiveButton("知道了", null)
+                        .show();
+            });
+        }).start();
+    }
+
+    /**
+     * 转 Blockbench：一个自包含的 .bbmodel（贴图 base64 内嵌），写到 Download/P3D/bb/。
+     * rig=false 是静态版（世界位置烘进顶点，最稳），rig=true 是骨骼版（每个部件一条可摆姿势的组骨）。
+     * pivot 只在骨骼版有意义：true 把关节位置写进组轴心（能绕关节摆），false 全部归零（位置最保险）。
+     */
+    private void doExportBb(final boolean rig, final boolean pivot) {
+        final byte[] data = raw;
+        if (data == null || pack == null) {
+            return;
+        }
+        status(!rig ? "正在转 Blockbench（静态版）…"
+                : pivot ? "正在转 Blockbench（骨骼版·带轴心）…" : "正在转 Blockbench（骨骼版·轴心归零）…");
+        new Thread(() -> {
+            String msg;
+            boolean ok = false;
+            try {
+                P3d2Bb.Opts o = new P3d2Bb.Opts();
+                o.rig = rig;
+                o.rigPivot = pivot;
+                P3d2Bb.Result r = P3d2Bb.convert(data, o);
+                String name = stripExt(fileName)
+                        + (!rig ? "_静态" : pivot ? "_骨骼" : "_骨骼_轴心归零") + ".bbmodel";
+                String where = saveToDownloads("P3D/bb", name, r.bbmodel);
+                ok = where != null;
+                if (ok) {
+                    finishActivation(true);
+                }
+                msg = !ok ? "写入失败（检查存储空间）"
+                        : "已写出：" + where + "（" + (r.bbmodel.length / 1024) + " KB）\n\n" + r.report();
+            } catch (Throwable t) {
+                msg = "转换失败：" + (t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage());
+            }
+            final String out = msg;
+            final boolean done = ok;
+            runOnUiThread(() -> {
+                if (isFinishing()) {
+                    return;
+                }
+                status(done ? "Blockbench 文件已写到 Download/P3D/bb/" : "转 Blockbench 失败");
+                new AlertDialog.Builder(this)
+                        .setTitle(done ? "转 Blockbench 完成" : "转 Blockbench 失败")
+                        .setMessage(out)
+                        .setPositiveButton("知道了", null)
+                        .show();
+            });
+        }).start();
+    }
+
     // ------------------------------------------------------------------ 落盘
 
     /** 写进公共 Download 目录：Android 10+ 走 MediaStore（不用权限），老系统退回 File API。 */
@@ -515,24 +694,29 @@ public class P3DConvertActivity extends Activity {
         Button b = new Button(this);
         b.setText(text);
         b.setAllCaps(false);
-        b.setTextSize(13.5f);
+        b.setTextSize(14);
         b.setTextColor(0xFFFFFFFF);
         b.setBackground(round(ACCENT, 12));
-        b.setPadding(dp(14), dp(8), dp(14), dp(8));
+        b.setMinHeight(dp(50));
+        b.setPadding(dp(14), dp(10), dp(14), dp(10));
         return b;
     }
 
-    private Button smallBtn(String text) {
+    /** 网格里的一半宽按钮：weight 均分整行，first 挂右侧 8dp 缝，两颗自然等宽。 */
+    private Button gridBtn(String text, boolean first) {
         Button b = new Button(this);
         b.setText(text);
         b.setAllCaps(false);
         b.setTextSize(12.5f);
         b.setTextColor(TEXT);
-        b.setBackground(round(FIELD, 999));
-        b.setPadding(dp(14), dp(4), dp(14), dp(4));
+        b.setBackground(round(FIELD, 12));
+        b.setPadding(dp(10), dp(10), dp(10), dp(10));
+        b.setMinHeight(dp(48));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.rightMargin = dp(8);
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        if (first) {
+            lp.rightMargin = dp(8);
+        }
         b.setLayoutParams(lp);
         return b;
     }

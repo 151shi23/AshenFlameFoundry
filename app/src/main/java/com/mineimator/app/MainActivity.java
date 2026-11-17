@@ -58,7 +58,8 @@ public final class MainActivity extends Activity {
                 : getIntent().getStringExtra("activation_token");
         activationFeature = getIntent() == null ? null
                 : getIntent().getStringExtra("activation_feature");
-        com.mineways.CrashReport.install(this);
+        com.mineways.AppLog.bind(this);
+        com.mineways.AppLog.init(this);
         applyLanguage();
 
         // 能力评估：评估本身绝不崩（每个探针独立兜底）。能跑的机型不打扰，直接进。
@@ -115,6 +116,7 @@ public final class MainActivity extends Activity {
             root.addView(menuButton());
             setContentView(root);
             hideSystemBars();
+            requestLegacyStorageIfNeeded();
 
             // 导出自动接管：点「导出」后内核写出的视频/图片，写稳就自动送进系统相册
             exportWatcher = new ExportWatcher(this, autoSaveEnabled());
@@ -363,7 +365,8 @@ public final class MainActivity extends Activity {
                 "怎么导出视频？",
                 "界面语言（当前：" + languageLabel() + "）",
                 "项目文件夹（查看 / 切换）",
-                "查看引擎日志",
+                "引擎日志（当前：" + (engineLog != null && engineLog.isShowing()
+                        ? "显示，点此隐藏" : "关闭，点此查看") + "）",
                 "崩溃记录（闪退取证）",
                 "导出后自动存相册（当前：" + (autoSaveEnabled() ? "开" : "关") + "）",
                 "退出工作室"
@@ -389,11 +392,12 @@ public final class MainActivity extends Activity {
                                 break;
                             case 4:
                                 if (engineLog != null) {
-                                    engineLog.toggle();
+                                    engineLog.toggleVisibility();
                                 }
                                 break;
                             case 5:
-                                com.mineways.CrashReport.show(MainActivity.this);
+                                com.mineways.AppLog.show(MainActivity.this,
+                                        com.mineways.AppLog.bundle(MainActivity.this), "日志记录");
                                 break;
                             case 6:
                                 toggleAutoSave();
@@ -493,6 +497,20 @@ public final class MainActivity extends Activity {
 
     private boolean autoSaveEnabled() {
         return getSharedPreferences(PREF, MODE_PRIVATE).getBoolean(KEY_AUTOSAVE, true);
+    }
+
+    /** Android 8/9 写公共相册需要运行时存储权限；10+ 走 MediaStore 不需要。 */
+    private void requestLegacyStorageIfNeeded() {
+        try {
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P
+                    && checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{
+                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 71);
+            }
+        } catch (Throwable ignored) {
+            // 权限申请失败不挡开工；导出会给出可见的失败提示
+        }
     }
 
     private void toggleAutoSave() {

@@ -83,6 +83,12 @@ public final class MediaPublisher {
         if (n.endsWith(".mkv")) {
             return "video/x-matroska";
         }
+        if (n.endsWith(".wmv")) {
+            return "video/x-ms-wmv";
+        }
+        if (n.endsWith(".avi")) {
+            return "video/x-msvideo";
+        }
         if (n.endsWith(".gif")) {
             return "image/gif";
         }

@@ -64,7 +64,7 @@ public final class SocialLogin {
     public static Cfg cfg(String scope) {
         return SocialClients.of(new SocialClients.Flag() {
             public String get(String key, String def) {
-                return CloudCatalog.gate().flag(key, def);
+                return com.mineways.cloud.CloudFlags.str(key, def);
             }
         }, scope);
     }

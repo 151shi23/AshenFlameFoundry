@@ -8,7 +8,6 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -18,6 +17,7 @@ import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -33,11 +33,9 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.content.ContextCompat;
 import androidx.webkit.WebViewAssetLoader;
 
-import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import org.json.JSONObject;
@@ -84,7 +82,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>
  * 内置插件：页面加载完成后注入脚本，按 Blockbench 官方登记流程
  * {@code new Plugin().loadFromURL(url, false)} 装载内置插件（清单见 {@code loadBundledPlugins}
- * 里的 {@code ids} 数组，当前 31 个，均来自官方插件索引中 Minecraft 建模相关的高热度插件；
+ * 里的 {@code ids} 数组：官方插件索引中 Minecraft 建模相关的高热度插件 +
+ * 随 App 打包的本地增强插件（Mineways 保存助手、Full Physics Ragdoll、3D Pen）；
  * 该 API 会先登记占位实例，
  * 插件源里的 {@code Plugin.register(id)} 才能匹配）。联网时优先官方 CDN，无网时用打包进 assets
  * 的本地副本；拉取失败还会由 loadFromURL 自动回退到 IndexedDB 源码缓存。依赖 THREE 的插件在无 GL 时跳过。
@@ -124,6 +123,9 @@ public class BlockbenchActivity extends AppCompatActivity {
     public static final String MODE_ONLINE = "online";
     public static final String MODE_OFFLINE = "offline";
 
+    /** Intent 参数：本次打开只为抓取当前预设（关于页 → 设置分享 → Blockbench）。 */
+    public static final String EXTRA_SHARE_CAPTURE = "bb_share_capture";
+
     private static final String LOG_TAG = "Blockbench";
     private static final String ASSET_BASE_URL =
             "https://appassets.androidplatform.net/assets/blockbench/index.html";
@@ -138,6 +140,27 @@ public class BlockbenchActivity extends AppCompatActivity {
     private File exportDir;
     private ValueCallback<Uri[]> filePathCallback;
     private WebViewAssetLoader assetLoader;
+
+    /** 本次是否处于「抓取预设」模式；抓完直接回到分享页。 */
+    private boolean shareCapture;
+    /** 预设只抓一次，防止 onPageFinished 多次回调重复回传。 */
+    private boolean captureSent;
+    /** 导入的预设已回灌，避免重载后再次回灌造成死循环。 */
+    private boolean presetApplied;
+
+    /** 保存结果的状态条浮在网页上，看 8 秒就自己收回去，不长期挡页面。 */
+    private final Runnable hideStatus = () -> {
+        if (statusView != null) statusView.setVisibility(View.GONE);
+    };
+
+    /** 关掉弹窗后系统栏会自己回来，这里重新按独占全屏收掉（返回手势仍然可用，只是栏藏起来）。 */
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            EditorImmersive.hideBars(this);
+        }
+    }
 
     /** 分块保存会话：页面按块 append，最后一次 finish 发布到下载目录。 */
     private final Map<String, SaveSession> saveSessions = new ConcurrentHashMap<>();
@@ -183,8 +206,15 @@ public class BlockbenchActivity extends AppCompatActivity {
 
         String mode = getIntent().getStringExtra(EXTRA_MODE);
         boolean online = MODE_ONLINE.equals(mode);
+        shareCapture = getIntent().getBooleanExtra(EXTRA_SHARE_CAPTURE, false);
 
         webView = findViewById(R.id.bb_webview);
+        android.net.Uri openUri = com.mineways.open.OpenInbox.take(this);
+        if (openUri != null) {
+            com.mineways.open.WebOpenBridge.setPending(openUri,
+                    com.mineways.open.OpenInbox.nameOf(this, openUri),
+                    com.mineways.open.OpenInbox.mimeOf(this, openUri));
+        }
         progressBar = findViewById(R.id.bb_progress);
         statusView = findViewById(R.id.bb_status);
 
@@ -197,15 +227,9 @@ public class BlockbenchActivity extends AppCompatActivity {
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
 
-        MaterialToolbar bar = findViewById(R.id.bb_toolbar);
-        bar.setTitle(online ? getString(R.string.bb_online_title)
-                            : getString(R.string.bb_offline_title));
-        Drawable back = AppCompatResources.getDrawable(this, R.drawable.ic_back);
-        if (back != null) back.setTint(ContextCompat.getColor(this, android.R.color.white));
-        bar.setNavigationIcon(back);
-
-        // 退出保护：返回箭头与系统返回键都先检查未保存改动，避免直接 finish 丢掉作品
-        bar.setNavigationOnClickListener(v -> exitWithUnsavedGuard());
+        // 没有标题栏了：网页独占整块屏幕，退出只走系统返回手势/返回键。
+        // 但「有未保存改动先问一句」这条保护留着 —— 手势返回照样回主界面，只是别把作品悄悄丢掉。
+        EditorImmersive.hideBars(this);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -258,6 +282,8 @@ public class BlockbenchActivity extends AppCompatActivity {
         // 文件 Bridge（JavascriptInterface）：把页面导出 / 插件读写的文件内容传回并保存，
         // 并为页面提供从内部存储读写文件、目录、插件的能力，突破浏览器 Blob 限制。
         webView.addJavascriptInterface(new BbBridge(), "BBAndroid");
+        // 设置分享：抓取 / 回灌 localStorage 预设（只在分享流程里被调用）
+        webView.addJavascriptInterface(new ShareBridge(), "MWPreset");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -278,7 +304,27 @@ public class BlockbenchActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                if (com.mineways.open.WebOpenBridge.hasPending()) {
+                    view.postDelayed(() -> com.mineways.open.WebOpenBridge.tryAutoTrigger(view), 800);
+                }
                 injectExportHook();
+                // 建模页是包内的桌面版网页，云端可以给它重排版面（CSS）或补交互（JS）
+                AdaptInject.apply(BlockbenchActivity.this, view, url);
+                if (shareCapture) {
+                    if (captureSent) return;
+                    captureSent = true;
+                    // 稍等一下，确保内核已把设置写进 localStorage
+                    view.postDelayed(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        try {
+                            view.evaluateJavascript(com.mineways.share.PresetBridge.captureScript(), null);
+                        } catch (Throwable t) {
+                            Log.w(LOG_TAG, "capture share preset failed", t);
+                        }
+                    }, 500);
+                } else if (!presetApplied) {
+                    applyPendingPreset(view);
+                }
             }
         });
 
@@ -295,6 +341,10 @@ public class BlockbenchActivity extends AppCompatActivity {
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> filePath,
                                              WebChromeClient.FileChooserParams fileChooserParams) {
+                if (com.mineways.open.WebOpenBridge.consume(
+                        fileChooserParams == null ? null : fileChooserParams.getAcceptTypes(), filePath)) {
+                    return true;
+                }
                 if (filePathCallback != null) {
                     filePathCallback.onReceiveValue(null);
                     filePathCallback = null;
@@ -338,6 +388,47 @@ public class BlockbenchActivity extends AppCompatActivity {
             webView.loadUrl(ONLINE_URL);
         } else {
             webView.loadUrl(ASSET_BASE_URL);
+        }
+    }
+
+    /**
+     * 导入预设的回灌：把待应用槽里的 localStorage 快照写回页面，然后重载一次让内核重新读设置。
+     * 只做一次（{@link #presetApplied} 守卫），重载后的 onPageFinished 不会再触发。
+     */
+    private void applyPendingPreset(WebView view) {
+        try {
+            String body = com.mineways.share.PresetBridge.takePending(
+                    this, com.mineways.share.PresetBridge.BLOCKBENCH);
+            if (body == null) return;
+            presetApplied = true;
+            view.evaluateJavascript(com.mineways.share.PresetBridge.applyScript(body), value -> {
+                try {
+                    view.reload();
+                } catch (Throwable ignored) {
+                }
+            });
+        } catch (Throwable t) {
+            Log.w(LOG_TAG, "apply share preset failed", t);
+        }
+    }
+
+    /** 设置分享桥：抓取完成后带着预设回到分享页。 */
+    private final class ShareBridge {
+        @JavascriptInterface
+        public void deliver(final String json) {
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                Intent it = new Intent(BlockbenchActivity.this, com.mineways.share.ShareActivity.class);
+                it.putExtra(com.mineways.share.ShareActivity.EXTRA_MODE,
+                        com.mineways.share.ShareActivity.MODE_EXPORT);
+                it.putExtra(com.mineways.share.ShareActivity.EXTRA_PRESET_ID,
+                        com.mineways.share.PresetBridge.BLOCKBENCH);
+                it.putExtra(com.mineways.share.ShareActivity.EXTRA_PRESET_BODY,
+                        json == null ? "{}" : json);
+                it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startActivity(it);
+                finish();
+            });
         }
     }
 
@@ -493,10 +584,14 @@ public class BlockbenchActivity extends AppCompatActivity {
                     // 新增来源：官方插件索引按下载量筛选的 Minecraft 建模相关高热度插件。
                     // 只从本地 assets 取的插件（自研 / 不对外发布，官方 CDN 上并不存在）：
                     // 即便联网也直接使用打包副本，免得白发一次注定 404 的请求。
-                    "  var LOCAL_ONLY=['mineways_saver'];" +
+                    "  var LOCAL_ONLY=['mineways_saver','full_physics_ragdoll','pen_3d'];" +
                     "  var ids=[" +
                     // —— 本机保存助手（自研：修复网页版“导出提示成功但磁盘无文件”）——
                     "    ['mineways_saver',0]," +
+                    // —— 本地内置增强（不在官方插件索引里，仅随 App 打包）——
+                    "    ['full_physics_ragdoll',1]," +
+                    // 3D Pen（MIT，PuddingKC）：路径建模 / 管道 / 沿路径盖印
+                    "    ['pen_3d',0]," +
                     // —— Mojang 官方 Wizard ——
                     "    ['minecraft_block_wizard',0]," +
                     "    ['minecraft_entity_wizard',0]," +
@@ -570,8 +665,11 @@ public class BlockbenchActivity extends AppCompatActivity {
                     "    try{return !!(St&&St.all&&St.all.some(function(q){return q&&q.id===id&&q.installed;}));}" +
                     "    catch(e){return false;}" +
                     "  }" +
+                    // 已下架插件：源码和清单都删了，但旧版本可能把它写进 St.installed，
+                    // 内核启动时仍会按持久化记录重新装一遍 —— 这里一并抹掉。
+                    "  var RETIRED=['full_immersion_preview'];" +
                     // 尽早同步清空，让内核的 H4() 无论何时遍历都看不到这些记录
-                    "  function sweepInstalled(){ids.forEach(function(p){forget(p[0]);});persistInstalled();}" +
+                    "  function sweepInstalled(){ids.forEach(function(p){forget(p[0]);});RETIRED.forEach(forget);persistInstalled();}" +
                     "  sweepInstalled();" +
                     // H4() 要等“插件索引”请求返回后才开始遍历，可能晚于本次注入、并把记录写回，
                     // 因此开局再补扫几次，确保旧版本残留的持久化记录被彻底清掉（之后每次启动都干净）。
@@ -864,8 +962,11 @@ public class BlockbenchActivity extends AppCompatActivity {
         private void notifySaved(String display, long bytes) {
             final String msg = getString(R.string.bb_export_saved, display, formatSize(bytes));
             runOnUiThread(() -> {
+                // 状态条现在是浮在网页上的覆盖层，看一会儿就自己收起来，不长期挡页面
                 statusView.setVisibility(View.VISIBLE);
                 statusView.setText(msg);
+                statusView.removeCallbacks(hideStatus);
+                statusView.postDelayed(hideStatus, 8000);
                 Toast.makeText(BlockbenchActivity.this, msg, Toast.LENGTH_LONG).show();
             });
         }

@@ -79,6 +79,7 @@ add_library(packcore SHARED
 target_include_directories(packcore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/packcore)
 target_link_libraries(packcore PRIVATE log)
 
+
 if(ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "x86_64")
     target_link_options(packcore PRIVATE
         "-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384")

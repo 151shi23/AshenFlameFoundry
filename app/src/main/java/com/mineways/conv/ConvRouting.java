@@ -208,6 +208,10 @@ public final class ConvRouting {
             if ("pmx".equals(effective)) {
                 add(out, "glb", Engine.PMX, true,
                         "PMX 专用通道：骨骼/Skin、材质、顶点与 UV morph、贴图原字节嵌入单文件 GLB", null);
+                boolean fbx = fbxExportReady();
+                add(out, "fbx", Engine.NATIVE, fbx,
+                        "PMX → GLB → FBX：骨骼/蒙皮由 PMX 内核还原，Assimp 负责写出 FBX",
+                        fbx ? null : "当前内核没有 FBX 导出器");
                 return out;
             }
             // 原生（Assimp）双向：以编译进去的导入/导出器为准
@@ -217,6 +221,15 @@ public final class ConvRouting {
                     bl ? null : "需要先装「Blender 环境」（Blender 渲染页 → 安装 / 更新）");
         }
         return out;
+    }
+
+    /** 运行时 Assimp 是否真的注册了 FBX 导出器（不是“理论上支持”）。 */
+    private static boolean fbxExportReady() {
+        try {
+            return FmtConv.available() && FmtConv.exportExts().contains("fbx");
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     /** 模型：用 native 报出来的真实导入清单，避免展示假格式。 */
@@ -248,6 +261,6 @@ public final class ConvRouting {
     /** 规则说明（页面顶部那一段，保持两行，细节交给按钮状态）。 */
     public static String rules() {
         return "只列当前文件可转的格式；灰色 = 本机缺组件。\n"
-                + "PMX 把 .pmx 和 tex/ 一起打成 zip，贴图才会嵌进 GLB。";
+                + "PMX 可输出 GLB / FBX；贴图建议打包 zip，FBX 骨骼/蒙皮保留。";
     }
 }

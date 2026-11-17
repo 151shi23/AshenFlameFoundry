@@ -380,7 +380,9 @@ public class Pmx2Glb {
 
     // --- 二进制段收集器 ---
     static class Bin {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        final RawBytes out;
+        Bin() { this(1 << 16); }
+        Bin(int cap) { out = new RawBytes(Math.max(1 << 16, cap)); }
         int tell() { return out.size(); }
         void f32(float v) {
             int bits = Float.floatToIntBits(v);
@@ -391,6 +393,12 @@ public class Pmx2Glb {
         void bytes(byte[] b) { out.write(b, 0, b.length); }
         void pad4() { while (out.size() % 4 != 0) out.write(0); }
         byte[] toBytes() { return out.toByteArray(); }
+    }
+
+    /** 暴露底层数组，GLB 打包时直接 arraycopy，避免 toByteArray() 再复制整段 BIN。 */
+    static class RawBytes extends ByteArrayOutputStream {
+        RawBytes(int cap) { super(cap); }
+        byte[] raw() { return buf; }
     }
 
     static class BV { int buffer, byteOffset = 0, byteLength, target = 0; }  // bufferView
@@ -454,7 +462,7 @@ public class Pmx2Glb {
         public String toString() { return sb.toString(); }
     }
 
-    private final Bin bin = new Bin();
+    private Bin bin = new Bin();
     private final List<BV> bufferViews = new ArrayList<>();
     private final List<Acc> accessors = new ArrayList<>();
     private final List<Prim> prims = new ArrayList<>();
@@ -530,6 +538,10 @@ public class Pmx2Glb {
             mime = "image/jpeg";
         }
         BV bv = addBV(data);
+        // 贴图已经拷进 GLB 的 BIN；立刻释放源字节，避免「原图 + BIN + 输出」三份同时驻留。
+        // pmxTexToGlTexture 已缓存，同一张贴图后面不会再次走这里。
+        final byte[] embedded = data;
+        textureFiles.entrySet().removeIf(e -> e.getValue() == embedded);
         int imgIdx = glImages.size();
         glImages.add("{\"bufferView\":" + (bufferViews.indexOf(bv)) + ",\"mimeType\":\"" + mime + "\"}");
         int texIdx = glTextures.size();
@@ -566,8 +578,32 @@ public class Pmx2Glb {
      * @param textures 贴图表：key = 相对路径（正斜杠，大小写不敏感匹配，如 "tex/颜.png"），value = 文件字节
      */
     public byte[] convert(byte[] pmxBytes, Map<String, byte[]> textures) throws IOException {
-        this.textureFiles = normalizePaths(textures);
+        return convertPrepared(prepare(pmxBytes), textures);
+    }
+
+    /** 先解析一次 PMX；调用方可以拿它先筛贴图，再交给 convertPrepared，避免解析两遍。 */
+    public PmxModel prepare(byte[] pmxBytes) throws IOException {
         model = parsePmx(pmxBytes);
+        return model;
+    }
+
+    /** PMX 里引用到的贴图路径（含重复项，调用方自行去重）。 */
+    public List<String> textureNames(PmxModel prepared) {
+        return prepared == null ? new ArrayList<String>() : new ArrayList<>(prepared.textures);
+    }
+
+    public byte[] convertPrepared(PmxModel prepared, Map<String, byte[]> textures) throws IOException {
+        if (prepared == null) throw new IOException("PMX 未解析");
+        this.textureFiles = normalizePaths(textures);
+        model = prepared;
+        // 按本次实际要写入的贴图 + 顶点/索引估算一次容量，减少 BAOS 反复扩容的峰值拷贝。
+        long est = 0;
+        if (this.textureFiles != null) {
+            for (byte[] b : this.textureFiles.values()) est += b == null ? 0 : b.length;
+        }
+        est += (long) model.vertices.size() * 48L + (long) model.faces.length * 4L;
+        long capLimit = Math.min(64L * 1024 * 1024, Runtime.getRuntime().maxMemory() / 4);
+        bin = new Bin((int) Math.min(est + 1024L, Math.max(1L << 16, capLimit)));
         int vc = model.vertices.size();
         int bc = model.bones.size();
         int fc = model.faces.length;
@@ -685,18 +721,14 @@ public class Pmx2Glb {
         // 世界坐标 Z 自动变为 -原值，与顶点变换一致。
         boneToNode = new int[bc];
         for (int i = 0; i < bc; i++) boneToNode[i] = -1;
-        // 先算世界坐标（父链平移累加；PMX 静止姿态骨骼无旋转）
+        // PMX 的骨骼坐标是「模型空间绝对坐标」，不是相对父骨骼的位移。
+        // 之前按局部位移累加，子骨骼会被父链重复叠加，导出的骨架就会整体错位/乱飞。
         float[][] world = new float[bc][3];
         for (int i = 0; i < bc; i++) {
             Bone b = model.bones.get(i);
-            if (b.parent >= 0) {
-                float[] pw = world[b.parent];
-                world[i][0] = pw[0] + b.pos[0];
-                world[i][1] = pw[1] + b.pos[1];
-                world[i][2] = pw[2] - b.pos[2];   // Z 取反
-            } else {
-                world[i][0] = b.pos[0]; world[i][1] = b.pos[1]; world[i][2] = -b.pos[2]; // Z 取反
-            }
+            world[i][0] = b.pos[0];
+            world[i][1] = b.pos[1];
+            world[i][2] = -b.pos[2];   // Z 取反：MMD 左手系 -> glTF 右手系
             b.worldPos = world[i];
         }
         for (int i = 0; i < bc; i++) boneToNode[i] = i; // 节点排布 = 骨骼顺序，父先子后
@@ -757,7 +789,8 @@ public class Pmx2Glb {
             Bone b = model.bones.get(i);
             j.o();
             j.k("name").s(b.nameJA.isEmpty() ? ("bone" + i) : b.nameJA);
-            j.k("translation").a().v(b.pos[0]).v(b.pos[1]).v(-b.pos[2]).z();
+            float[] t = boneTranslation(i);
+            j.k("translation").a().v(t[0]).v(t[1]).v(t[2]).z();
             List<Integer> children = new ArrayList<>();
             for (int k = 0; k < bc; k++) if (model.bones.get(k).parent == i) children.add(k);
             if (!children.isEmpty()) {
@@ -851,7 +884,28 @@ public class Pmx2Glb {
         j.c();
         String json = j.toString();
 
-        return packGlb(json, bin.toBytes());
+        byte[] glb = packGlb(json, bin);
+        // 贴图字节在打包完成后不再需要；保留 model 供 summary() 使用。
+        if (textureFiles != null) textureFiles.clear();
+        return glb;
+    }
+
+    /**
+     * 某根骨骼相对父骨骼的节点平移。
+     *
+     * <p>PMX 的 b.pos 是模型空间绝对坐标；glTF 节点 translation 必须是局部偏移，
+     * 所以这里做差并同步 Z 镜像。单测会沿父链累加，验证回到绝对坐标。
+     */
+    float[] boneTranslation(int index) {
+        Bone b = model.bones.get(index);
+        float tx = b.pos[0], ty = b.pos[1], tz = -b.pos[2];
+        if (b.parent >= 0) {
+            Bone p = model.bones.get(b.parent);
+            tx -= p.pos[0];
+            ty -= p.pos[1];
+            tz += p.pos[2];       // (-b.z) - (-p.z)
+        }
+        return new float[]{tx, ty, tz};
     }
 
     private boolean isVec3Target(Acc a) { return "VEC3".equals(a.type); }
@@ -862,12 +916,13 @@ public class Pmx2Glb {
     // Material.specPower 直接访问，无需包装
 
     // ---------- GLB 打包 ----------
-    private byte[] packGlb(String json, byte[] binData) {
+    private byte[] packGlb(String json, Bin bin) {
         byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
         int jsonPad = (4 - (jsonBytes.length % 4)) % 4;
-        int binPad  = (4 - (binData.length % 4)) % 4;
+        int binSize = bin.tell();
+        int binPad  = (4 - (binSize % 4)) % 4;
         int jsonLen = jsonBytes.length + jsonPad;
-        int binLen  = binData.length + binPad;
+        int binLen  = binSize + binPad;
         int total = 12 + 8 + jsonLen + 8 + binLen;
         ByteBuffer out = ByteBuffer.allocate(total).order(ByteOrder.LITTLE_ENDIAN);
         out.putInt(0x46546C67);          // "glTF"
@@ -877,10 +932,12 @@ public class Pmx2Glb {
         out.putInt(0x4E4F534A);          // "JSON"
         out.put(jsonBytes);
         for (int i = 0; i < jsonPad; i++) out.put((byte) 0x20); // 空格填充
-        if (binData.length > 0) {
+        if (binSize > 0) {
             out.putInt(binLen);
             out.putInt(0x004E4942);      // "BIN\0"
-            out.put(binData);
+            // 直接拷贝 BAOS 的底层数组，省掉 bin.toBytes() 的一次完整复制。
+            System.arraycopy(bin.out.raw(), 0, out.array(), out.position(), binSize);
+            out.position(out.position() + binSize);
             for (int i = 0; i < binPad; i++) out.put((byte) 0);
         }
         return out.array();

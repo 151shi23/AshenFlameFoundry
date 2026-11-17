@@ -308,14 +308,13 @@ public class BlenderActivity extends ComponentActivity {
         final boolean video = BlenderScript.Fmt.FFMPEG.equals(ids[0]);
         videoBox.setVisibility(video ? View.VISIBLE : View.GONE);
         if (video) {
-            tvFormatHint.setText("视频由 Blender 内置 FFmpeg 直出（软编，慢但省事）。"
-                    + "想更快：输出「PNG 序列」，渲完用下面「序列 → MP4（硬编）」走系统编码器。");
+            tvFormatHint.setText("视频直出较慢；更快用 PNG 序列 + 硬编。");
         } else if (i == 6) {
-            tvFormatHint.setText("序列输出可边渲边看，出错只补缺的帧；也是硬编视频的输入。");
+            tvFormatHint.setText("边渲边看；也是硬编输入。");
         } else if (ids[0].equals(BlenderScript.Fmt.EXR)) {
-            tvFormatHint.setText("OpenEXR：线性_hdr，适合继续合成；手机上直接看会发灰。");
+            tvFormatHint.setText("线性 HDR；手机预览发灰。");
         } else {
-            tvFormatHint.setText("静帧单图输出。");
+            tvFormatHint.setText("静帧单图。");
         }
     }
 
@@ -325,12 +324,12 @@ public class BlenderActivity extends ComponentActivity {
         final String id = ENGINE_IDS[i];
         if (id.contains("EEVEE")) {
             tvEngineHint.setText(BlenderEnv.softGlOk(this)
-                    ? "EEVEE 走 llvmpipe 软件渲染：比 Cycles 快很多，但画质与 AO/光追较弱，长时间大图仍建议 Cycles。"
-                    : "EEVEE 需要 headless OpenGL；当前环境自检没通过，可能起不来（会退回提示用 Cycles）。");
+                    ? "快，画质弱；大图仍建议 Cycles。"
+                    : "当前环境可能起不来，建议 Cycles。");
         } else if (id.contains("WORKBENCH")) {
-            tvEngineHint.setText("Workbench 只出着色预览（不算是最终成图），用来快速看构图和摆位。");
+            tvEngineHint.setText("只出预览，不是最终成图。");
         } else {
-            tvEngineHint.setText("Cycles CPU：质量最高、最稳，手机上按分钟到小时计；大图建议配合降噪。");
+            tvEngineHint.setText("质量最高、最慢。");
         }
     }
 

@@ -38,7 +38,8 @@ public class RhineLabActivity extends AppCompatActivity {
         web = findViewById(R.id.rh_webview);
         final ProgressBar pb = findViewById(R.id.rh_progress);
         final WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
-                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .addPathHandler("/assets/",
+                        com.mineways.assets.PackAssets.handler(this, "rhinelab"))
                 .build();
 
         WebSettings s = web.getSettings();
@@ -68,6 +69,12 @@ public class RhineLabActivity extends AppCompatActivity {
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
                 return loader.shouldInterceptRequest(req.getUrl());
             }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                AdaptInject.apply(RhineLabActivity.this, view, url);
+            }
         });
 
         web.setWebChromeClient(new WebChromeClient() {
@@ -79,7 +86,9 @@ public class RhineLabActivity extends AppCompatActivity {
         });
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        web.loadUrl(PAGE_URL);
+        // 素材已移出 APK：老包直接加载，新包先确保资源就绪
+        com.mineways.assets.PackAssets.ensure(this, "rhinelab", "莱茵生命终端",
+                () -> web.loadUrl(PAGE_URL));
     }
 
     @Override

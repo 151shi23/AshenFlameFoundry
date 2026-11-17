@@ -77,6 +77,10 @@ public class FormatConvertActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(buildUi());
         switchTab(TAB_IMAGE);
+        android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            acceptIncoming(open);
+        }
     }
 
     // ---------------------------------------------------------------- UI
@@ -412,11 +416,15 @@ public class FormatConvertActivity extends Activity {
         if (req != REQ_PICK || res != RESULT_OK || data == null || data.getData() == null) {
             return;
         }
+        acceptIncoming(data.getData());
+    }
+
+    /** 外部「打开方式」与页内选择器共用同一条载入路径。 */
+    private void acceptIncoming(Uri uri) {
         outBox.removeAllViews();
         produced.clear();
         tvReport.setText("");
         tvInfo.setText("正在读文件…");
-        final Uri uri = data.getData();
         final String name = queryName(uri);
         new Thread(new Runnable() {
             @Override
@@ -533,7 +541,9 @@ public class FormatConvertActivity extends Activity {
                         }
                         if (isPmxName(modelIn.getName())) {
                             final File assetRoot = unpackDir != null ? unpackDir : modelIn.getParentFile();
-                            final PmxConvert.Result r = PmxConvert.convert(modelIn, out, assetRoot);
+                            final PmxConvert.Result r = "fbx".equals(diskExt)
+                                    ? PmxConvert.convertToFbx(modelIn, out, assetRoot)
+                                    : PmxConvert.convert(modelIn, out, assetRoot);
                             finishConvert(out, r.message, r.ok);
                         } else {
                             final FmtConv.Result r = FmtConv.convertModel(modelIn.getAbsolutePath(), out.getAbsolutePath());
@@ -581,6 +591,11 @@ public class FormatConvertActivity extends Activity {
             }
         } else if ("glb".equals(ext)) {
             if (!"glb".equals(magic)) return "不像 GLB";
+        } else if ("fbx".equals(ext)) {
+            final String head = com.mineways.blender.FileUtil.readText(f, 64);
+            if (!head.startsWith("Kaydara FBX Binary") && !head.startsWith("; FBX")) {
+                return "不像 FBX（头认不出）";
+            }
         } else if ("obj".equals(ext) || "mtl".equals(ext)) {
             // OBJ 是文本，抽查有没有顶点/面或材质引用
             final String head = com.mineways.blender.FileUtil.readText(f, 4096);

@@ -66,24 +66,27 @@
     return /[㐀-䶿一-鿿぀-ヿ가-힯]/.test(s);
   }
 
-  /** 整句查不到时，按"长词优先"在句子里就地替换，最多换 4 处，防止句子被拆碎。 */
   /** 命中处两侧不能再接字母或数字：否则词表里的 "Art" 会把 "Smart" 换成 "S艺术m"。 */
-  function isWordHit(low, pos, len) {
+  /** 键本身是中日韩字时放宽数字限制：「1,507人が脱出」前面就是数字，卡住就换不动了。 */
+  function isWordHit(low, pos, len, key) {
     var before = pos > 0 ? low.charAt(pos - 1) : '';
     var after = pos + len < low.length ? low.charAt(pos + len) : '';
+    var cjkKey = key && /[぀-ヿ㐀-鿿]/.test(key.charAt(0));
+    if (cjkKey) { return !/[a-z]/.test(before) && !/[a-z]/.test(after); }
     return !/[a-z0-9]/.test(before) && !/[a-z0-9]/.test(after);
   }
 
-  function patchInside(text) {
+  function patchInside(text, allowCjk) {
     if (!KEYS || !KEYS.length) { return null; }
     var out = text, hits = 0, i, k, low, pos;
     for (i = 0; i < KEYS.length && hits < 4; i++) {
       k = KEYS[i];
       if (k.length < 3) { continue; }           // 太短的词容易误伤（a / of / the 这种）
+      if (allowCjk && !/[぀-ヿ㐀-鿿]/.test(k)) { continue; }   // 日文句子里只允许整段日文键进来
       low = out.toLowerCase();
       pos = low.indexOf(k.toLowerCase());
       // 只有作为独立单词出现才替换，嵌在长单词里的不算
-      while (pos >= 0 && !isWordHit(low, pos, k.length)) {
+      while (pos >= 0 && !isWordHit(low, pos, k.length, k)) {
         pos = low.indexOf(k.toLowerCase(), pos + 1);
       }
       if (pos < 0) { continue; }
@@ -93,10 +96,14 @@
     return hits > 0 ? out : null;
   }
 
+  /** 假名 / 片假名：日文站的原文长这样，之前被 hasCjk 一刀切掉了。 */
+  function hasKana(s) {
+    return /[ぁ-んァ-ヿ]/.test(s);
+  }
+
   /** 一段文字要换成什么；返回 null 表示不动。 */
   function translate(text) {
     if (!TABLE) { return null; }
-    if (!hasLatin(text) || hasCjk(text)) { return null; }
     var key = norm(text);
     if (!key) { return null; }
     if (key in cache) { return cache[key]; }
@@ -107,9 +114,16 @@
     }
     var r = null;
     if (hit !== undefined && String(hit).length > 0) {
+      // 整句命中不分语言。这里以前写着「必须有拉丁字母」，等于把所有纯日文站判死：
+      // 词表配得再全也一个都换不动（涂鸦幽灵就是这么只汉化了几成的）。
       r = hit;
-    } else {
+    } else if (hasLatin(text) && !hasCjk(text)) {
+      // 句内替换只在纯拉丁文里做：日文和中文混排进去会被切成四段
       r = patchInside(text);
+    } else if (hasKana(text)) {
+      // 带数字的动态日文句（「1,507人が脱出」「0回」）整句键对不上，
+      // 允许把句中成段的日文换成中文；只认日文/中文键，长度不够的键在 patchInside 里已经挡掉。
+      r = patchInside(text, true);
     }
     cache[key] = r;
     return r;
@@ -146,7 +160,7 @@
       tried++;
       var hit = translate(text);
       if (!hit || hit === text) {
-        if (hasLatin(text) && !hasCjk(text) && norm(text)) { stats.missed++; }
+        if (norm(text) && (hasKana(text) || (hasLatin(text) && !hasCjk(text)))) { stats.missed++; }
         continue;
       }
       if (!node.parentNode) { continue; }

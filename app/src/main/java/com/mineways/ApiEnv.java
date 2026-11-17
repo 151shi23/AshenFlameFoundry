@@ -54,12 +54,7 @@ public final class ApiEnv {
     }
 
     private static String flag(String key, String def) {
-        try {
-            String v = CloudCatalog.gate().flag(key, def);
-            return v == null ? def : v.trim();
-        } catch (Throwable t) {
-            return def;
-        }
+        return com.mineways.cloud.CloudFlags.str(key, def);
     }
 
     private static String trimSlash(String s) {

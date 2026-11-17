@@ -174,6 +174,10 @@ public class BrandScrubActivity extends Activity {
         setContentView(buildUi());
         refreshSettings();
         updateCounts();
+        android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+        if (open != null) {
+            acceptIncoming(open);
+        }
     }
 
     // ------------------------------------------------------------------ 骨架
@@ -365,8 +369,7 @@ public class BrandScrubActivity extends Activity {
         box.addView(head);
 
         final TextView hint = new TextView(this);
-        hint.setText("填了才写，写给所有选中文件。已有同一条目就原地改写（长度不变），没有才"
-                + "新增并搬正分块偏移（文件长几十到几百字节）；分片 MP4 不能新增。");
+        hint.setText("填了才写；已有同条目原地改写。");
         hint.setTextColor(DIM);
         hint.setTextSize(11.5f);
         hint.setLineSpacing(dp(2), 1f);
@@ -525,10 +528,7 @@ public class BrandScrubActivity extends Activity {
         box.addView(t);
 
         final TextView s = new TextView(this);
-        s.setText("抹掉剪辑软件写进视频元数据的标识：不转码，画面音频一个字节都不动，产物另存到"
-                + "相册（" + ALBUM_DIR + "），原件不改。\n"
-                + "支持 .mp4 / .mov，可多选。烧进画面的片尾 logo、平台侧的内容指纹不属于元数据，"
-                + "处理不了。");
+        s.setText("不转码，产物另存相册，原件不改。");
         s.setTextColor(DIM);
         s.setTextSize(12f);
         s.setLineSpacing(dp(3), 1f);
@@ -946,10 +946,22 @@ public class BrandScrubActivity extends Activity {
         if (uris.isEmpty()) {
             return;
         }
+        acceptUris(uris);
+    }
+
+    /** 外部「打开方式」：单个视频直接进分析。 */
+    private void acceptIncoming(Uri u) {
+        acceptUris(java.util.Collections.singletonList(u));
+    }
+
+    private void acceptUris(final java.util.List<Uri> uris) {
+        if (uris.isEmpty()) {
+            return;
+        }
         clearCards();
         for (int i = 0; i < uris.size(); i++) {
             final Card cd = new Card();
-            cd.name = nameOf((Uri) uris.get(i));
+            cd.name = nameOf(uris.get(i));
             cards.add(cd);
             filesBox.addView(buildCard(cd));
         }
@@ -961,7 +973,7 @@ public class BrandScrubActivity extends Activity {
         new Thread(new Runnable() {
             public void run() {
                 for (int i = 0; i < uris.size(); i++) {
-                    analyze(i, (Uri) uris.get(i));
+                    analyze(i, uris.get(i));
                 }
                 summarize();
                 lock(false, null);

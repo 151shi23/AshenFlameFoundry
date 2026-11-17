@@ -90,6 +90,12 @@ public class PngToModelActivity extends AppCompatActivity {
         activationFeature = getIntent() != null ? getIntent().getStringExtra("activation_feature") : null;
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_png_to_model);
+        findViewById(R.id.btn_png_pick).post(() -> {
+            android.net.Uri open = com.mineways.open.OpenInbox.take(this);
+            if (open != null) {
+                loadImage(open);
+            }
+        });
 
         MaterialToolbar bar = findViewById(R.id.png_toolbar);
         setSupportActionBar(bar);

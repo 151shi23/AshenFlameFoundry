@@ -10,7 +10,6 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -68,8 +67,8 @@ public class CloudGateActivity extends Activity {
     private static final String KEY_NOTICE = "notice";
     private static final String KEY_AT = "checked_at";
 
-    private LinearLayout root;
-    private TextView status;
+    private LinearLayout root, bodyBox, actions;
+    private TextView status, bodyText;
     private int pad;
     private boolean blocked;
     private boolean checking;
@@ -285,83 +284,126 @@ public class CloudGateActivity extends Activity {
         }
         blocked = true;
         status.setText("服务已停止");
-        status.setTextColor(Color.parseColor("#FF6B6B"));
+        status.setTextColor(0xFFFF7B7B);
         status.setTextSize(20);
         status.setTypeface(Typeface.DEFAULT_BOLD);
 
-        ScrollView sv = new ScrollView(this);
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        TextView body = new TextView(this);
-        body.setText(notice);
-        body.setTextColor(Color.parseColor("#C7D2DE"));
-        body.setTextSize(14);
-        body.setPadding(0, pad, 0, pad);
-        box.addView(body);
-        sv.addView(box);
-        LinearLayout.LayoutParams svLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
-        sv.setLayoutParams(svLp);
-        root.addView(sv);
-
-        root.addView(button("重新检查", null));
-        root.addView(button("打开云控仓库", REPO_URL));
-        root.addView(button("访问 Sincerity 工具站", SITE));
+        if (bodyText == null) {
+            bodyText = new TextView(this);
+            bodyText.setTextColor(0xC7D2DE);
+            bodyText.setTextSize(13);
+            bodyText.setLineSpacing(dp(4), 1.4f);
+            bodyText.setTextIsSelectable(true);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.topMargin = dp(14);
+            bodyBox.addView(bodyText, lp);
+        }
+        bodyText.setText(notice == null ? "" : notice);
+        actions.setVisibility(View.VISIBLE);
     }
 
     private void buildUi() {
-        pad = (int) (getResources().getDisplayMetrics().density * 22);
+        pad = dp(18);
+        final com.mineways.ui.MwViews.Style st = com.mineways.ui.MwViews.style(this);
+
+        ScrollView holder = new ScrollView(this);
+        holder.setFillViewport(true);
+        holder.setBackground(com.mineways.ui.MwViews.pageBackground(this));
+
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setBackgroundColor(Color.parseColor("#101418"));
-        root.setPadding(pad, pad, pad, pad);
+        root.setPadding(pad, dp(32), pad, dp(28));
+        bodyText = null;
 
-        TextView title = new TextView(this);
-        title.setText("AshenFlame Foundry");
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(22);
-        title.setTypeface(Typeface.DEFAULT_BOLD);
-        title.setGravity(Gravity.CENTER);
-        root.addView(title);
+        TextView brand = new TextView(this);
+        brand.setText("A S H E N F L A M E   F O U N D R Y");
+        brand.setTextColor(0x59FFFFFF);
+        brand.setTextSize(10);
+        brand.setGravity(Gravity.CENTER);
+        brand.setLetterSpacing(0.18f);
+        root.addView(brand);
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(pad, dp(22), pad, dp(20));
+        card.setBackground(com.mineways.ui.MwViews.glass(this, st, 24, 0x12FFFFFF, card));
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cardLp.topMargin = dp(18);
+        card.setLayoutParams(cardLp);
+
+        TextView head = new TextView(this);
+        head.setText("启动校验");
+        head.setTextColor(Color.WHITE);
+        head.setTextSize(22);
+        head.setTypeface(Typeface.DEFAULT_BOLD);
+        head.setGravity(Gravity.CENTER);
+        card.addView(head);
 
         status = new TextView(this);
         status.setText("正在校验服务状态…");
-        status.setTextColor(Color.parseColor("#8FA3B5"));
-        status.setTextSize(14);
+        status.setTextColor(0x99FFFFFF);
+        status.setTextSize(13);
         status.setGravity(Gravity.CENTER);
-        status.setPadding(0, pad / 2, 0, 0);
-        root.addView(status);
+        status.setLineSpacing(dp(2), 1.35f);
+        LinearLayout.LayoutParams stLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        stLp.topMargin = dp(10);
+        card.addView(status, stLp);
 
-        setContentView(root);
+        bodyBox = new LinearLayout(this);
+        bodyBox.setOrientation(LinearLayout.VERTICAL);
+        card.addView(bodyBox, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        root.addView(card);
+
+        actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.VERTICAL);
+        actions.setPadding(pad, dp(14), pad, dp(12));
+        actions.setBackground(com.mineways.ui.MwViews.glass(this, st, 24, 0x0AFFFFFF, actions));
+        LinearLayout.LayoutParams actLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        actLp.topMargin = dp(14);
+        actions.setLayoutParams(actLp);
+        actions.setVisibility(View.GONE);
+
+        actions.addView(com.mineways.ui.MwViews.pillButton(this, "重新检查", true, v -> {
+            prefs().edit().remove(KEY_AT).apply();
+            checking = false;
+            blocked = false;
+            buildUi();
+            check();
+        }), blockParams(0));
+        actions.addView(com.mineways.ui.MwViews.pillButton(this, "打开云控仓库", false,
+                v -> openUrl(REPO_URL)), blockParams(10));
+        actions.addView(com.mineways.ui.MwViews.pillButton(this, "访问 Sincerity 工具站", false,
+                v -> openUrl(SITE)), blockParams(10));
+
+        root.addView(actions);
+
+        holder.addView(root, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        setContentView(holder);
     }
 
-    private Button button(final String text, final String url) {
-        Button b = new Button(this);
-        b.setText(text);
-        b.setAllCaps(false);
+    private LinearLayout.LayoutParams blockParams(int topDp) {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = pad / 3;
-        b.setLayoutParams(lp);
-        b.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (url == null) {          // 「重新检查」：清缓存立刻重判
-                    prefs().edit().remove(KEY_AT).apply();
-                    checking = false;
-                    blocked = false;
-                    root.removeAllViews();
-                    buildUi();
-                    check();
-                    return;
-                }
-                try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-                } catch (Throwable ignored) {
-                }
-            }
-        });
-        return b;
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(topDp);
+        return lp;
+    }
+
+    private void openUrl(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private int dp(int v) {
+        return (int) (v * getResources().getDisplayMetrics().density);
     }
 }
