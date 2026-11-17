@@ -521,7 +521,7 @@ public class PlazaActivity extends Activity {
                 if (local != null) actions.addView(button("分享", v -> shareFile(local), false));
             }
             if (PlazaFlags.preview3d() && !it.previewModel.isEmpty()) {
-                actions.addView(button("3D 预览", v -> openUrl(it.previewModel), false));
+                actions.addView(button("3D 预览", v -> open3dPreview(it), false));
             }
         } else {
             actions.addView(button("打开云盘", v -> {
@@ -576,6 +576,29 @@ public class PlazaActivity extends Activity {
         ScrollView sv = new ScrollView(this);
         sv.addView(box);
         new AlertDialog.Builder(this).setView(sv).setNegativeButton("关闭", null).show();
+    }
+
+    private void open3dPreview(PlazaItem it) {
+        if (it == null || it.previewModel.isEmpty()) return;
+        status.setText("正在加载 3D 预览…");
+        io.execute(() -> {
+            try {
+                File base = getExternalFilesDir("plaza");
+                if (base == null) base = new File(getFilesDir(), "plaza");
+                File dir = new File(base, "preview/" + PlazaDownloader.safeName(it.id));
+                if (!dir.isDirectory() && !dir.mkdirs()) throw new java.io.IOException("无法创建预览目录");
+                String suffix = it.previewModel.toLowerCase(Locale.ROOT).endsWith(".obj") ? ".obj" : ".glb";
+                File f = new File(dir, "preview" + suffix);
+                if (!f.isFile()) {
+                    com.mineways.blender.Downloader.download(it.previewModel, f, null, null,
+                            com.mineways.blender.Downloader.NEVER);
+                }
+                File finalF = f;
+                ui.post(() -> openFile(finalF));
+            } catch (Throwable t) {
+                ui.post(() -> status.setText("3D 预览失败：" + t.getMessage()));
+            }
+        });
     }
 
     private void openFile(File f) {
