@@ -75,6 +75,12 @@ public class FormatConvertActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!com.mineways.RecentToolFlags.conv()) {
+            android.widget.Toast.makeText(this, "格式转换已被云端关闭",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
         setContentView(buildUi());
         switchTab(TAB_IMAGE);
         android.net.Uri open = com.mineways.open.OpenInbox.take(this);
@@ -540,6 +546,12 @@ public class FormatConvertActivity extends Activity {
                             runOnUiThread(() -> tvReport.setText("压缩包已解开：" + shown + "，正在转换…"));
                         }
                         if (isPmxName(modelIn.getName())) {
+                            if (!com.mineways.RecentToolFlags.pmx()
+                                    || ("fbx".equals(diskExt)
+                                    && !com.mineways.RecentToolFlags.pmxFbx())) {
+                                finishConvert(out, "这条 PMX 转换通道已被云端关闭", false);
+                                return;
+                            }
                             final File assetRoot = unpackDir != null ? unpackDir : modelIn.getParentFile();
                             final PmxConvert.Result r = "fbx".equals(diskExt)
                                     ? PmxConvert.convertToFbx(modelIn, out, assetRoot)

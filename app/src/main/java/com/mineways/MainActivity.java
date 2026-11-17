@@ -771,6 +771,7 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
         col.addView(sectionTitle("关于", "版本 " + versionName()));
 
         // 设置分享：放在关于页最顶部，做成显眼卡片（导出 / 导入两个入口）
+        if (RecentToolFlags.share()) {
         LinearLayout shareCard = new LinearLayout(this);
         shareCard.setOrientation(LinearLayout.VERTICAL);
         shareCard.setPadding(dp(16), dp(16), dp(16), dp(16));
@@ -815,6 +816,7 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         shareCardLp.bottomMargin = dp(12);
         col.addView(shareCard, shareCardLp);
+        }
 
 
         // 登录：三档身份（论坛 / Google / 微软）合成一个入口。
@@ -1309,6 +1311,13 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             }
             // 串词工具箱：phrase_on=0 整页下架（Pro Max 的子开关在页面内生效）
             if ("phrase".equals(r[2]) && !PhraseFlags.on()) {
+                continue;
+            }
+            // 近期大功能总闸：保险箱 / 格式转换
+            if ("vault".equals(r[2]) && !RecentToolFlags.vault()) {
+                continue;
+            }
+            if ("fmtconv".equals(r[2]) && !RecentToolFlags.conv()) {
                 continue;
             }
             out.add(new HomeIndex.Row(r[0], r[1], r[2], r[3],
@@ -2198,19 +2207,21 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
         java.util.List<com.mineways.ui.MwBlock> out = new ArrayList<>();
 
         // 设置分享：新 Compose 关于页的入口（旧页面在 pageAbout() 里已有同样的卡片）。
-        java.util.List<com.mineways.ui.MwCell> shares = new ArrayList<>();
-        com.mineways.ui.MwCell shareOut = new com.mineways.ui.MwCell();
-        shareOut.title = "导出分享码";
-        shareOut.actionLabel = "生成";
-        shareOut.action = com.mineways.ui.MwUiHost.ACTION_SHARE_EXPORT;
-        shareOut.primary = true;
-        shares.add(shareOut);
-        com.mineways.ui.MwCell shareIn = new com.mineways.ui.MwCell();
-        shareIn.title = "导入分享码";
-        shareIn.actionLabel = "粘贴";
-        shareIn.action = com.mineways.ui.MwUiHost.ACTION_SHARE_IMPORT;
-        shares.add(shareIn);
-        out.add(mwTextBlock("设置分享", null, shares));
+        if (RecentToolFlags.share()) {
+            java.util.List<com.mineways.ui.MwCell> shares = new ArrayList<>();
+            com.mineways.ui.MwCell shareOut = new com.mineways.ui.MwCell();
+            shareOut.title = "导出分享码";
+            shareOut.actionLabel = "生成";
+            shareOut.action = com.mineways.ui.MwUiHost.ACTION_SHARE_EXPORT;
+            shareOut.primary = true;
+            shares.add(shareOut);
+            com.mineways.ui.MwCell shareIn = new com.mineways.ui.MwCell();
+            shareIn.title = "导入分享码";
+            shareIn.actionLabel = "粘贴";
+            shareIn.action = com.mineways.ui.MwUiHost.ACTION_SHARE_IMPORT;
+            shares.add(shareIn);
+            out.add(mwTextBlock("设置分享", null, shares));
+        }
 
         // 登录：三档身份合成一个入口。以前「社区授权登录」和「白名单账号登录」并排两行，
         // 两个按钮各说各的登录态，用户要自己猜点哪个才算登录成功。

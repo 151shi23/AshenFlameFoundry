@@ -584,14 +584,16 @@ public class BlockbenchActivity extends AppCompatActivity {
                     // 新增来源：官方插件索引按下载量筛选的 Minecraft 建模相关高热度插件。
                     // 只从本地 assets 取的插件（自研 / 不对外发布，官方 CDN 上并不存在）：
                     // 即便联网也直接使用打包副本，免得白发一次注定 404 的请求。
-                    "  var LOCAL_ONLY=['mineways_saver','full_physics_ragdoll','pen_3d'];" +
+                    "  var LOCAL_ONLY=['mineways_saver'"
+                            + (RecentToolFlags.bbRagdoll() ? ",'full_physics_ragdoll'" : "")
+                            + (RecentToolFlags.bbPen3d() ? ",'pen_3d'" : "") + "];" +
                     "  var ids=[" +
                     // —— 本机保存助手（自研：修复网页版“导出提示成功但磁盘无文件”）——
                     "    ['mineways_saver',0]," +
                     // —— 本地内置增强（不在官方插件索引里，仅随 App 打包）——
-                    "    ['full_physics_ragdoll',1]," +
+                    (RecentToolFlags.bbRagdoll() ? "    ['full_physics_ragdoll',1]," : "") +
                     // 3D Pen（MIT，PuddingKC）：路径建模 / 管道 / 沿路径盖印
-                    "    ['pen_3d',0]," +
+                    (RecentToolFlags.bbPen3d() ? "    ['pen_3d',0]," : "") +
                     // —— Mojang 官方 Wizard ——
                     "    ['minecraft_block_wizard',0]," +
                     "    ['minecraft_entity_wizard',0]," +

@@ -206,12 +206,16 @@ public final class ConvRouting {
                 if ("pmx".equals(ie)) effective = "pmx";
             }
             if ("pmx".equals(effective)) {
-                add(out, "glb", Engine.PMX, true,
-                        "PMX 专用通道：骨骼/Skin、材质、顶点与 UV morph、贴图原字节嵌入单文件 GLB", null);
-                boolean fbx = fbxExportReady();
-                add(out, "fbx", Engine.NATIVE, fbx,
-                        "PMX → GLB → FBX：骨骼/蒙皮由 PMX 内核还原，Assimp 负责写出 FBX",
-                        fbx ? null : "当前内核没有 FBX 导出器");
+                if (com.mineways.RecentToolFlags.pmx()) {
+                    add(out, "glb", Engine.PMX, true,
+                            "PMX 专用通道：骨骼/Skin、材质、顶点与 UV morph、贴图原字节嵌入单文件 GLB", null);
+                }
+                if (com.mineways.RecentToolFlags.pmxFbx()) {
+                    boolean fbx = fbxExportReady();
+                    add(out, "fbx", Engine.NATIVE, fbx,
+                            "PMX → GLB → FBX：骨骼/蒙皮由 PMX 内核还原，Assimp 负责写出 FBX",
+                            fbx ? null : "当前内核没有 FBX 导出器");
+                }
                 return out;
             }
             // 原生（Assimp）双向：以编译进去的导入/导出器为准

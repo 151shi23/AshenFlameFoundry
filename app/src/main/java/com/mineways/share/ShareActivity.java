@@ -72,6 +72,11 @@ public class ShareActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        if (!com.mineways.RecentToolFlags.share()) {
+            Toast.makeText(this, "设置分享已被云端关闭", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
         getWindow().setStatusBarColor(BG);
         groups = PrefCatalog.list(this);
         for (PrefCatalog.Group g : groups) selected.add(g.prefs);

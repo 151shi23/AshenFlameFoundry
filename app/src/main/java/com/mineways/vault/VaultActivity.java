@@ -91,6 +91,11 @@ public class VaultActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        if (!com.mineways.RecentToolFlags.vault()) {
+            android.widget.Toast.makeText(this, "文件保险箱已被云端关闭", android.widget.Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
         userKey = loadKey();
         setContentView(buildUi());
         applyMode();
