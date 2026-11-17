@@ -103,6 +103,7 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
     /** 本机工具：{标题, 说明, 图标, 标签, 目标页面}；目标页面空串=主入口。 */
     private static final String[][] LOCAL_TOOLS = {
             {"存档导出", "把 Java、基岩、网易存档导成带贴图的 OBJ", "export", "free local", "export"},
+            {"资源广场", "官方精选地图、人物模型、纹理包与通用资源", "plaza", "free local", ""},
             {"网易存档解密", "找存档、解密、导出，都在这一页", "world", "free local", "world"},
             {"真实世界生成", "拉真实地图数据，在手机里生成 Minecraft 存档", "realworld", "free local", ""},
             {"Mine-imator 动画", "内置动画工作室：建模、摆动作、渲染出片，全离线", "mineimator", "limit local", ""},
@@ -666,6 +667,9 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
                 ? items() : HomeIndex.ofKind(kindForTab(index));
 
         col.addView(sectionTitle(TAB_TITLES[index], tabHint(index)));
+        if (index == 0 && com.mineways.plaza.PlazaFlags.homeBanner()) {
+            col.addView(buildPlazaHero());
+        }
         if (index <= 1) {
             col.addView(buildFilterBar());            // 搜索框 + 分类胶囊
         }
@@ -1320,6 +1324,9 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             if ("fmtconv".equals(r[2]) && !RecentToolFlags.conv()) {
                 continue;
             }
+            if ("plaza".equals(r[2]) && !com.mineways.plaza.PlazaFlags.on()) {
+                continue;
+            }
             out.add(new HomeIndex.Row(r[0], r[1], r[2], r[3],
                     r.length > 4 ? r[4] : "", false, ""));
         }
@@ -1340,6 +1347,54 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
     }
 
     // ---------------------------------------------------------------- 卡片
+
+    /** 首页资源广场 Hero：显著入口，云控关闭后仍保留普通工具卡。 */
+    private View buildPlazaHero() {
+        LinearLayout hero = new LinearLayout(this);
+        hero.setOrientation(LinearLayout.HORIZONTAL);
+        hero.setGravity(Gravity.CENTER_VERTICAL);
+        hero.setPadding(dp(16), dp(15), dp(14), dp(15));
+        GradientDrawable bg = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0xFFD9603A, 0xFF8E3524, 0xFF2A2024});
+        bg.setCornerRadius(dp(16));
+        hero.setBackground(bg);
+
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        TextView title = new TextView(this);
+        title.setText("资源广场");
+        title.setTextColor(0xFFFFFFFF);
+        title.setTextSize(18);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        copy.addView(title);
+        TextView sub = new TextView(this);
+        sub.setText("官方精选地图、人物模型、纹理包，每周更新");
+        sub.setTextColor(0xCCFFFFFF);
+        sub.setTextSize(11.5f);
+        sub.setPadding(0, dp(4), 0, 0);
+        copy.addView(sub);
+        hero.addView(copy, new LinearLayout.LayoutParams(0, -2, 1f));
+
+        TextView go = new TextView(this);
+        go.setText("进入 ›");
+        go.setTextColor(0xFFFFFFFF);
+        go.setTextSize(12);
+        go.setTypeface(null, android.graphics.Typeface.BOLD);
+        go.setPadding(dp(10), dp(6), dp(10), dp(6));
+        GradientDrawable gb = new GradientDrawable();
+        gb.setColor(0x33FFFFFF);
+        gb.setCornerRadius(dp(999));
+        go.setBackground(gb);
+        hero.addView(go);
+
+        hero.setOnClickListener(v -> startActivity(new Intent(
+                MainActivity.this, com.mineways.plaza.PlazaActivity.class)));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.bottomMargin = dp(10);
+        hero.setLayoutParams(lp);
+        return hero;
+    }
 
     private LinearLayout sectionTitle(String title, String subtitle) {
         LinearLayout box = new LinearLayout(this);

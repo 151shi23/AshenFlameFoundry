@@ -10,6 +10,8 @@
     <!-- YSM 解密产物与 zip 分享 -->
     <external-files-path name="ysm" path="ysm/" />
     <files-path name="ysm_files" path="ysm/" />
+    <external-files-path name="plaza" path="plaza/" />
+    <files-path name="plaza_files" path="plaza/" />
     <!-- 日志诊断报告（可分享 / 导出） -->
     <external-files-path name="logan" path="logan/" />
     <!-- 剪辑标识清除产物 -->

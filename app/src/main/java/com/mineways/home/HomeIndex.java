@@ -564,6 +564,9 @@ public final class HomeIndex {
 		if ("ysm".equals(k)) {
 			return R.drawable.ic_ysm;
 		}
+		if ("plaza".equals(k)) {
+			return R.drawable.ic_plaza;
+		}
 		if ("vault".equals(k)) {
 			return R.drawable.ic_vault;
 		}
@@ -631,6 +634,9 @@ public final class HomeIndex {
 		}
 		if ("ysm".equals(k)) {
 			return new Intent(ctx, com.mineways.ysm.YsmActivity.class);
+		}
+		if ("plaza".equals(k)) {
+			return new Intent(ctx, com.mineways.plaza.PlazaActivity.class);
 		}
 		if ("landscape".equals(k)) {
 			return new Intent(ctx, LandscapeEnhanceActivity.class);
@@ -736,7 +742,8 @@ public final class HomeIndex {
 		if (!named) {
 			return null;
 		}
-		String[] prefixes = {"com.mineways.", "com.mineways.conv.", "com.mineways.blender.", "com.mineways.vr.", "com.mineways.vault."};
+		String[] prefixes = {"com.mineways.", "com.mineways.conv.", "com.mineways.blender.",
+				"com.mineways.vr.", "com.mineways.vault.", "com.mineways.plaza."};
 		for (String p : prefixes) {
 			try {
 				Class<?> c = Class.forName(p + simpleName);

@@ -148,6 +148,14 @@
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden" />
 
+        <!-- 资源广场：官方 Release 下载 + 云盘跳转 -->
+        <activity
+            android:name=".plaza.PlazaActivity"
+            android:exported="false"
+            android:label="资源广场"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden" />
+
         <!-- YSM 解密：OpenYSM/YSMParser JNI，仅 arm64-v8a 打包内核 -->
         <activity
             android:name=".ysm.YsmActivity"
