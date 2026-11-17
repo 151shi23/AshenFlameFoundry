@@ -3,16 +3,25 @@ package com.mineways;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.mineways.cloud.CloudFlags;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.zip.Inflater;
 
 /**
  * 串词工具箱的数据层。
@@ -56,37 +65,75 @@ public final class PhraseStore {
     private static final int RECENT_MAX = 60;
     private static final String ASSET_PHRASES = "phrase/phrases.json";
     private static final String ASSET_HOMO = "phrase/homophones.json";
+    private static final String CLOUD_PREFIX = "MWP1.";
+    private static final int CLOUD_MAX_DECODED = 256 * 1024;
+    private static final int CLOUD_MAX_ITEMS = 500;
+    private static final int CLOUD_MAX_TEXT = 500;
 
     /** 内置串词只解析一次（assets 里读 IO，慢）。 */
     private static List<Item> builtinCache;
+    /** 云控词库缓存：原始 FLAG 值不变就不重复解压/解析。 */
+    private static String cloudCacheRaw;
+    private static CloudPack cloudCache;
+
+    /** 一次云控词库解析出来的全部操作（包内可见，方便 JVM 单测）。 */
+    static final class CloudPack {
+        final List<Item> phrases = new ArrayList<>();
+        final List<String> categories = new ArrayList<>();
+        final Map<String, String> renames = new HashMap<>();
+        final Set<String> deletedCats = new HashSet<>();
+        final Set<String> hide = new HashSet<>();
+        final Map<String, String> moveCats = new HashMap<>();
+        final Map<String, String> homoAdd = new LinkedHashMap<>();
+        final Set<String> homoRemove = new HashSet<>();
+    }
 
     private PhraseStore() {
     }
 
     // ------------------------------------------------------------------ 串词
 
-    /** 全部串词：内置（去掉隐藏的）+ 用户。 */
+    /** 全部串词：内置 + 云端新增，再应用云端分类/移动/隐藏，最后是用户条目。 */
     public static List<Item> list(Context ctx) {
+        CloudPack cp = cloudPack(ctx);
+        Set<String> hidden = new HashSet<>(hiddenIds(ctx));
+        hidden.addAll(cp.hide);
+
+        List<Item> raw = new ArrayList<>(builtin(ctx));
+        raw.addAll(cp.phrases);
+        raw.addAll(userItems(ctx));
+
         List<Item> out = new ArrayList<>();
-        List<String> hidden = hiddenIds(ctx);
-        for (Item it : builtin(ctx)) {
-            if (!hidden.contains(it.id)) {
-                out.add(it);
-            }
+        for (Item it : raw) {
+            if (hidden.contains(it.id) || hidden.contains(it.text)) continue;
+            String moved = cp.moveCats.get(it.id);
+            String cat = applyCloudCat(moved != null ? moved : it.cat, cp);
+            out.add(new Item(it.id, cat, it.text, it.builtin));
         }
-        out.addAll(userItems(ctx));
         return out;
     }
 
-    /** 全部分类（按数据里出现的顺序，去重）。 */
+    /** 全部分类：云端声明（含空分类）+ 实际条目里出现的分类，按首次出现排序。 */
     public static List<String> categories(Context ctx) {
         LinkedHashSet<String> set = new LinkedHashSet<>();
+        CloudPack cp = cloudPack(ctx);
+        for (String c : cp.categories) {
+            String name = applyCloudCat(c, cp);
+            if (name.length() > 0) set.add(name);
+        }
         for (Item it : list(ctx)) {
-            if (it.cat != null && it.cat.length() > 0) {
-                set.add(it.cat);
-            }
+            if (it.cat != null && it.cat.length() > 0) set.add(it.cat);
         }
         return new ArrayList<>(set);
+    }
+
+    private static String applyCloudCat(String cat, CloudPack cp) {
+        String c = cat == null ? "" : cat.trim();
+        if (c.length() == 0 || cp == null) return c;
+        String renamed = cp.renames.get(c);
+        if (renamed != null && renamed.length() > 0) c = renamed;
+        if (cp.deletedCats.contains(cat) || cp.deletedCats.contains(c)) return "";
+        return c;
     }
 
     public static void addUser(Context ctx, String cat, String text) {
@@ -166,6 +213,201 @@ public final class PhraseStore {
     /** 恢复被隐藏的内置串词。 */
     public static void restoreBuiltin(Context ctx) {
         prefs(ctx).edit().remove(K_HIDDEN).apply();
+    }
+
+    // ------------------------------------------------------------------ 云控词库
+
+    /**
+     * 云控词库：FLAG {@code phrase_cloud_pack=MWP1.<base64url(deflate(JSON))>}。
+     *
+     * <p>支持新建/改名/删除分类、批量加词、移动分类、隐藏词、加/删谐音：
+     * <pre>
+     * {
+     *   "categories": ["日常", {"name":"某个管理员"}],
+     *   "rename_categories": {"日常":"生活"},
+     *   "delete_categories": ["旧分类"],
+     *   "phrases": [{"cat":"生活","text":"..."}],
+     *   "move_phrases": [{"id":"b0","cat":"生活"}],
+     *   "hide_phrases": ["b1","要隐藏的正文"],
+     *   "homophones": {"笑":"校"},
+     *   "remove_homophones": ["笑"]
+     * }
+     * </pre>
+     * 只处理文本，不执行任何内容；解析失败按空包处理。
+     */
+    private static CloudPack cloudPack(Context ctx) {
+        String raw = "";
+        boolean enabled = true;
+        try {
+            enabled = CloudFlags.bool("phrase_cloud_pack_on", true);
+            if (enabled) raw = CloudFlags.str("phrase_cloud_pack", "").trim();
+        } catch (Throwable ignored) {
+        }
+        if (raw.length() > 300_000) raw = "";
+        String key = enabled ? raw : "\u0000off";
+        synchronized (PhraseStore.class) {
+            if (key.equals(cloudCacheRaw) && cloudCache != null) {
+                return cloudCache;
+            }
+            CloudPack parsed = decodeCloud(key);
+            cloudCacheRaw = key;
+            cloudCache = parsed;
+            invalidateHomo();
+            return parsed;
+        }
+    }
+
+    static CloudPack decodeCloud(String raw) {
+        CloudPack pack = new CloudPack();
+        if (raw == null || raw.isEmpty() || "\u0000off".equals(raw)) return pack;
+        try {
+            String json;
+            if (raw.startsWith("{") || raw.startsWith("[")) {
+                json = raw;
+            } else {
+                if (!raw.startsWith(CLOUD_PREFIX)) return pack;
+                byte[] packed = Base64.getUrlDecoder().decode(raw.substring(CLOUD_PREFIX.length()));
+                Inflater inflater = new Inflater();
+                ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                try {
+                    inflater.setInput(packed);
+                    byte[] buf = new byte[8192];
+                    while (!inflater.finished()) {
+                        int n = inflater.inflate(buf);
+                        if (n <= 0) break;
+                        if (bo.size() + n > CLOUD_MAX_DECODED) return pack;
+                        bo.write(buf, 0, n);
+                    }
+                } finally {
+                    inflater.end();
+                }
+                json = bo.toString(StandardCharsets.UTF_8.name());
+            }
+
+            JSONArray phrases;
+            if (json.trim().startsWith("[")) {
+                phrases = new JSONArray(json);
+            } else {
+                JSONObject root = new JSONObject(json);
+                // 分类
+                JSONArray cats = root.optJSONArray("categories");
+                if (cats == null) cats = root.optJSONArray("cats");
+                if (cats != null) {
+                    for (int i = 0; i < cats.length() && pack.categories.size() < 100; i++) {
+                        Object n = cats.opt(i);
+                        String name = n instanceof JSONObject
+                                ? ((JSONObject) n).optString("name",
+                                ((JSONObject) n).optString("id", ""))
+                                : cats.optString(i, "");
+                        name = name == null ? "" : name.trim();
+                        if (name.length() > 0 && name.length() <= 80
+                                && !pack.categories.contains(name)) {
+                            pack.categories.add(name);
+                        }
+                    }
+                }
+                // 改名
+                JSONObject ren = root.optJSONObject("rename_categories");
+                if (ren == null) ren = root.optJSONObject("rename_cats");
+                if (ren != null) {
+                    java.util.Iterator<String> it = ren.keys();
+                    while (it.hasNext()) {
+                        String from = it.next();
+                        String to = ren.optString(from, "").trim();
+                        if (from != null && from.length() > 0 && to.length() > 0) {
+                            pack.renames.put(from.trim(), to);
+                        }
+                    }
+                }
+                // 删除分类
+                JSONArray del = root.optJSONArray("delete_categories");
+                if (del == null) del = root.optJSONArray("delete_cats");
+                if (del != null) {
+                    for (int i = 0; i < del.length(); i++) {
+                        String c = del.optString(i, "").trim();
+                        if (c.length() > 0) pack.deletedCats.add(c);
+                    }
+                }
+                // 移动串词分类
+                JSONArray moves = root.optJSONArray("move_phrases");
+                if (moves == null) moves = root.optJSONArray("move");
+                if (moves != null) {
+                    for (int i = 0; i < moves.length(); i++) {
+                        JSONObject o = moves.optJSONObject(i);
+                        if (o != null) {
+                            String id = o.optString("id", "").trim();
+                            String cat = o.optString("cat", "").trim();
+                            if (id.length() > 0) pack.moveCats.put(id, cat);
+                        }
+                    }
+                }
+                // 隐藏
+                JSONArray hide = root.optJSONArray("hide_phrases");
+                if (hide == null) hide = root.optJSONArray("hide");
+                if (hide != null) {
+                    for (int i = 0; i < hide.length(); i++) {
+                        String s = hide.optString(i, "").trim();
+                        if (s.length() > 0) pack.hide.add(s);
+                    }
+                }
+                // 谐音增删
+                Object homo = root.opt("homophones");
+                if (homo instanceof JSONObject) {
+                    JSONObject o = (JSONObject) homo;
+                    java.util.Iterator<String> it = o.keys();
+                    while (it.hasNext()) {
+                        String k = it.next();
+                        String v = o.optString(k, "");
+                        if (k != null && k.length() > 0 && v != null && v.length() > 0) {
+                            pack.homoAdd.put(k, v);
+                        }
+                    }
+                } else if (homo instanceof JSONArray) {
+                    JSONArray a = (JSONArray) homo;
+                    for (int i = 0; i < a.length(); i++) {
+                        JSONObject o = a.optJSONObject(i);
+                        if (o == null) continue;
+                        String k = o.optString("from", o.optString("key", ""));
+                        String v = o.optString("to", o.optString("value", ""));
+                        if (k.length() > 0 && v.length() > 0) pack.homoAdd.put(k, v);
+                    }
+                }
+                JSONArray rmHomo = root.optJSONArray("remove_homophones");
+                if (rmHomo == null) rmHomo = root.optJSONArray("remove_homo");
+                if (rmHomo != null) {
+                    for (int i = 0; i < rmHomo.length(); i++) {
+                        String k = rmHomo.optString(i, "").trim();
+                        if (k.length() > 0) pack.homoRemove.add(k);
+                    }
+                }
+                phrases = root.optJSONArray("phrases");
+                if (phrases == null) phrases = root.optJSONArray("items");
+            }
+
+            if (phrases != null) {
+                for (int i = 0; i < phrases.length() && pack.phrases.size() < CLOUD_MAX_ITEMS; i++) {
+                    Object node = phrases.opt(i);
+                    String text;
+                    String cat = "云端";
+                    if (node instanceof JSONObject) {
+                        JSONObject o = (JSONObject) node;
+                        text = o.optString("text", "");
+                        String c = o.optString("cat", "").trim();
+                        if (c.length() > 0) cat = c;
+                    } else {
+                        text = phrases.optString(i, "");
+                    }
+                    if (text == null) continue;
+                    text = text.trim();
+                    if (text.length() == 0 || text.length() > CLOUD_MAX_TEXT) continue;
+                    String id = "c" + Integer.toHexString(text.hashCode()) + "_" + i;
+                    pack.phrases.add(new Item(id, cat, text, true));
+                }
+            }
+        } catch (Throwable ignored) {
+            return new CloudPack();
+        }
+        return pack;
     }
 
     // ------------------------------------------------------------------ Pro Max：收藏 / 最近 / 次数
@@ -267,8 +509,9 @@ public final class PhraseStore {
     /** 再按首字分桶（桶内仍是长键在前）：随机替换只查同首字的候选，不用每次扫全表。 */
     private static LinkedHashMap<Character, List<Integer>> homoByFirst;
 
-    /** 谐音表：内置 + 用户覆盖（用户优先）。 */
+    /** 谐音表：内置 + 用户覆盖 + 云端增删。 */
     public static LinkedHashMap<String, String> homophones(Context ctx) {
+        CloudPack cp = cloudPack(ctx);
         if (homoCache != null) {
             return homoCache;
         }
@@ -283,6 +526,10 @@ public final class PhraseStore {
                 }
             }
         } catch (Throwable ignored) {
+        }
+        if (cp != null) {
+            for (String k : cp.homoRemove) map.remove(k);
+            map.putAll(cp.homoAdd);
         }
         // 长键优先，避免「这样」先被换掉导致「这样子」匹配不到；这个顺序只跟长度有关，一起缓存。
         List<Map.Entry<String, String>> pairs = new ArrayList<>(map.entrySet());

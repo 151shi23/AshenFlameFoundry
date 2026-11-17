@@ -21,6 +21,8 @@ import com.mineways.cloud.CloudFlags;
  * phrase_import=0        关闭导入 txt
  * phrase_homophone=0     关闭谐音替换（复选框、模式、谐音表）
  * phrase_admin_pack=0    关闭「某个管理员」串词包与筛选入口
+ * phrase_cloud_pack_on=0 停用云端下发的额外词库
+ * phrase_cloud_pack=...  云控词库（MWP1.<base64url(deflate(JSON))>）
  * </pre>
  */
 public final class PhraseFlags {

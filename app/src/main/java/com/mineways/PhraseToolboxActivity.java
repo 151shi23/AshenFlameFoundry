@@ -80,7 +80,8 @@ public class PhraseToolboxActivity extends Activity {
 
     private String keyword = "";
     private boolean proMax;
-    /** Pro Max：0 全部 / 1 收藏 / 2 最近。 */
+    private String catFilter = "";
+    /** Pro Max：0 全部 / 1 收藏 / 2 最近 / 3 管理员。 */
     private int filterMode;
     private boolean batchMode;
     private final Set<String> selectedIds = new HashSet<>();
@@ -233,7 +234,8 @@ public class PhraseToolboxActivity extends Activity {
 
         // Pro Max 过滤条：全部 / 收藏 / 最近 / 批量；逐项受云控控制。
         boolean anyFilter = proMax && (PhraseFlags.favorites() || PhraseFlags.recent()
-                || PhraseFlags.batch() || PhraseFlags.adminPack());
+                || PhraseFlags.batch() || PhraseFlags.adminPack()
+                || !PhraseStore.categories(this).isEmpty());
         if (anyFilter) {
             HorizontalScrollView filterScroll = new HorizontalScrollView(this);
             filterScroll.setHorizontalScrollBarEnabled(false);
@@ -263,6 +265,12 @@ public class PhraseToolboxActivity extends Activity {
                 btnAdmin = smallBtn("管理员");
                 btnAdmin.setOnClickListener(v -> setFilter(3));
                 filters.addView(btnAdmin);
+            }
+            for (String cat : PhraseStore.categories(this)) {
+                if (cat.length() == 0 || "admin".equals(cat) || "云端".equals(cat)) continue;
+                Button b = smallBtn(cat);
+                b.setOnClickListener(v -> setCatFilter(cat));
+                filters.addView(b);
             }
             if (PhraseFlags.batch()) {
                 btnBatch = smallBtn("批量");
@@ -331,6 +339,7 @@ public class PhraseToolboxActivity extends Activity {
                 continue;
             }
             if ("admin".equals(it.cat) && !PhraseFlags.adminPack()) continue;
+            if (catFilter.length() > 0 && !catFilter.equals(it.cat)) continue;
             if (filterMode == 1 && !favs.contains(it.id)) continue;
             if (filterMode == 2 && !recentRank.containsKey(it.id)) continue;
             if (filterMode == 3 && !"admin".equals(it.cat)) continue;
@@ -388,10 +397,19 @@ public class PhraseToolboxActivity extends Activity {
 
     private void setFilter(int mode) {
         filterMode = mode;
+        catFilter = "";
         selectedIds.clear();
         if (batchMode) {
             batchMode = false;
         }
+        reload();
+    }
+
+    private void setCatFilter(String cat) {
+        filterMode = 0;
+        catFilter = cat == null ? "" : cat;
+        selectedIds.clear();
+        if (batchMode) batchMode = false;
         reload();
     }
 
@@ -484,9 +502,23 @@ public class PhraseToolboxActivity extends Activity {
             LinearLayout tags = new LinearLayout(this);
             tags.setOrientation(LinearLayout.HORIZONTAL);
             tags.setGravity(Gravity.CENTER_VERTICAL);
+            if (it.cat != null && it.cat.length() > 0 && !"admin".equals(it.cat)) {
+                TextView catTag = new TextView(this);
+                catTag.setText(it.cat);
+                catTag.setTextSize(10.5f);
+                catTag.setTextColor(ACCENT);
+                tags.addView(catTag);
+            }
+            if ("admin".equals(it.cat)) {
+                TextView adminTag = new TextView(this);
+                adminTag.setText("管理员");
+                adminTag.setTextSize(10.5f);
+                adminTag.setTextColor(ACCENT);
+                tags.addView(adminTag);
+            }
             if (fav) {
                 TextView star = new TextView(this);
-                star.setText("★ 收藏");
+                star.setText(tags.getChildCount() > 0 ? " · ★ 收藏" : "★ 收藏");
                 star.setTextSize(10.5f);
                 star.setTextColor(ACCENT);
                 tags.addView(star);
