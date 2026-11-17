@@ -1307,6 +1307,10 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
             if ("ysm".equals(r[2]) && !com.mineways.cloud.CloudFlags.bool("ysm_on", true)) {
                 continue;
             }
+            // 串词工具箱：phrase_on=0 整页下架（Pro Max 的子开关在页面内生效）
+            if ("phrase".equals(r[2]) && !PhraseFlags.on()) {
+                continue;
+            }
             out.add(new HomeIndex.Row(r[0], r[1], r[2], r[3],
                     r.length > 4 ? r[4] : "", false, ""));
         }
