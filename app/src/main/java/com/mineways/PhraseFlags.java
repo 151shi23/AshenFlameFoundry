@@ -20,6 +20,7 @@ import com.mineways.cloud.CloudFlags;
  * phrase_sticker=0       关闭存表情包
  * phrase_import=0        关闭导入 txt
  * phrase_homophone=0     关闭谐音替换（复选框、模式、谐音表）
+ * phrase_admin_pack=0    关闭「某个管理员」串词包与筛选入口
  * </pre>
  */
 public final class PhraseFlags {
@@ -66,6 +67,11 @@ public final class PhraseFlags {
 
     public static boolean homophone() {
         return on() && bool("phrase_homophone", true);
+    }
+
+    /** 「某个管理员」串词包：独立于 Pro Max，可单独下架。 */
+    public static boolean adminPack() {
+        return on() && bool("phrase_admin_pack", true);
     }
 
     private static boolean bool(String key, boolean def) {

@@ -86,7 +86,7 @@ public class PhraseToolboxActivity extends Activity {
     private final Set<String> selectedIds = new HashSet<>();
     private final List<PhraseStore.Item> shownItems = new ArrayList<>();
     private String lastRandomId = "";
-    private Button btnAll, btnFav, btnRecent, btnBatch;
+    private Button btnAll, btnFav, btnRecent, btnBatch, btnAdmin;
     private LinearLayout batchBar;
     private Button btnBatchCopy, btnBatchShare, btnBatchSelect;
 
@@ -233,7 +233,7 @@ public class PhraseToolboxActivity extends Activity {
 
         // Pro Max 过滤条：全部 / 收藏 / 最近 / 批量；逐项受云控控制。
         boolean anyFilter = proMax && (PhraseFlags.favorites() || PhraseFlags.recent()
-                || PhraseFlags.batch());
+                || PhraseFlags.batch() || PhraseFlags.adminPack());
         if (anyFilter) {
             HorizontalScrollView filterScroll = new HorizontalScrollView(this);
             filterScroll.setHorizontalScrollBarEnabled(false);
@@ -258,6 +258,11 @@ public class PhraseToolboxActivity extends Activity {
                     return true;
                 });
                 filters.addView(btnRecent);
+            }
+            if (PhraseFlags.adminPack()) {
+                btnAdmin = smallBtn("管理员");
+                btnAdmin.setOnClickListener(v -> setFilter(3));
+                filters.addView(btnAdmin);
             }
             if (PhraseFlags.batch()) {
                 btnBatch = smallBtn("批量");
@@ -312,6 +317,7 @@ public class PhraseToolboxActivity extends Activity {
                 ? PhraseStore.recentIds(this) : new ArrayList<String>();
         if (!PhraseFlags.favorites() && filterMode == 1) filterMode = 0;
         if (!PhraseFlags.recent() && filterMode == 2) filterMode = 0;
+        if (!PhraseFlags.adminPack() && filterMode == 3) filterMode = 0;
         batchMode = batchMode && PhraseFlags.batch();
         Map<String, Integer> recentRank = new HashMap<>();
         for (int i = 0; i < recent.size(); i++) recentRank.put(recent.get(i), i);
@@ -324,8 +330,10 @@ public class PhraseToolboxActivity extends Activity {
                     && !(it.cat != null && it.cat.toLowerCase(Locale.ROOT).contains(key))) {
                 continue;
             }
+            if ("admin".equals(it.cat) && !PhraseFlags.adminPack()) continue;
             if (filterMode == 1 && !favs.contains(it.id)) continue;
             if (filterMode == 2 && !recentRank.containsKey(it.id)) continue;
+            if (filterMode == 3 && !"admin".equals(it.cat)) continue;
             shownItems.add(it);
         }
         shownItems.sort((a, b) -> {
@@ -348,6 +356,7 @@ public class PhraseToolboxActivity extends Activity {
                     ? "这里还没内容。点「＋ 新增」自己写一条。"
                     : filterMode == 1 ? "还没有收藏，长按任意一条加星。"
                     : filterMode == 2 ? "最近还没用过；复制一条就会记在这里。"
+                    : filterMode == 3 ? "「某个管理员」串词包为空。"
                     : "没搜到，换个词试试。");
             empty.setTextColor(DIM);
             empty.setTextSize(13);
@@ -358,6 +367,11 @@ public class PhraseToolboxActivity extends Activity {
         if (btnAll != null) btnAll.setText("全部 " + all.size());
         if (btnFav != null) btnFav.setText("★ " + favs.size());
         if (btnRecent != null) btnRecent.setText("最近 " + recent.size());
+        if (btnAdmin != null) {
+            int adminCount = 0;
+            for (PhraseStore.Item it : all) if ("admin".equals(it.cat)) adminCount++;
+            btnAdmin.setText("管理员 " + adminCount);
+        }
         if (btnBatch != null) btnBatch.setText(batchMode ? "退出批量" : "批量");
         if (batchBar != null) {
             batchBar.setVisibility(batchMode ? View.VISIBLE : View.GONE);

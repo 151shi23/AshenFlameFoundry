@@ -494,13 +494,14 @@ public final class PhraseStore {
                 for (int i = 0; i < arr.length(); i++) {
                     // 新格式：数组里直接是字符串；老格式 {"cat":"..","text":".."} 也照样认。
                     Object node = arr.opt(i);
-                    String text = node instanceof JSONObject
-                            ? ((JSONObject) node).optString("text", "")
-                            : arr.optString(i, "");
+                    JSONObject obj = node instanceof JSONObject ? (JSONObject) node : null;
+                    String text = obj != null ? obj.optString("text", "") : arr.optString(i, "");
                     if (text == null || text.length() == 0) {
                         continue;
                     }
-                    out.add(new Item("b" + i, "", text, true));
+                    // 内置串词也支持 cat（例如 admin），云端可按串词包整组下架。
+                    String cat = obj == null ? "" : obj.optString("cat", "");
+                    out.add(new Item("b" + i, cat, text, true));
                 }
             }
         } catch (Throwable ignored) {
