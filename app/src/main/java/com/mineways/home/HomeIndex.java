@@ -636,7 +636,10 @@ public final class HomeIndex {
 			return new Intent(ctx, com.mineways.ysm.YsmActivity.class);
 		}
 		if ("plaza".equals(k)) {
-			return new Intent(ctx, com.mineways.plaza.PlazaActivity.class);
+			Class<?> cls = com.mineways.plaza.PlazaFlags.legacyUi()
+					? com.mineways.plaza.PlazaLegacyActivity.class
+					: com.mineways.plaza.PlazaActivity.class;
+			return new Intent(ctx, cls);
 		}
 		if ("landscape".equals(k)) {
 			return new Intent(ctx, LandscapeEnhanceActivity.class);

@@ -14,11 +14,21 @@ public final class PlazaSearchData {
     public final List<String> hot;
     public final Map<String, List<String>> synonyms;
     public final Map<String, List<String>> aliases;
+    public final List<PlazaCategory> categories;
 
     private PlazaSearchData(JSONObject o) {
         hot = readList(o.optJSONArray("hot"));
         synonyms = readMap(o.optJSONObject("synonyms"));
         aliases = readMap(o.optJSONObject("aliases"));
+        List<PlazaCategory> cats = new ArrayList<>();
+        JSONArray a = o.optJSONArray("categories");
+        if (a != null) {
+            for (int i = 0; i < a.length() && cats.size() < 40; i++) {
+                PlazaCategory c = PlazaCategory.parse(a.optJSONObject(i));
+                if (c != null) cats.add(c);
+            }
+        }
+        categories = Collections.unmodifiableList(cats);
     }
 
     public static PlazaSearchData parse(JSONObject o) {

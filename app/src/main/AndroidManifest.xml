@@ -155,6 +155,13 @@
             android:label="资源广场"
             android:theme="@style/Theme.MinewaysMobile"
             android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden" />
+        <!-- 云控回退用的旧资源广场页面 -->
+        <activity
+            android:name=".plaza.PlazaLegacyActivity"
+            android:exported="false"
+            android:label="资源广场"
+            android:theme="@style/Theme.MinewaysMobile"
+            android:configChanges="orientation|screenSize|uiMode|keyboard|keyboardHidden" />
 
         <!-- YSM 解密：OpenYSM/YSMParser JNI，仅 arm64-v8a 打包内核 -->
         <activity

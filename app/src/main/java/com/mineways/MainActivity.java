@@ -76,22 +76,22 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
     private static final String REPO = "https://github.com/151shi23/AshenFlameFoundry";
 
     /** 页签：付费页已改为「白名单功能」，限制页（激活码）已移除。 */
-    private static final String[] TAB_TITLES = {"全部", "免费", "白名单功能", "限制", "关于"};
+    private static final String[] TAB_TITLES = {"全部", "免费", "白名单功能", "限制", "关于", "资源"};
     private static final int[] TAB_ICONS = {
             R.drawable.ic_nav_all, R.drawable.ic_nav_free, R.drawable.ic_nav_paid,
-            R.drawable.ic_nav_limit, R.drawable.ic_about};
+            R.drawable.ic_nav_limit, R.drawable.ic_about, R.drawable.ic_plaza};
 
     /** 标签 → 页签。改这里就能改分类，不用碰卡片。 */
-    private static final String[] TAB_TAGS = {"", "free", "paid", "limit", null};
+    private static final String[] TAB_TAGS = {"", "free", "paid", "limit", null, ""};
 
     private LiquidGlassNav glassNav;
     /** 软件内悬浮播放条（同意后挂在内容层上，切到任何页签都还在）。 */
     private com.mineways.ui.MwMusicFloat musicFloat;
     /** 官方 Navigation 的控制器（每个标签一个 Fragment 目的地）。 */
     private NavController navController;
-    /** 5 个标签目的地，与 TAB_TITLES 一一对应。 */
+    /** 6 个标签目的地，与 TAB_TITLES 一一对应。 */
     private static final int[] DEST_IDS = {R.id.page_all, R.id.page_free, R.id.page_paid,
-            R.id.page_limit, R.id.page_about};
+            R.id.page_limit, R.id.page_about, R.id.page_plaza};
     /** 当前活着的页面视图（Fragment 建好时登记，用于底部让位）。 */
     private final List<View> pageViews = new ArrayList<>();
     /** 页面底部让位高度（跟着悬浮胶囊的高度走）。 */
@@ -2047,6 +2047,10 @@ public class MainActivity extends AppCompatActivity implements com.mineways.ui.M
      * 就把整页退回下面这套旧 View 实现 —— 因为新观感只能靠真机定生死，回退必须不依赖重编包。
      */
     View buildPage(int index) {
+        if (index == 5) {
+            // 资源 Tab：Compose 页面，外层仍是 MainActivity 的液态玻璃导航。
+            return new com.mineways.plaza.PlazaTabView(this);
+        }
         if (!spec().getLegacyHome()) {
             int pad = pageBottomPad > 0 ? pageBottomPad : dp(150);
             float density = getResources().getDisplayMetrics().density;

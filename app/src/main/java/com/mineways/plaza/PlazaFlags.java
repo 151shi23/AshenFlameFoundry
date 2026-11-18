@@ -52,6 +52,17 @@ public final class PlazaFlags {
         return on() && bool("plaza_creators", true);
     }
 
+    /** 额外主题分类（search.json.categories）；关闭后只留主类型。 */
+    public static boolean categories() {
+        return on() && bool("plaza_categories", true);
+    }
+
+    /** 旧版资源广场页面回退；不影响底部玻璃导航本身。 */
+    public static boolean legacyUi() {
+        return "legacy".equalsIgnoreCase(str("plaza_ui_version", ""))
+                || bool("plaza_legacy_ui", false);
+    }
+
     public static boolean preview3d() {
         return on() && bool("plaza_preview3d", true);
     }

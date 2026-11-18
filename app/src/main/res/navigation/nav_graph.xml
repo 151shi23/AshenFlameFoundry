@@ -79,4 +79,18 @@
             app:argType="integer" />
     </fragment>
 
+    <fragment
+        android:id="@+id/page_plaza"
+        android:name="com.mineways.PageFragment"
+        android:label="资源"
+        app:enterAnim="@anim/nav_fade_in"
+        app:exitAnim="@anim/nav_fade_out"
+        app:popEnterAnim="@anim/nav_fade_in"
+        app:popExitAnim="@anim/nav_fade_out">
+        <argument
+            android:name="index"
+            android:defaultValue="5"
+            app:argType="integer" />
+    </fragment>
+
 </navigation>
