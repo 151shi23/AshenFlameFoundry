@@ -95,6 +95,7 @@ private fun PlazaTabScreen(context: Context) {
     var type by remember { mutableStateOf("all") }
     var category by remember { mutableStateOf<PlazaCategory?>(null) }
     var selected by remember { mutableStateOf<PlazaItem?>(null) }
+    var selectedCollection by remember { mutableStateOf<PlazaCollection?>(null) }
     var showLibrary by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -210,7 +211,7 @@ private fun PlazaTabScreen(context: Context) {
                     && snapshot!!.collections.isNotEmpty()
                 ) {
                     item { SectionHeader("合集", "主题 / 官方创作者") }
-                    item { CollectionRow(snapshot!!, categories) { c -> selected = c } }
+                    item { CollectionRow(snapshot!!) { c -> selectedCollection = c } }
                 }
                 item {
                     SectionHeader(
@@ -244,6 +245,43 @@ private fun PlazaTabScreen(context: Context) {
             containerColor = Color(0xFF111216)
         ) {
             DetailSheet(context, item, scope = scope) { selected = null }
+        }
+    }
+    selectedCollection?.let { collection ->
+        ModalBottomSheet(
+            onDismissRequest = { selectedCollection = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Color(0xFF111216)
+        ) {
+            val list = snapshot?.collectionItems(collection) ?: emptyList()
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                Text(collection.title, color = Color.White, fontSize = 21.sp,
+                    fontWeight = FontWeight.Bold)
+                Text((if (collection.official) "官方收录 · " else "") + "${list.size} 个资源",
+                    color = Color(0x99FFFFFF), fontSize = 11.sp,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 10.dp))
+                list.forEach { item ->
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .clickable { selected = item; selectedCollection = null }
+                            .padding(vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Cover(item.previewCover, Modifier.size(54.dp))
+                        Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                            Text(item.title, color = Color.White, fontSize = 13.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${item.typeLabel()} · ${item.sizeText()}",
+                                color = Color(0x66FFFFFF), fontSize = 10.sp)
+                        }
+                    }
+                }
+                TextButton(onClick = { selectedCollection = null }, modifier = Modifier.fillMaxWidth()) {
+                    Text("关闭", color = Color(0x66FFFFFF), fontSize = 12.sp)
+                }
+            }
         }
     }
     if (showLibrary) {
@@ -422,8 +460,8 @@ private fun RankingBlock(snapshot: PlazaCatalog.Snapshot, onClick: (PlazaItem) -
 }
 
 @Composable
-private fun CollectionRow(snapshot: PlazaCatalog.Snapshot, categories: List<PlazaCategory>,
-                           onClick: (PlazaItem) -> Unit) {
+private fun CollectionRow(snapshot: PlazaCatalog.Snapshot,
+                           onClick: (PlazaCollection) -> Unit) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         items(snapshot.collections) { c ->
             val list = snapshot.collectionItems(c)
@@ -431,7 +469,7 @@ private fun CollectionRow(snapshot: PlazaCatalog.Snapshot, categories: List<Plaz
             Column(
                 Modifier.width(205.dp).clip(RoundedCornerShape(15.dp))
                     .background(Color(0xFF17191E)).clickable {
-                        onClick(list.first())
+                        onClick(c)
                     }
             ) {
                 Cover(c.cover, Modifier.fillMaxWidth().height(88.dp))
